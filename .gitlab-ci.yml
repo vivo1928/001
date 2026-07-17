@@ -9,10 +9,12 @@ cache:
   paths:
     - node_modules/
     - .gradle/
+    - android/.gradle/
 
 android-build:
   stage: build
   image: reactnativecommunity/react-native-android:latest
+  timeout: 3h
   before_script:
     - node --version
     - npm --version
