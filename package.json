@@ -16,8 +16,8 @@
     "build-test": "react-native bundle --platform android --dev true --entry-file index.js --bundle-output index.android.bundle --assets-dest res",
     "pack:android:debug": "./gradlew assembleDebug",
     "pack": "npm run pack:android",
-    "pack:android": "cd android && gradlew.bat assembleRelease",
-    "clear": "cd android && gradlew.bat clean",
+    "pack:android": "cd android && ./gradlew assembleRelease",
+    "clear": "cd android && ./gradlew clean",
     "clear:full": "git clean -fdx -e android/keystore.properties -e android/app/*.keystore",
     "build:theme": "node src/theme/themes/createThemes.js",
     "publish": "node publish"
