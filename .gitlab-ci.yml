@@ -20,3 +20,5 @@ build_apk:
   artifacts:
     paths:
       - android/app/build/outputs/apk/release/*.apk
+  - apt update && apt install -y default-jdk
+  - export JAVA_HOME=/usr/lib/jvm/default-java
