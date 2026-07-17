@@ -1,0 +1,30 @@
+stages:
+  - build
+
+variables:
+  DISABLE_SVG: "1"
+
+cache:
+  key: ${CI_COMMIT_REF_SLUG}
+  paths:
+    - node_modules/
+    - .gradle/
+
+android-build:
+  stage: build
+  image: reactnativecommunity/react-native-android:latest
+  before_script:
+    - node --version
+    - npm --version
+    - java -version
+    - echo "y" | sdkmanager "platforms;android-36" "build-tools;35.0.0" 2>/dev/null || true
+    - npm ci
+  script:
+    - cd android
+    - chmod +x gradlew
+    - ./gradlew assembleDebug
+  artifacts:
+    name: "apk-${CI_COMMIT_REF_SLUG}-${CI_COMMIT_SHORT_SHA}"
+    paths:
+      - android/app/build/outputs/apk/debug/*.apk
+    expire_in: 30 days
