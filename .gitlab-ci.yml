@@ -25,7 +25,7 @@ android-build:
   script:
     - cd android
     - chmod +x gradlew
-    - ./gradlew assembleDebug
+    - ./gradlew assembleDebug --init-script init.gradle --no-daemon
   artifacts:
     name: "apk-${CI_COMMIT_REF_SLUG}-${CI_COMMIT_SHORT_SHA}"
     paths:
