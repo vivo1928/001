@@ -1,0 +1,22 @@
+variables:
+  ANDROID_HOME: $CI_PROJECT_DIR/android-sdk
+stages:
+  - prepare
+  - build
+install_sdk:
+  stage: prepare
+  script:
+    - apt update && apt install -y wget unzip
+    - wget https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip -O sdk.zip
+    - mkdir -p $ANDROID_HOME/cmdline-tools
+    - unzip sdk.zip -d $ANDROID_HOME/cmdline-tools
+    - mv $ANDROID_HOME/cmdline-tools/cmdline-tools $ANDROID_HOME/cmdline-tools/latest
+    - yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platform-tools" "platforms;android33" "build-tools;34.0.0"
+build_apk:
+  stage: build
+  script:
+    - chmod +x android/gradlew
+    - cd android && ./gradlew assembleRelease
+  artifacts:
+    paths:
+      - android/app/build/outputs/apk/release/*.apk
