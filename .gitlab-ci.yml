@@ -18,6 +18,9 @@ android-build:
     - npm --version
     - java -version
     - echo "y" | sdkmanager "platforms;android-36" "build-tools;35.0.0" 2>/dev/null || true
+    - git config --global url."https://github.com/".insteadOf "ssh://git@github.com/"
+    - git config --global url."https://github.com/".insteadOf "git@github.com:"
+    - export GIT_TERMINAL_PROMPT=0
     - npm ci
   script:
     - cd android
