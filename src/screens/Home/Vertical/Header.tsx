@@ -43,10 +43,10 @@ const LeftHeader = () => {
       paddingTop: statusBarHeight,
     }}>
       <View style={styles.left}>
-        <TouchableOpacity style={styles.btn} onPress={openMenu}>
+        <TouchableOpacity style={styles.btn} onPress={openMenu} accessibilityLabel={t('open_menu')} accessibilityRole="button">
           <Icon color={theme['c-font']} name="menu" size={18} />
         </TouchableOpacity>
-        <TouchableOpacity style={styles.titleBtn} onPress={openMenu}>
+        <TouchableOpacity style={styles.titleBtn} onPress={openMenu} accessibilityLabel={t('open_menu')}>
           <Text style={styles.leftTitle} size={18}>{t(id)}</Text>
         </TouchableOpacity>
       </View>
@@ -82,12 +82,12 @@ const RightHeader = () => {
       paddingTop: statusBarHeight,
     }}>
       <View style={styles.left}>
-        <TouchableOpacity style={styles.titleBtn} onPress={openMenu}>
+        <TouchableOpacity style={styles.titleBtn} onPress={openMenu} accessibilityLabel={t('open_menu')}>
           <Text style={styles.rightTitle} size={18}>{t(id)}</Text>
         </TouchableOpacity>
       </View>
       {headerComponents[id] ?? null}
-      <TouchableOpacity style={styles.btn} onPress={openMenu}>
+      <TouchableOpacity style={styles.btn} onPress={openMenu} accessibilityLabel={t('open_menu')} accessibilityRole="button">
         <Icon color={theme['c-font']} name="menu" size={18} />
       </TouchableOpacity>
       {/* <TouchableOpacity style={styles.btn} onPress={openSetting}>

@@ -10,6 +10,7 @@ import type { InitState } from '@/store/common/state'
 import { exitApp, setNavActiveId } from '@/core/common'
 import { BorderWidths } from '@/theme'
 import { useSettingValue } from '@/store/setting/hook'
+import { useI18n } from '@/lang'
 
 const NAV_WIDTH = 68
 
@@ -83,18 +84,20 @@ const MenuItem = ({ id, icon, onPress }: {
   icon: string
   onPress: (id: IdType) => void
 }) => {
-  // const t = useI18n()
+  const t = useI18n()
   const activeId = useNavActiveId()
   const theme = useTheme()
 
+  const label = t(id)
+
   return activeId == id
-    ? <View style={styles.menuItem}>
+    ? <View style={styles.menuItem} accessibilityLabel={label} accessibilityRole="menuitem" accessibilityState={{ selected: true }}>
         <View style={styles.iconContent}>
           <Icon name={icon} size={20} color={theme['c-primary-font-active']} />
         </View>
         {/* <Text style={styles.text} size={14} color={theme['c-primary-font']}>{t(id)}</Text> */}
       </View>
-    : <TouchableOpacity style={styles.menuItem} onPress={() => { onPress(id) }}>
+    : <TouchableOpacity style={styles.menuItem} onPress={() => { onPress(id) }} accessibilityLabel={label} accessibilityRole="menuitem">
         <View style={styles.iconContent}>
           <Icon name={icon} size={20} color={theme['c-font-label']} />
         </View>

@@ -5,11 +5,13 @@ import { memo, useRef } from 'react'
 import { toggleDesktopLyricLock } from '@/core/desktopLyric'
 import { updateSetting } from '@/core/common'
 import settingState from '@/store/setting/state'
+import { useI18n } from '@/lang'
 
 
 export default memo(() => {
   const enabledLyric = useSettingValue('desktopLyric.enable')
   const desktopLyricEnableRef = useRef<DesktopLyricEnableType>(null)
+  const t = useI18n()
   const update = () => {
     desktopLyricEnableRef.current?.setEnabled(!enabledLyric)
   }
@@ -22,7 +24,7 @@ export default memo(() => {
 
   return (
     <>
-      <Btn icon={enabledLyric ? 'lyric-on' : 'lyric-off'} onPress={update} onLongPress={updateLock} />
+      <Btn icon={enabledLyric ? 'lyric-on' : 'lyric-off'} onPress={update} onLongPress={updateLock} accessibilityLabel={t('desktop_lyric_btn')} />
       <DesktopLyricEnable ref={desktopLyricEnableRef} />
     </>
   )

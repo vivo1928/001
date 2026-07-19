@@ -18,6 +18,7 @@ const ListItem = memo(({ id, activeId, onPress }: {
   const t = useI18n()
 
   const active = activeId == id
+  const label = t(`setting_${id}`)
 
   const handlePress = () => {
     onPress(id)
@@ -25,8 +26,8 @@ const ListItem = memo(({ id, activeId, onPress }: {
 
   return (
     <View style={{ ...styles.listItem, backgroundColor: active ? theme['c-primary-background-active'] : 'transparent' }}>
-      <TouchableOpacity style={styles.listName} onPress={handlePress}>
-        <Text numberOfLines={1} color={active ? theme['c-primary-font'] : theme['c-font']}>{t(`setting_${id}`)}</Text>
+      <TouchableOpacity style={styles.listName} onPress={handlePress} accessibilityLabel={label} accessibilityRole="tab" accessibilityState={{ selected: active }}>
+        <Text numberOfLines={1} color={active ? theme['c-primary-font'] : theme['c-font']}>{label}</Text>
       </TouchableOpacity>
     </View>
   )

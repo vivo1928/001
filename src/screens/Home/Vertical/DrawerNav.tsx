@@ -81,18 +81,20 @@ const MenuItem = ({ id, icon, onPress }: {
   const activeId = useNavActiveId()
   const theme = useTheme()
 
+  const label = t(id)
+
   return activeId == id
-    ? <View style={styles.menuItem}>
+    ? <View style={styles.menuItem} accessibilityLabel={label} accessibilityRole="menuitem" accessibilityState={{ selected: true }}>
         <View style={styles.iconContent}>
           <Icon name={icon} size={20} color={theme['c-primary-font-active']} />
         </View>
-        <Text style={styles.text} color={theme['c-primary-font']}>{t(id)}</Text>
+        <Text style={styles.text} color={theme['c-primary-font']}>{label}</Text>
       </View>
-    : <TouchableOpacity style={styles.menuItem} onPress={() => { onPress(id) }}>
+    : <TouchableOpacity style={styles.menuItem} onPress={() => { onPress(id) }} accessibilityLabel={label} accessibilityRole="menuitem">
         <View style={styles.iconContent}>
           <Icon name={icon} size={20} color={theme['c-font-label']} />
         </View>
-        <Text style={styles.text}>{t(id)}</Text>
+        <Text style={styles.text}>{label}</Text>
       </TouchableOpacity>
 }
 

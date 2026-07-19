@@ -515,5 +515,20 @@
   "version_title_latest": "🎉 目前版本已是最新 🎊",
   "version_title_new": "🌟 發現新版本 🌟",
   "version_title_unknown": "❓ 獲取最新版本資訊失敗 ❓",
-  "version_title_update": "🚀 軟體更新 🚀"
+  "version_title_update": "🚀 軟體更新 🚀",
+  "play_mode": "播放模式",
+  "desktop_lyric_btn": "桌面歌詞",
+  "timer_btn": "定時退出",
+  "add_music_btn": "添加到列表",
+  "comment_btn": "查看評論",
+  "open_menu": "打開選單",
+  "cover_image": "專輯封面",
+  "song_title": "歌曲標題",
+  "play_detail_back": "返回",
+  "play_detail_settings": "播放設定",
+  "play_detail_song_info": "歌曲資訊",
+  "search_input": "搜尋音樂",
+  "search_btn": "搜尋",
+  "current_play_time": "當前播放時間",
+  "total_play_time": "總時長"
 }

@@ -9,6 +9,7 @@ import playerState from '@/store/player/state'
 import Text from '@/components/common/Text'
 import { LIST_IDS } from '@/config/constant'
 import { createStyle, formatMusicName } from '@/utils/tools'
+import { useI18n } from '@/lang'
 
 
 export default ({ isHome }: { isHome: boolean }) => {
@@ -16,6 +17,7 @@ export default ({ isHome }: { isHome: boolean }) => {
   const musicInfo = usePlayerMusicInfo()
   const downloadFileName = useSettingValue('download.fileName')
   const theme = useTheme()
+  const t = useI18n()
 
   const handlePress = () => {
     // console.log('')
@@ -39,7 +41,8 @@ export default ({ isHome }: { isHome: boolean }) => {
     : ''
   // console.log(playMusicInfo)
   return (
-    <TouchableOpacity style={styles.container} onLongPress={handleLongPress} onPress={handlePress} activeOpacity={0.7} >
+    <TouchableOpacity style={styles.container} onLongPress={handleLongPress} onPress={handlePress} activeOpacity={0.7}
+      accessibilityLabel={title ? t('song_title') + ': ' + title : t('song_title')}>
       <Text color={theme['c-font-label']} numberOfLines={1}>{title}</Text>
     </TouchableOpacity>
   )

@@ -48,6 +48,7 @@ export interface InputProps extends TextInputProps {
   onClearText?: () => void
   clearBtn?: boolean
   size?: number
+  accessibilityLabel?: string
 }
 
 
@@ -58,7 +59,7 @@ export interface InputType {
   isFocused: () => boolean
 }
 
-export default forwardRef<InputType, InputProps>(({ onChangeText, onClearText, clearBtn, style, size = 14, ...props }, ref) => {
+export default forwardRef<InputType, InputProps>(({ onChangeText, onClearText, clearBtn, style, size = 14, accessibilityLabel, ...props }, ref) => {
   const inputRef = useRef<TextInput>(null)
   const theme = useTheme()
   // const scaleClearBtn = useRef(new Animated.Value(0)).current
@@ -118,6 +119,7 @@ export default forwardRef<InputType, InputProps>(({ onChangeText, onClearText, c
         style={StyleSheet.compose({ ...styles.input, color: theme['c-font'], fontSize: setSpText(size) }, style)}
         placeholderTextColor={theme['c-primary-dark-100-alpha-600']}
         selectionColor={theme['c-primary-light-100-alpha-300']}
+        accessibilityLabel={accessibilityLabel}
         ref={inputRef} {...props} />
       {/* <View style={styles.clearBtnContent}>
       <Animated.View style={{ ...styles.clearBtnContent, transform: [{ scale: scaleClearBtn }] }}> */}

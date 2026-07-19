@@ -5,6 +5,7 @@ import { useTheme } from '@/store/theme/hook'
 import { playNext, playPrev, togglePlay } from '@/core/player/player'
 import { createStyle } from '@/utils/tools'
 import { useHorizontalMode } from '@/utils/hooks'
+import { useI18n } from '@/lang'
 
 const BTN_SIZE = 24
 const handlePlayPrev = () => {
@@ -16,9 +17,11 @@ const handlePlayNext = () => {
 
 const PlayPrevBtn = () => {
   const theme = useTheme()
+  const t = useI18n()
 
   return (
-    <TouchableOpacity style={styles.cotrolBtn} activeOpacity={0.5} onPress={handlePlayPrev}>
+    <TouchableOpacity style={styles.cotrolBtn} activeOpacity={0.5} onPress={handlePlayPrev}
+      accessibilityLabel={t('play_prev')} accessibilityRole="button">
       <Icon name='prevMusic' color={theme['c-button-font']} size={BTN_SIZE} />
     </TouchableOpacity>
   )
@@ -26,9 +29,11 @@ const PlayPrevBtn = () => {
 
 const PlayNextBtn = () => {
   const theme = useTheme()
+  const t = useI18n()
 
   return (
-    <TouchableOpacity style={styles.cotrolBtn} activeOpacity={0.5} onPress={handlePlayNext}>
+    <TouchableOpacity style={styles.cotrolBtn} activeOpacity={0.5} onPress={handlePlayNext}
+      accessibilityLabel={t('play_next')} accessibilityRole="button">
       <Icon name='nextMusic' color={theme['c-button-font']} size={BTN_SIZE} />
     </TouchableOpacity>
   )
@@ -37,9 +42,11 @@ const PlayNextBtn = () => {
 const TogglePlayBtn = () => {
   const isPlay = useIsPlay()
   const theme = useTheme()
+  const t = useI18n()
 
   return (
-    <TouchableOpacity style={styles.cotrolBtn} activeOpacity={0.5} onPress={togglePlay}>
+    <TouchableOpacity style={styles.cotrolBtn} activeOpacity={0.5} onPress={togglePlay}
+      accessibilityLabel={isPlay ? t('pause') : t('play')} accessibilityRole="button">
       <Icon name={isPlay ? 'pause' : 'play'} color={theme['c-button-font']} size={BTN_SIZE} />
     </TouchableOpacity>
   )

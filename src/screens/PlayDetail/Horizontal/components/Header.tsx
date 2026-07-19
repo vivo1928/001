@@ -14,6 +14,7 @@ import CommentBtn from './CommentBtn'
 import Btn from './Btn'
 import SettingPopup, { type SettingPopupType } from '../../components/SettingPopup'
 import DesktopLyricBtn from './DesktopLyricBtn'
+import { useI18n } from '@/lang'
 
 export const HEADER_HEIGHT = scaleSizeH(_HEADER_HEIGHT)
 
@@ -23,7 +24,7 @@ const Title = () => {
 
 
   return (
-    <View style={styles.titleContent}>
+    <View style={styles.titleContent} accessibilityLabel={musicInfo.name + ' ' + (musicInfo.singer ?? '')}>
       <Text numberOfLines={1} style={styles.title} size={14}>{musicInfo.name}</Text>
       <Text numberOfLines={1} style={styles.title} size={12} color={theme['c-font-label']}>{musicInfo.singer}</Text>
     </View>
@@ -32,6 +33,7 @@ const Title = () => {
 
 export default memo(() => {
   const popupRef = useRef<SettingPopupType>(null)
+  const t = useI18n()
 
   const back = () => {
     void pop(commonState.componentIds.playDetail!)
@@ -43,13 +45,14 @@ export default memo(() => {
   return (
     <View style={{ height: HEADER_HEIGHT }} nativeID={NAV_SHEAR_NATIVE_IDS.playDetail_header}>
       <View style={styles.container}>
-        <TouchableOpacity onPress={back} style={{ ...styles.button, width: HEADER_HEIGHT }}>
+        <TouchableOpacity onPress={back} style={{ ...styles.button, width: HEADER_HEIGHT }}
+          accessibilityLabel={t('play_detail_back')} accessibilityRole="button">
           <Icon name="chevron-left" size={18} />
         </TouchableOpacity>
         <Title />
         <DesktopLyricBtn />
         <CommentBtn />
-        <Btn icon="slider" onPress={showSetting} />
+        <Btn icon="slider" onPress={showSetting} accessibilityLabel={t('play_detail_settings')} />
       </View>
       <SettingPopup ref={popupRef} position="left" direction="horizontal" />
     </View>

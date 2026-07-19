@@ -4,7 +4,7 @@ import { useTheme } from '@/store/theme/hook'
 import Btn from './Btn'
 
 
-export default memo(() => {
+export default memo(({ accessibilityLabel }: { accessibilityLabel?: string }) => {
   const theme = useTheme()
   const modalRef = useRef<TimeoutExitEditModalType>(null)
 
@@ -16,7 +16,7 @@ export default memo(() => {
 
   return (
     <>
-      <Btn icon="music_time" color={timeInfo.active ? theme['c-primary-font-active'] : theme['c-font']} onPress={handleShow} />
+      <Btn icon="music_time" color={timeInfo.active ? theme['c-primary-font-active'] : theme['c-font']} onPress={handleShow} accessibilityLabel={accessibilityLabel} />
       <TimeoutExitEditModal ref={modalRef} timeInfo={timeInfo} />
     </>
   )

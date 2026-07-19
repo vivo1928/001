@@ -8,6 +8,7 @@ import { LIST_IDS, NAV_SHEAR_NATIVE_IDS } from '@/config/constant'
 import Image from '@/components/common/Image'
 import { useCallback } from 'react'
 import { setLoadErrorPicUrl, setMusicInfo } from '@/core/player/playInfo'
+import { useI18n } from '@/lang'
 
 const PIC_HEIGHT = scaleSizeH(46)
 
@@ -21,6 +22,7 @@ const styles = StyleSheet.create({
 
 export default ({ isHome }: { isHome: boolean }) => {
   const musicInfo = usePlayerMusicInfo()
+  const t = useI18n()
   const handlePress = () => {
     // console.log('')
     // console.log(playMusicInfo)
@@ -45,7 +47,8 @@ export default ({ isHome }: { isHome: boolean }) => {
   }, [])
 
   return (
-    <TouchableOpacity onLongPress={handleLongPress} onPress={handlePress} activeOpacity={0.7} >
+    <TouchableOpacity onLongPress={handleLongPress} onPress={handlePress} activeOpacity={0.7}
+      accessibilityLabel={t('cover_image')} accessibilityRole="imagebutton">
       <Image url={musicInfo.pic} nativeID={NAV_SHEAR_NATIVE_IDS.playDetail_pic} style={styles.image} onError={handleError} />
     </TouchableOpacity>
   )

@@ -14,6 +14,7 @@ import SettingPopup, { type SettingPopupType } from '../../components/SettingPop
 import { useStatusbarHeight } from '@/store/common/hook'
 import Btn from './Btn'
 import TimeoutExitBtn from './TimeoutExitBtn'
+import { useI18n } from '@/lang'
 
 export const HEADER_HEIGHT = scaleSizeH(_HEADER_HEIGHT)
 
@@ -24,7 +25,7 @@ const Title = () => {
 
 
   return (
-    <View style={styles.titleContent}>
+    <View style={styles.titleContent} accessibilityLabel={musicInfo.name + ' ' + (musicInfo.singer ?? '')}>
       <Text numberOfLines={1} style={styles.title}>{musicInfo.name}</Text>
       <Text numberOfLines={1} style={styles.title} size={12} color={theme['c-font-label']}>{musicInfo.singer}</Text>
     </View>
@@ -34,6 +35,7 @@ const Title = () => {
 export default memo(() => {
   const popupRef = useRef<SettingPopupType>(null)
   const statusBarHeight = useStatusbarHeight()
+  const t = useI18n()
 
   const back = () => {
     void pop(commonState.componentIds.playDetail!)
@@ -46,10 +48,10 @@ export default memo(() => {
     <View style={{ height: HEADER_HEIGHT + statusBarHeight, paddingTop: statusBarHeight }} nativeID={NAV_SHEAR_NATIVE_IDS.playDetail_header}>
       <StatusBar />
       <View style={styles.container}>
-        <Btn icon="chevron-left" onPress={back} />
+        <Btn icon="chevron-left" onPress={back} accessibilityLabel={t('play_detail_back')} />
         <Title />
-        <TimeoutExitBtn />
-        <Btn icon="slider" onPress={showSetting} />
+        <TimeoutExitBtn accessibilityLabel={t('timer_btn')} />
+        <Btn icon="slider" onPress={showSetting} accessibilityLabel={t('play_detail_settings')} />
       </View>
       <SettingPopup ref={popupRef} direction="vertical" />
     </View>

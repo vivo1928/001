@@ -38,7 +38,8 @@ export default () => {
     <ScrollView style={styles.container} keyboardShouldPersistTaps={'always'} horizontal={true}>
       {
         list.map(t => (
-          <TouchableOpacity style={styles.button} onPress={() => { handleTypeChange(t.id) }} key={t.id}>
+          <TouchableOpacity style={styles.button} onPress={() => { handleTypeChange(t.id) }} key={t.id}
+            accessibilityLabel={t.label} accessibilityRole="tab" accessibilityState={{ selected: type == t.id }}>
             <Text style={{ ...styles.buttonText, borderBottomColor: type == t.id ? theme['c-primary-background-active'] : 'transparent' }} color={type == t.id ? theme['c-primary-font-active'] : theme['c-font']}>{t.label}</Text>
           </TouchableOpacity>
         ))

@@ -515,5 +515,20 @@
   "version_title_latest": "🎉 The current version is already the latest 🎊",
   "version_title_new": "🌟 New version found 🌟",
   "version_title_unknown": "❓ Failed to get the latest version information ❓",
-  "version_title_update": "🚀 App update 🚀"
+  "version_title_update": "🚀 App update 🚀",
+  "play_mode": "Play Mode",
+  "desktop_lyric_btn": "Desktop Lyrics",
+  "timer_btn": "Timer",
+  "add_music_btn": "Add to List",
+  "comment_btn": "Comments",
+  "open_menu": "Open Menu",
+  "cover_image": "Album Cover",
+  "song_title": "Song Title",
+  "play_detail_back": "Back",
+  "play_detail_settings": "Play Settings",
+  "play_detail_song_info": "Song Info",
+  "search_input": "Search Music",
+  "search_btn": "Search",
+  "current_play_time": "Current Time",
+  "total_play_time": "Total Time"
 }
