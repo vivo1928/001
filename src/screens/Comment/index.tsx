@@ -1,5 +1,6 @@
-import { memo, useMemo, useEffect, useState, useCallback } from 'react'
+import { memo, useMemo, useEffect, useRef, useState, useCallback } from 'react'
 import { View, TouchableOpacity } from 'react-native'
+import PagerView, { type PagerViewOnPageSelectedEvent } from 'react-native-pager-view'
 import Header from './components/Header'
 import { Icon } from '@/components/common/Icon'
 import CommentHot from './CommentHot'
@@ -26,6 +27,7 @@ const HeaderItem = ({ id, label, isActive, onPress }: {
   onPress: (id: ActiveId) => void
 }) => {
   const theme = useTheme()
+  // console.log(theme)
   const components = useMemo(() => (
     <TouchableOpacity style={styles.tabBtn} onPress={() => { !isActive && onPress(id) }}
         accessibilityLabel={label} accessibilityRole="tab" accessibilityState={{ selected: isActive }}>
@@ -36,6 +38,42 @@ const HeaderItem = ({ id, label, isActive, onPress }: {
   return components
 }
 
+const HotCommentPage = memo(({ activeId, musicInfo, onUpdateTotal }: {
+  activeId: ActiveId
+  musicInfo: LX.Music.MusicInfoOnline
+  onUpdateTotal: (total: number) => void
+}) => {
+  const initedRef = useRef(false)
+  const comment = useMemo(() => <CommentHot musicInfo={musicInfo} onUpdateTotal={onUpdateTotal} />, [musicInfo, onUpdateTotal])
+  switch (activeId) {
+    case 'hot':
+      if (!initedRef.current) initedRef.current = true
+      return comment
+    default:
+      return initedRef.current ? comment : null
+  }
+})
+
+const NewCommentPage = memo(({ activeId, musicInfo, onUpdateTotal }: {
+  activeId: ActiveId
+  musicInfo: LX.Music.MusicInfoOnline
+  onUpdateTotal: (total: number) => void
+}) => {
+  const initedRef = useRef(false)
+  const comment = useMemo(() => <CommentNew musicInfo={musicInfo} onUpdateTotal={onUpdateTotal} />, [musicInfo, onUpdateTotal])
+  switch (activeId) {
+    case 'new':
+      if (!initedRef.current) initedRef.current = true
+      return comment
+    default:
+      return initedRef.current ? comment : null
+  }
+})
+
+const TABS = [
+  'hot',
+  'new',
+] as const
 const getMusicInfo = (musicInfo: LX.Player.PlayMusic | null) => {
   if (!musicInfo) return null
   return 'progress' in musicInfo ? musicInfo.metadata.musicInfo : musicInfo
@@ -43,6 +81,7 @@ const getMusicInfo = (musicInfo: LX.Player.PlayMusic | null) => {
 export default memo(({ componentId }: {
   componentId: string
 }) => {
+  const pagerViewRef = useRef<PagerView>(null)
   const [activeId, setActiveId] = useState<ActiveId>('hot')
   const [musicInfo, setMusicInfo] = useState<LX.Music.MusicInfo | null>(getMusicInfo(playerState.playMusicInfo.musicInfo))
   const t = useI18n()
@@ -56,13 +95,18 @@ export default memo(({ componentId }: {
 
   const tabs = useMemo(() => {
     return [
-      { id: 'hot' as const, label: t('comment_tab_hot', { total: total.hot ? `(${total.hot})` : '' }) },
-      { id: 'new' as const, label: t('comment_tab_new', { total: total.new ? `(${total.new})` : '' }) },
-    ]
+      { id: TABS[0], label: t('comment_tab_hot', { total: total.hot ? `(${total.hot})` : '' }) },
+      { id: TABS[1], label: t('comment_tab_new', { total: total.new ? `(${total.new})` : '' }) },
+    ] as const
   }, [total, t])
 
   const toggleTab = useCallback((id: ActiveId) => {
     setActiveId(id)
+    pagerViewRef.current?.setPage(TABS.findIndex(tab => tab == id))
+  }, [])
+
+  const onPageSelected = useCallback(({ nativeEvent }: PagerViewOnPageSelectedEvent) => {
+    setActiveId(TABS[nativeEvent.position])
   }, [])
 
   const refreshComment = useCallback(() => {
@@ -97,13 +141,23 @@ export default memo(({ componentId }: {
             </TouchableOpacity>
           </View>
         </View>
-        <View style={styles.pageStyle}>
-          { activeId == 'hot' ? <CommentHot musicInfo={musicInfo as LX.Music.MusicInfoOnline} onUpdateTotal={setHotTotal} /> : null }
-          { activeId == 'new' ? <CommentNew musicInfo={musicInfo as LX.Music.MusicInfoOnline} onUpdateTotal={setNewTotal} /> : null }
-        </View>
+        <PagerView
+          ref={pagerViewRef}
+          onPageSelected={onPageSelected}
+          // onPageScrollStateChanged={onPageScrollStateChanged}
+          style={styles.pagerView}
+          importantForAccessibility="no-hide-descendants"
+        >
+          <View collapsable={false} style={styles.pageStyle} importantForAccessibility="yes">
+            <HotCommentPage activeId={activeId} musicInfo={musicInfo as LX.Music.MusicInfoOnline} onUpdateTotal={setHotTotal} />
+          </View>
+          <View collapsable={false} style={styles.pageStyle} importantForAccessibility="yes">
+            <NewCommentPage activeId={activeId} musicInfo={musicInfo as LX.Music.MusicInfoOnline} onUpdateTotal={setNewTotal} />
+          </View>
+        </PagerView>
       </View>
     )
-  }, [activeId, musicInfo, refreshComment, setHotTotal, setNewTotal, tabs, theme, toggleTab])
+  }, [activeId, musicInfo, onPageSelected, refreshComment, setHotTotal, setNewTotal, tabs, theme, toggleTab])
 
   return (
     <PageContent>
@@ -123,6 +177,7 @@ export default memo(({ componentId }: {
             }
         </>
       }
+
     </PageContent>
   )
 })
@@ -133,7 +188,9 @@ const styles = createStyle({
   },
   tabHeader: {
     flexDirection: 'row',
+    // paddingLeft: 10,
     paddingRight: 10,
+    // justifyContent: 'center',
     borderBottomWidth: BorderWidths.normal,
   },
   left: {
@@ -142,6 +199,7 @@ const styles = createStyle({
     paddingLeft: 5,
   },
   tabBtn: {
+    // flex: 1,
     paddingLeft: 10,
     paddingRight: 10,
     alignItems: 'center',
@@ -149,12 +207,15 @@ const styles = createStyle({
     height: '100%',
   },
   btn: {
+    // flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     height: '100%',
   },
-  pageStyle: {
+  pagerView: {
     flex: 1,
+  },
+  pageStyle: {
     overflow: 'hidden',
   },
 })
