@@ -50,7 +50,7 @@ const CommentFloor = memo(({ comment, isLast }: {
   const likedCount = useMemo(() => {
     if (comment.likedCount == null) return null
     return (
-      <View style={styles.like}>
+      <View style={styles.like} accessibilityLabel={comment.likedCount + ' 赞'}>
         <Icon name="thumbs-up" style={{ color: theme['c-450'] }} size={12} />
         <Text style={styles.likedCount} size={12} color={ theme['c-450'] }>{comment.likedCount}</Text>
       </View>
@@ -59,8 +59,7 @@ const CommentFloor = memo(({ comment, isLast }: {
   }, [])
 
   return (
-    <View style={{ ...styles.container, borderBottomColor: theme['c-list-header-border-bottom'], borderBottomWidth: isLast ? 0 : BorderWidths.normal, paddingBottom: isLast ? 0 : GAP }}
-      accessibilityLabel={comment.userName + ' ' + comment.timeStr + ' ' + comment.text + (comment.likedCount != null ? ' ' + comment.likedCount + ' 赞' : '')}>
+    <View style={{ ...styles.container, borderBottomColor: theme['c-list-header-border-bottom'], borderBottomWidth: isLast ? 0 : BorderWidths.normal, paddingBottom: isLast ? 0 : GAP }}>
       <View style={styles.comment}>
         <View>
           <Image
