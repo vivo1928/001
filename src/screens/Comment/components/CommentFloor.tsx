@@ -59,7 +59,8 @@ const CommentFloor = memo(({ comment, isLast }: {
   }, [])
 
   return (
-    <View style={{ ...styles.container, borderBottomColor: theme['c-list-header-border-bottom'], borderBottomWidth: isLast ? 0 : BorderWidths.normal, paddingBottom: isLast ? 0 : GAP }}>
+    <View style={{ ...styles.container, borderBottomColor: theme['c-list-header-border-bottom'], borderBottomWidth: isLast ? 0 : BorderWidths.normal, paddingBottom: isLast ? 0 : GAP }}
+      accessibilityLabel={comment.userName + ' ' + comment.timeStr + ' ' + comment.text + (comment.likedCount != null ? ' ' + comment.likedCount + ' 赞' : '')}>
       <View style={styles.comment}>
         <View>
           <Image

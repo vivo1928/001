@@ -29,7 +29,8 @@ const HeaderItem = ({ id, label, isActive, onPress }: {
   const theme = useTheme()
   // console.log(theme)
   const components = useMemo(() => (
-    <TouchableOpacity style={styles.tabBtn} onPress={() => { !isActive && onPress(id) }}>
+    <TouchableOpacity style={styles.tabBtn} onPress={() => { !isActive && onPress(id) }}
+        accessibilityLabel={label} accessibilityRole="tab" accessibilityState={{ selected: isActive }}>
       <Text color={isActive ? theme['c-primary-font-active'] : theme['c-font']}>{label}</Text>
     </TouchableOpacity>
   ), [isActive, theme, label, onPress, id])
@@ -145,7 +146,7 @@ export default memo(({ componentId }: {
           onPageSelected={onPageSelected}
           // onPageScrollStateChanged={onPageScrollStateChanged}
           style={styles.pagerView}
-          importantForAccessibility="no"
+          importantForAccessibility="no-hide-descendants"
         >
           <View collapsable={false} style={styles.pageStyle}>
             <HotCommentPage activeId={activeId} musicInfo={musicInfo as LX.Music.MusicInfoOnline} onUpdateTotal={setHotTotal} />

@@ -273,7 +273,7 @@ const Main = () => {
       onPageScrollStateChanged={onPageScrollStateChanged}
       scrollEnabled={settingState.setting['common.homePageScroll']}
       style={styles.pagerView}
-      importantForAccessibility="no"
+      importantForAccessibility="no-hide-descendants"
     >
       <View collapsable={false} key="nav_search" style={styles.pageStyle}>
         <SearchPage />

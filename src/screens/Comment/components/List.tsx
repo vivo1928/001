@@ -119,7 +119,8 @@ const Footer = ({ label, onLoadMore }: {
     label
       ? (
           <View>
-            <Text onPress={handlePress} style={styles.footer} color={theme['c-font-label']}>{t(label)}</Text>
+            <Text onPress={handlePress} style={styles.footer} color={theme['c-font-label']}
+              accessibilityLabel={t(label)} accessibilityRole={label == 'list_error' ? 'button' : 'text'}>{t(label)}</Text>
           </View>
         )
       : null

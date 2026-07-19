@@ -92,16 +92,14 @@ const MenuItem = ({ id, icon, onPress }: {
 
   return activeId == id
     ? <View style={styles.menuItem} accessibilityLabel={label} accessibilityRole="menuitem" accessibilityState={{ selected: true }}>
-        <View style={styles.iconContent}>
+        <View style={styles.iconContent} importantForAccessibility="no">
           <Icon name={icon} size={20} color={theme['c-primary-font-active']} />
         </View>
-        {/* <Text style={styles.text} size={14} color={theme['c-primary-font']}>{t(id)}</Text> */}
       </View>
     : <TouchableOpacity style={styles.menuItem} onPress={() => { onPress(id) }} accessibilityLabel={label} accessibilityRole="menuitem">
-        <View style={styles.iconContent}>
+        <View style={styles.iconContent} importantForAccessibility="no">
           <Icon name={icon} size={20} color={theme['c-font-label']} />
         </View>
-        {/* <Text style={styles.text} size={14}>{t(id)}</Text> */}
       </TouchableOpacity>
 }
 
