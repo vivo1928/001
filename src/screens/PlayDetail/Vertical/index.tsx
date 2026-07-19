@@ -78,6 +78,7 @@ export default memo(({ componentId }: { componentId: string }) => {
           onPageSelected={onPageSelected}
           // onPageScrollStateChanged={onPageScrollStateChanged}
           style={styles.pagerView}
+          importantForAccessibility="no"
         >
           <View collapsable={false}>
             <Pic componentId={componentId} />

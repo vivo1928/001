@@ -145,6 +145,7 @@ export default memo(({ componentId }: {
           onPageSelected={onPageSelected}
           // onPageScrollStateChanged={onPageScrollStateChanged}
           style={styles.pagerView}
+          importantForAccessibility="no"
         >
           <View collapsable={false} style={styles.pageStyle}>
             <HotCommentPage activeId={activeId} musicInfo={musicInfo as LX.Music.MusicInfoOnline} onUpdateTotal={setHotTotal} />
