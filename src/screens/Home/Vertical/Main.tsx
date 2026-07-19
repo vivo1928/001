@@ -273,21 +273,21 @@ const Main = () => {
       onPageScrollStateChanged={onPageScrollStateChanged}
       scrollEnabled={settingState.setting['common.homePageScroll']}
       style={styles.pagerView}
-      importantForAccessibility="no-hide-descendants"
+      importantForAccessibility="no"
     >
-      <View collapsable={false} key="nav_search" style={styles.pageStyle} importantForAccessibility="yes">
+      <View collapsable={false} key="nav_search" style={styles.pageStyle}>
         <SearchPage />
       </View>
-      <View collapsable={false} key="nav_songlist" style={styles.pageStyle} importantForAccessibility="yes">
+      <View collapsable={false} key="nav_songlist" style={styles.pageStyle}>
         <SongListPage />
       </View>
-      <View collapsable={false} key="nav_top" style={styles.pageStyle} importantForAccessibility="yes">
+      <View collapsable={false} key="nav_top" style={styles.pageStyle}>
         <LeaderboardPage />
       </View>
-      <View collapsable={false} key="nav_love" style={styles.pageStyle} importantForAccessibility="yes">
+      <View collapsable={false} key="nav_love" style={styles.pageStyle}>
         <MylistPage />
       </View>
-      <View collapsable={false} key="nav_setting" style={styles.pageStyle} importantForAccessibility="yes">
+      <View collapsable={false} key="nav_setting" style={styles.pageStyle}>
         <SettingPage />
       </View>
       {/* <View collapsable={false} key="nav_search" style={styles.pageStyle}>
