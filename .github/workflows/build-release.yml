@@ -54,6 +54,7 @@ jobs:
         run: |
           cd android
           ./gradlew assembleRelease \
+            --init-script init.gradle \
             -PMYAPP_UPLOAD_STORE_FILE='keystore.jks' \
             -PMYAPP_UPLOAD_KEY_ALIAS='${{ secrets.KEYSTORE_KEY_ALIAS }}' \
             -PMYAPP_UPLOAD_STORE_PASSWORD='${{ secrets.KEYSTORE_PASSWORD }}' \
