@@ -4,6 +4,7 @@ import { Icon } from '@/components/common/Icon'
 import { createStyle } from '@/utils/tools'
 import { useTheme } from '@/store/theme/hook'
 import { setSpText } from '@/utils/pixelRatio'
+import { useI18n } from '@/lang'
 
 const styles = createStyle({
   content: {
@@ -62,6 +63,7 @@ export interface InputType {
 export default forwardRef<InputType, InputProps>(({ onChangeText, onClearText, clearBtn, style, size = 14, accessibilityLabel, ...props }, ref) => {
   const inputRef = useRef<TextInput>(null)
   const theme = useTheme()
+  const t = useI18n()
   // const scaleClearBtn = useRef(new Animated.Value(0)).current
 
   useImperativeHandle(ref, () => ({
@@ -125,7 +127,7 @@ export default forwardRef<InputType, InputProps>(({ onChangeText, onClearText, c
       <Animated.View style={{ ...styles.clearBtnContent, transform: [{ scale: scaleClearBtn }] }}> */}
         {clearBtn
           ? <View style={styles.clearBtnContent}>
-              <TouchableOpacity style={styles.clearBtn} onPress={clearText}>
+              <TouchableOpacity style={styles.clearBtn} onPress={clearText} accessibilityLabel={t('clear_input')} accessibilityRole="button">
                 <Icon name="remove" color={theme['c-primary-dark-100-alpha-500']} size={11} />
               </TouchableOpacity>
             </View>

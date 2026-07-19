@@ -42,7 +42,7 @@ export default ({ isHome }: { isHome: boolean }) => {
   // console.log(playMusicInfo)
   return (
     <TouchableOpacity style={styles.container} onLongPress={handleLongPress} onPress={handlePress} activeOpacity={0.7}
-      accessibilityLabel={title ? t('song_title') + ': ' + title : t('song_title')}>
+      accessibilityLabel={title || t('song_title')}>
       <Text color={theme['c-font-label']} numberOfLines={1}>{title}</Text>
     </TouchableOpacity>
   )

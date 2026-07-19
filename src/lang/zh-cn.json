@@ -521,14 +521,17 @@
   "timer_btn": "定时退出",
   "add_music_btn": "添加到列表",
   "comment_btn": "查看评论",
-  "open_menu": "打开菜单",
+  "open_menu": "侧边栏",
   "cover_image": "专辑封面",
   "song_title": "歌曲标题",
   "play_detail_back": "返回",
   "play_detail_settings": "播放设置",
   "play_detail_song_info": "歌曲信息",
-  "search_input": "搜索音乐",
+  "search_input": "搜索栏",
   "search_btn": "搜索",
   "current_play_time": "当前播放时间",
-  "total_play_time": "总时长"
+  "total_play_time": "总时长",
+  "clear_input": "清空",
+  "more_options": "更多选项",
+  "help_tip": "帮助"
 }

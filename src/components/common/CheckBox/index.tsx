@@ -7,6 +7,7 @@ import { scaleSizeH, scaleSizeW } from '@/utils/pixelRatio'
 import { useTheme } from '@/store/theme/hook'
 import Text from '../Text'
 import { Icon } from '../Icon'
+import { useI18n } from '@/lang'
 
 export interface CheckBoxProps {
   check: boolean
@@ -25,6 +26,7 @@ export interface CheckBoxProps {
 
 export default ({ check, label, children, onChange, helpTitle, helpDesc, disabled = false, need = false, marginRight = 0, marginBottom = 0, size = 1 }: CheckBoxProps) => {
   const theme = useTheme()
+  const t = useI18n()
   const [isDisabled, setDisabled] = useState(false)
   const tintColors = {
     true: theme['c-primary'],
@@ -61,7 +63,7 @@ export default ({ check, label, children, onChange, helpTitle, helpDesc, disable
       })
     }
     return (helpTitle ?? helpDesc) ? (
-      <TouchableOpacity style={styles.helpBtn} onPress={handleShowHelp}>
+      <TouchableOpacity style={styles.helpBtn} onPress={handleShowHelp} accessibilityLabel={t('help_tip')} accessibilityRole="button">
         <Icon size={15 * size} name="help" />
       </TouchableOpacity>
     ) : null

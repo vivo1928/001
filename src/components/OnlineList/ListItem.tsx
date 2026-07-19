@@ -42,6 +42,7 @@ export default memo(({ item, index, showSource, onPress, onLongPress, onShowMenu
   isShowInterval: boolean
 }) => {
   const theme = useTheme()
+  const t = useI18n()
 
   const isSelected = selectedList.includes(item)
 
@@ -61,7 +62,7 @@ export default memo(({ item, index, showSource, onPress, onLongPress, onShowMenu
   return (
     <View style={{ ...styles.listItem, width: rowInfo.rowWidth, height: ITEM_HEIGHT, backgroundColor: isSelected ? theme['c-primary-background-hover'] : 'rgba(0,0,0,0)' }}>
       <TouchableOpacity style={styles.listItemLeft} onPress={() => { onPress(item, index) }} onLongPress={() => { onLongPress(item, index) }}
-        accessibilityLabel={item.name + ' ' + singer} accessibilityRole="button">
+        accessibilityLabel={(index + 1) + ' ' + item.name + ' ' + singer} accessibilityRole="button">
         <Text style={styles.sn} size={13} color={theme['c-300']}>{index + 1}</Text>
         <View style={styles.itemInfo}>
           <Text numberOfLines={1}>{item.name}</Text>
@@ -78,7 +79,7 @@ export default memo(({ item, index, showSource, onPress, onLongPress, onShowMenu
         }
       </TouchableOpacity>
      <TouchableOpacity onPress={handleShowMenu} ref={moreButtonRef} style={styles.moreButton}
-        accessibilityLabel={item.name + ' ' + item.singer + ' more options'} accessibilityRole="button">
+        accessibilityLabel={item.name + ' ' + t('more_options')} accessibilityRole="button">
         <Icon name="dots-vertical" style={{ color: theme['c-350'] }} size={12} />
       </TouchableOpacity>
     </View>

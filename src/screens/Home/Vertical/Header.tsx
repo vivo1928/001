@@ -46,7 +46,7 @@ const LeftHeader = () => {
         <TouchableOpacity style={styles.btn} onPress={openMenu} accessibilityLabel={t('open_menu')} accessibilityRole="button">
           <Icon color={theme['c-font']} name="menu" size={18} />
         </TouchableOpacity>
-        <TouchableOpacity style={styles.titleBtn} onPress={openMenu} accessibilityLabel={t('open_menu')}>
+        <TouchableOpacity style={styles.titleBtn} onPress={openMenu} importantForAccessibility="no">
           <Text style={styles.leftTitle} size={18}>{t(id)}</Text>
         </TouchableOpacity>
       </View>
@@ -82,7 +82,7 @@ const RightHeader = () => {
       paddingTop: statusBarHeight,
     }}>
       <View style={styles.left}>
-        <TouchableOpacity style={styles.titleBtn} onPress={openMenu} accessibilityLabel={t('open_menu')}>
+        <TouchableOpacity style={styles.titleBtn} onPress={openMenu} importantForAccessibility="no">
           <Text style={styles.rightTitle} size={18}>{t(id)}</Text>
         </TouchableOpacity>
       </View>

@@ -521,14 +521,17 @@
   "timer_btn": "Timer",
   "add_music_btn": "Add to List",
   "comment_btn": "Comments",
-  "open_menu": "Open Menu",
+  "open_menu": "Sidebar",
   "cover_image": "Album Cover",
   "song_title": "Song Title",
   "play_detail_back": "Back",
   "play_detail_settings": "Play Settings",
   "play_detail_song_info": "Song Info",
-  "search_input": "Search Music",
+  "search_input": "Search Bar",
   "search_btn": "Search",
   "current_play_time": "Current Time",
-  "total_play_time": "Total Time"
+  "total_play_time": "Total Time",
+  "clear_input": "Clear",
+  "more_options": "More Options",
+  "help_tip": "Help"
 }
