@@ -34,7 +34,6 @@ export default memo(({ item, index, width, showSource, onPress }: {
             <TouchableOpacity activeOpacity={0.5} onPress={handlePress}>
               <Text style={styles.listItemTitle} numberOfLines={ 2 }>{item.name}</Text>
             </TouchableOpacity>
-            {/* <Text>{JSON.stringify(item)}</Text> */}
           </View>
         )
       : <View style={{ ...styles.listItem, width: itemWidth }} />
