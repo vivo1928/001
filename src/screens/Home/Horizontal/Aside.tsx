@@ -1,12 +1,11 @@
 import { memo } from 'react'
-import { ScrollView, TouchableOpacity, View } from 'react-native'
+import { TouchableOpacity, View } from 'react-native'
 import { useNavActiveId, useStatusbarHeight } from '@/store/common/hook'
 import { useTheme } from '@/store/theme/hook'
 import { Icon } from '@/components/common/Icon'
 import { confirmDialog, createStyle, exitApp as backHome } from '@/utils/tools'
 import { NAV_MENUS } from '@/config/constant'
 import type { InitState } from '@/store/common/state'
-// import commonState from '@/store/common/state'
 import { exitApp, setNavActiveId } from '@/core/common'
 import { BorderWidths } from '@/theme'
 import { useSettingValue } from '@/store/setting/hook'
@@ -17,10 +16,6 @@ const NAV_WIDTH = 68
 const styles = createStyle({
   container: {
     flexGrow: 0,
-    // flex: 1,
-    // alignItems: 'center',
-    // justifyContent: 'center',
-    // padding: 10,
     borderRightWidth: BorderWidths.normal,
     paddingBottom: 10,
     width: NAV_WIDTH,
@@ -36,31 +31,21 @@ const styles = createStyle({
     textAlign: 'center',
     marginLeft: 16,
   },
-  menus: {
-    flex: 1,
-  },
   list: {
-    // paddingTop: 10,
     paddingBottom: 15,
   },
   menuItem: {
     flexDirection: 'row',
     paddingTop: 15,
     paddingBottom: 15,
-    // paddingLeft: 25,
-    // paddingRight: 25,
     justifyContent: 'center',
     alignItems: 'center',
-    // backgroundColor: 'rgba(0, 0, 0, 0.2)',
   },
   iconContent: {
-    // width: 24,
-    // backgroundColor: 'rgba(0, 0, 0, 0.2)',
     alignItems: 'center',
   },
   text: {
     paddingLeft: 15,
-    // fontWeight: '500',
   },
 })
 
@@ -68,10 +53,9 @@ const Header = () => {
   const theme = useTheme()
   const statusBarHeight = useStatusbarHeight()
   return (
-    <View style={{ paddingTop: statusBarHeight }} accessible={false}>
-      <View style={styles.header} accessible={false}>
+    <View style={{ paddingTop: statusBarHeight }}>
+      <View style={styles.header}>
         <Icon name="logo" color={theme['c-primary-dark-100-alpha-300']} size={22} />
-        {/* <Text style={styles.headerText} size={16} color={theme['c-primary-dark-100-alpha-300']}>LX Music</Text> */}
       </View>
     </View>
   )
@@ -92,12 +76,12 @@ const MenuItem = ({ id, icon, onPress }: {
 
   return activeId == id
     ? <View style={styles.menuItem} accessibilityLabel={label} accessibilityRole="menuitem" accessibilityState={{ selected: true }}>
-        <View style={styles.iconContent} accessible={false}>
+        <View style={styles.iconContent}>
           <Icon name={icon} size={20} color={theme['c-primary-font-active']} />
         </View>
       </View>
     : <TouchableOpacity style={styles.menuItem} onPress={() => { onPress(id) }} accessibilityLabel={label} accessibilityRole="menuitem">
-        <View style={styles.iconContent} accessible={false}>
+        <View style={styles.iconContent}>
           <Icon name={icon} size={20} color={theme['c-font-label']} />
         </View>
       </TouchableOpacity>
@@ -105,7 +89,6 @@ const MenuItem = ({ id, icon, onPress }: {
 
 export default memo(() => {
   const theme = useTheme()
-  // console.log('render drawer nav')
   const showBackBtn = useSettingValue('common.showBackBtn')
   const showExitBtn = useSettingValue('common.showExitBtn')
 
@@ -130,13 +113,13 @@ export default memo(() => {
   }
 
   return (
-    <View style={{ ...styles.container, borderRightColor: theme['c-border-background'] }} importantForAccessibility="no">
+    <View style={{ ...styles.container, borderRightColor: theme['c-border-background'] }}>
       <Header />
-      <ScrollView style={styles.menus} importantForAccessibility="no">
-        <View style={styles.list} importantForAccessibility="no">
+      <View style={{ flex: 1 }}>
+        <View style={styles.list}>
           {NAV_MENUS.map(menu => <MenuItem key={menu.id} id={menu.id} icon={menu.icon} onPress={handlePress} />)}
         </View>
-      </ScrollView>
+      </View>
       {
         showBackBtn ? <MenuItem id="back_home" icon="home" onPress={handlePress} /> : null
       }
@@ -146,4 +129,3 @@ export default memo(() => {
     </View>
   )
 })
-

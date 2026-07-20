@@ -1,5 +1,5 @@
 import { memo } from 'react'
-import { ScrollView, TouchableOpacity, View } from 'react-native'
+import { TouchableOpacity, View } from 'react-native'
 import { useI18n } from '@/lang'
 import { useNavActiveId, useStatusbarHeight } from '@/store/common/hook'
 import { useTheme } from '@/store/theme/hook'
@@ -7,18 +7,15 @@ import { Icon } from '@/components/common/Icon'
 import { confirmDialog, createStyle, exitApp as backHome } from '@/utils/tools'
 import { NAV_MENUS } from '@/config/constant'
 import type { InitState } from '@/store/common/state'
-// import { navigations } from '@/navigation'
-// import commonState from '@/store/common/state'
 import { exitApp, setNavActiveId } from '@/core/common'
 import Text from '@/components/common/Text'
 import { useSettingValue } from '@/store/setting/hook'
 
+const MENU_ITEM_HEIGHT = 50
+
 const styles = createStyle({
   container: {
     flex: 1,
-    // alignItems: 'center',
-    // justifyContent: 'center',
-    // padding: 10,
   },
   header: {
     paddingTop: 40,
@@ -31,9 +28,6 @@ const styles = createStyle({
     textAlign: 'center',
     marginLeft: 16,
   },
-  menus: {
-    flex: 1,
-  },
   list: {
     paddingTop: 10,
     paddingBottom: 10,
@@ -45,7 +39,7 @@ const styles = createStyle({
     paddingLeft: 25,
     paddingRight: 25,
     alignItems: 'center',
-    // backgroundColor: 'rgba(0, 0, 0, 0.2)',
+    minHeight: MENU_ITEM_HEIGHT,
   },
   iconContent: {
     width: 24,
@@ -53,7 +47,6 @@ const styles = createStyle({
   },
   text: {
     paddingLeft: 20,
-    // fontWeight: '500',
   },
 })
 
@@ -61,8 +54,8 @@ const Header = () => {
   const theme = useTheme()
   const statusBarHeight = useStatusbarHeight()
   return (
-    <View style={{ paddingTop: statusBarHeight, backgroundColor: theme['c-primary-light-700-alpha-500'] }} accessible={false}>
-      <View style={styles.header} accessible={false}>
+    <View style={{ paddingTop: statusBarHeight, backgroundColor: theme['c-primary-light-700-alpha-500'] }}>
+      <View style={styles.header}>
         <Icon name="logo" color={theme['c-primary-dark-100-alpha-300']} size={28} />
         <Text style={styles.headerText} size={28} color={theme['c-primary-dark-100-alpha-300']}>LX Music</Text>
       </View>
@@ -85,22 +78,21 @@ const MenuItem = ({ id, icon, onPress }: {
 
   return activeId == id
     ? <View style={styles.menuItem} accessibilityLabel={label} accessibilityRole="menuitem" accessibilityState={{ selected: true }}>
-        <View style={styles.iconContent} accessible={false}>
+        <View style={styles.iconContent}>
           <Icon name={icon} size={20} color={theme['c-primary-font-active']} />
         </View>
-        <Text style={styles.text} color={theme['c-primary-font']} accessible={false}>{label}</Text>
+        <Text style={styles.text} color={theme['c-primary-font']}>{label}</Text>
       </View>
     : <TouchableOpacity style={styles.menuItem} onPress={() => { onPress(id) }} accessibilityLabel={label} accessibilityRole="menuitem">
-        <View style={styles.iconContent} accessible={false}>
+        <View style={styles.iconContent}>
           <Icon name={icon} size={20} color={theme['c-font-label']} />
         </View>
-        <Text style={styles.text} accessible={false}>{label}</Text>
+        <Text style={styles.text}>{label}</Text>
       </TouchableOpacity>
 }
 
 export default memo(() => {
   const theme = useTheme()
-  // console.log('render drawer nav')
   const showBackBtn = useSettingValue('common.showBackBtn')
   const showExitBtn = useSettingValue('common.showExitBtn')
 
@@ -124,15 +116,14 @@ export default memo(() => {
     setNavActiveId(id)
   }
 
-
   return (
-    <View style={{ ...styles.container, backgroundColor: theme['c-content-background'] }} importantForAccessibility="no">
+    <View style={{ ...styles.container, backgroundColor: theme['c-content-background'] }}>
       <Header />
-      <ScrollView style={styles.menus} importantForAccessibility="no">
-        <View style={styles.list} importantForAccessibility="no">
+      <View style={{ flex: 1 }}>
+        <View style={styles.list}>
           {NAV_MENUS.map(menu => <MenuItem key={menu.id} id={menu.id} icon={menu.icon} onPress={handlePress} />)}
         </View>
-      </ScrollView>
+      </View>
 
       {
         showBackBtn ? <MenuItem id="back_home" icon="home" onPress={handlePress} /> : null
