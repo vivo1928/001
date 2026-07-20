@@ -1,4 +1,4 @@
-import { memo, useCallback, useState } from 'react'
+import { memo, useCallback, useState, useEffect } from 'react'
 import { View } from 'react-native'
 
 import SubTitle from '../../components/SubTitle'
@@ -17,26 +17,29 @@ export default memo(() => {
   const fontSize = useSettingValue('desktopLyric.style.fontSize')
   const theme = useTheme()
   const [sliderSize, setSliderSize] = useState(fontSize)
-  const [isSliding, setSliding] = useState(false)
-  const handleSlidingStart = useCallback<NonNullable<SliderProps['onSlidingStart']>>(() => {
-    setSliding(true)
+
+  useEffect(() => {
+    setSliderSize(fontSize)
+  }, [fontSize])
+
+  const handleSlidingStart = useCallback<NonNullable<SliderProps['onSlidingStart']>>(value => {
+    setSliderSize(value)
   }, [])
   const handleValueChange = useCallback<NonNullable<SliderProps['onValueChange']>>(value => {
     setSliderSize(value)
   }, [])
   const handleSlidingComplete = useCallback<NonNullable<SliderProps['onSlidingComplete']>>(value => {
+    setSliderSize(value)
     if (fontSize == value) return
     void setDesktopLyricTextSize(value).then(() => {
       updateSetting({ 'desktopLyric.style.fontSize': value })
-    }).finally(() => {
-      setSliding(false)
     })
   }, [fontSize])
 
   return (
     <SubTitle title={t('setting_lyric_desktop_text_size')}>
       <View style={styles.content}>
-        <Text style={{ color: theme['c-primary-font'] }}>{isSliding ? sliderSize : fontSize}</Text>
+        <Text style={{ color: theme['c-primary-font'] }}>{sliderSize}</Text>
         <Slider
           minimumValue={100}
           maximumValue={500}
@@ -44,7 +47,7 @@ export default memo(() => {
           onValueChange={handleValueChange}
           onSlidingStart={handleSlidingStart}
           step={2}
-          value={fontSize}
+          value={sliderSize}
         />
       </View>
     </SubTitle>

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 
 import { View, AccessibilityInfo } from 'react-native'
 import { useTheme } from '@/store/theme/hook'
@@ -21,27 +21,36 @@ export default () => {
   const theme = useTheme()
   const playbackRate = Math.trunc(useSettingValue('player.playbackRate') * 100)
   const [sliderSize, setSliderSize] = useState(playbackRate)
-  const [isSliding, setSliding] = useState(false)
   const t = useI18n()
 
-  const handleSlidingStart: SliderProps['onSlidingStart'] = value => {
-    setSliding(true)
-  }
-  const handleValueChange: SliderProps['onValueChange'] = value => {
+  // 同步外部 playbackRate 变化到 sliderSize
+  useEffect(() => {
+    setSliderSize(playbackRate)
+  }, [playbackRate])
+
+  const handleSlidingStart: SliderProps['onSlidingStart'] = useCallback(value => {
+    value = Math.trunc(value)
+    setSliderSize(value)
+    void setPlaybackRate(parseFloat((value / 100).toFixed(2)))
+  }, [])
+
+  const handleValueChange: SliderProps['onValueChange'] = useCallback(value => {
     value = Math.trunc(value)
     setSliderSize(value)
     void setPlaybackRate(parseFloat((value / 100).toFixed(2)))
     AccessibilityInfo.announceForAccessibility((value / 100).toFixed(2) + '倍')
-  }
-  const handleSlidingComplete: SliderProps['onSlidingComplete'] = value => {
-    setSliding(false)
+  }, [])
+
+  const handleSlidingComplete: SliderProps['onSlidingComplete'] = useCallback(value => {
     value = Math.trunc(value)
+    setSliderSize(value)
     const rate = value / 100
     void setLyricPlaybackRate(rate)
     void updateMetaData(playerState.musicInfo, playerState.isPlay, true) // 更新通知栏的播放速率
     if (playbackRate == value) return
     updateSetting({ 'player.playbackRate': rate })
-  }
+  }, [playbackRate])
+
   const handleReset = () => {
     if (settingState.setting['player.playbackRate'] == 1) return
     setSliderSize(100)
@@ -56,7 +65,7 @@ export default () => {
     <View style={styles.container}>
       <Text>{t('play_detail_setting_playback_rate')}</Text>
       <View style={styles.content}>
-        <Text style={styles.label} color={theme['c-font-label']}>{`${((isSliding ? sliderSize : playbackRate) / 100).toFixed(2)}x`}</Text>
+        <Text style={styles.label} color={theme['c-font-label']}>{`${(sliderSize / 100).toFixed(2)}x`}</Text>
         <Slider
           minimumValue={MIN_VALUE}
           maximumValue={MAX_VALUE}
@@ -64,7 +73,7 @@ export default () => {
           onValueChange={handleValueChange}
           onSlidingStart={handleSlidingStart}
           step={1}
-          value={playbackRate}
+          value={sliderSize}
           accessibilityLabel={t('play_detail_setting_playback_rate')}
         />
       </View>
@@ -72,4 +81,3 @@ export default () => {
     </View>
   )
 }
-

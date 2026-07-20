@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 
 import { View, AccessibilityInfo } from 'react-native'
 import { useTheme } from '@/store/theme/hook'
@@ -15,30 +15,38 @@ const Volume = () => {
   const theme = useTheme()
   const volume = Math.trunc(useSettingValue('player.volume') * 100)
   const [sliderSize, setSliderSize] = useState(volume)
-  const [isSliding, setSliding] = useState(false)
   const t = useI18n()
 
-  const handleSlidingStart: SliderProps['onSlidingStart'] = value => {
-    setSliding(true)
-  }
-  const handleValueChange: SliderProps['onValueChange'] = value => {
+  // 同步外部 volume 变化到 sliderSize
+  useEffect(() => {
+    setSliderSize(volume)
+  }, [volume])
+
+  const handleSlidingStart: SliderProps['onSlidingStart'] = useCallback(value => {
+    value = Math.trunc(value)
+    setSliderSize(value)
+    void setVolume(value / 100)
+  }, [])
+
+  const handleValueChange: SliderProps['onValueChange'] = useCallback(value => {
     value = Math.trunc(value)
     setSliderSize(value)
     void setVolume(value / 100)
     AccessibilityInfo.announceForAccessibility(t('play_detail_setting_volume') + ' ' + value)
-  }
-  const handleSlidingComplete: SliderProps['onSlidingComplete'] = value => {
-    setSliding(false)
+  }, [t])
+
+  const handleSlidingComplete: SliderProps['onSlidingComplete'] = useCallback(value => {
     value = Math.trunc(value)
+    setSliderSize(value)
     if (volume == value) return
     updateSetting({ 'player.volume': value / 100 })
-  }
+  }, [volume])
 
   return (
     <View style={styles.container}>
       <Text>{t('play_detail_setting_volume')}</Text>
       <View style={styles.content}>
-        <Text style={styles.label} color={theme['c-font-label']}>{isSliding ? sliderSize : volume}</Text>
+        <Text style={styles.label} color={theme['c-font-label']}>{sliderSize}</Text>
         <Slider
           minimumValue={0}
           maximumValue={100}
@@ -46,7 +54,7 @@ const Volume = () => {
           onValueChange={handleValueChange}
           onSlidingStart={handleSlidingStart}
           step={1}
-          value={volume}
+          value={sliderSize}
           accessibilityLabel={t('play_detail_setting_volume')}
         />
       </View>

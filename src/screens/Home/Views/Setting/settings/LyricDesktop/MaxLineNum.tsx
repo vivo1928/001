@@ -1,4 +1,4 @@
-import { memo, useCallback, useState } from 'react'
+import { memo, useCallback, useState, useEffect } from 'react'
 import { View } from 'react-native'
 
 import SubTitle from '../../components/SubTitle'
@@ -17,26 +17,29 @@ export default memo(() => {
   const maxLineNum = useSettingValue('desktopLyric.maxLineNum')
   const theme = useTheme()
   const [sliderSize, setSliderSize] = useState(maxLineNum)
-  const [isSliding, setSliding] = useState(false)
-  const handleSlidingStart = useCallback<NonNullable<SliderProps['onSlidingStart']>>(() => {
-    setSliding(true)
+
+  useEffect(() => {
+    setSliderSize(maxLineNum)
+  }, [maxLineNum])
+
+  const handleSlidingStart = useCallback<NonNullable<SliderProps['onSlidingStart']>>(value => {
+    setSliderSize(value)
   }, [])
   const handleValueChange = useCallback<NonNullable<SliderProps['onValueChange']>>(value => {
     setSliderSize(value)
   }, [])
   const handleSlidingComplete = useCallback<NonNullable<SliderProps['onSlidingComplete']>>(value => {
+    setSliderSize(value)
     if (maxLineNum == value) return
     void setDesktopLyricMaxLineNum(value).then(() => {
       updateSetting({ 'desktopLyric.maxLineNum': value })
-    }).finally(() => {
-      setSliding(false)
     })
   }, [maxLineNum])
 
   return (
     <SubTitle title={t('setting_lyric_desktop_maxlineNum')}>
       <View style={styles.content}>
-        <Text style={{ color: theme['c-primary-font'] }}>{isSliding ? sliderSize : maxLineNum}</Text>
+        <Text style={{ color: theme['c-primary-font'] }}>{sliderSize}</Text>
         <Slider
           minimumValue={1}
           maximumValue={8}
@@ -44,7 +47,7 @@ export default memo(() => {
           onValueChange={handleValueChange}
           onSlidingStart={handleSlidingStart}
           step={1}
-          value={maxLineNum}
+          value={sliderSize}
         />
       </View>
     </SubTitle>

@@ -77,9 +77,9 @@ const PreassBar = memo(({ onDragState, setDragProgress, onSetProgress, progress,
       default:
         return
     }
-    onSetProgress(newProgress * duration)
+    onSetProgress(newProgress)
     AccessibilityInfo.announceForAccessibility(Math.round(newProgress * 100) + '%')
-  }, [progress, duration, onSetProgress])
+  }, [progress, onSetProgress])
 
   return <View
     onLayout={onLayout}
