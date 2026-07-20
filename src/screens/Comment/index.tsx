@@ -151,10 +151,10 @@ export default memo(({ componentId }: {
           importantForAccessibility="no"
           accessible={false}
         >
-          <View collapsable={false} style={styles.pageStyle} importantForAccessibility={pageIndex == 0 ? 'yes' : 'no-hide-descendants'}>
+          <View collapsable={false} style={styles.pageStyle} importantForAccessibility={pageIndex == 0 ? 'auto' : 'no-hide-descendants'}>
             <HotCommentPage activeId={activeId} musicInfo={musicInfo as LX.Music.MusicInfoOnline} onUpdateTotal={setHotTotal} />
           </View>
-          <View collapsable={false} style={styles.pageStyle} importantForAccessibility={pageIndex == 1 ? 'yes' : 'no-hide-descendants'}>
+          <View collapsable={false} style={styles.pageStyle} importantForAccessibility={pageIndex == 1 ? 'auto' : 'no-hide-descendants'}>
             <NewCommentPage activeId={activeId} musicInfo={musicInfo as LX.Music.MusicInfoOnline} onUpdateTotal={setNewTotal} />
           </View>
         </PagerView>

@@ -279,19 +279,19 @@ const Main = () => {
       importantForAccessibility="no"
       accessible={false}
     >
-      <View collapsable={false} key="nav_search" style={styles.pageStyle} importantForAccessibility={activeIndex == 0 ? 'yes' : 'no-hide-descendants'}>
+      <View collapsable={false} key="nav_search" style={styles.pageStyle} importantForAccessibility={activeIndex == 0 ? 'auto' : 'no-hide-descendants'}>
         <SearchPage />
       </View>
-      <View collapsable={false} key="nav_songlist" style={styles.pageStyle} importantForAccessibility={activeIndex == 1 ? 'yes' : 'no-hide-descendants'}>
+      <View collapsable={false} key="nav_songlist" style={styles.pageStyle} importantForAccessibility={activeIndex == 1 ? 'auto' : 'no-hide-descendants'}>
         <SongListPage />
       </View>
-      <View collapsable={false} key="nav_top" style={styles.pageStyle} importantForAccessibility={activeIndex == 2 ? 'yes' : 'no-hide-descendants'}>
+      <View collapsable={false} key="nav_top" style={styles.pageStyle} importantForAccessibility={activeIndex == 2 ? 'auto' : 'no-hide-descendants'}>
         <LeaderboardPage />
       </View>
-      <View collapsable={false} key="nav_love" style={styles.pageStyle} importantForAccessibility={activeIndex == 3 ? 'yes' : 'no-hide-descendants'}>
+      <View collapsable={false} key="nav_love" style={styles.pageStyle} importantForAccessibility={activeIndex == 3 ? 'auto' : 'no-hide-descendants'}>
         <MylistPage />
       </View>
-      <View collapsable={false} key="nav_setting" style={styles.pageStyle} importantForAccessibility={activeIndex == 4 ? 'yes' : 'no-hide-descendants'}>
+      <View collapsable={false} key="nav_setting" style={styles.pageStyle} importantForAccessibility={activeIndex == 4 ? 'auto' : 'no-hide-descendants'}>
         <SettingPage />
       </View>
       {/* <View collapsable={false} key="nav_search" style={styles.pageStyle}>

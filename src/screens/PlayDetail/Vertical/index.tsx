@@ -81,10 +81,10 @@ export default memo(({ componentId }: { componentId: string }) => {
           importantForAccessibility="no"
           accessible={false}
         >
-          <View collapsable={false} importantForAccessibility={pageIndex == 0 ? 'yes' : 'no-hide-descendants'}>
+          <View collapsable={false} importantForAccessibility={pageIndex == 0 ? 'auto' : 'no-hide-descendants'}>
             <Pic componentId={componentId} />
           </View>
-          <View collapsable={false} importantForAccessibility={pageIndex == 1 ? 'yes' : 'no-hide-descendants'}>
+          <View collapsable={false} importantForAccessibility={pageIndex == 1 ? 'auto' : 'no-hide-descendants'}>
             <LyricPage activeIndex={pageIndex} />
           </View>
         </PagerView>
