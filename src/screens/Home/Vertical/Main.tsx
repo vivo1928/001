@@ -277,20 +277,21 @@ const Main = () => {
       scrollEnabled={settingState.setting['common.homePageScroll']}
       style={styles.pagerView}
       importantForAccessibility="no"
+      accessible={false}
     >
-      <View collapsable={false} key="nav_search" style={styles.pageStyle} importantForAccessibility={activeIndex == 0 ? 'no' : 'no-hide-descendants'}>
+      <View collapsable={false} key="nav_search" style={styles.pageStyle} importantForAccessibility={activeIndex == 0 ? 'yes' : 'no-hide-descendants'}>
         <SearchPage />
       </View>
-      <View collapsable={false} key="nav_songlist" style={styles.pageStyle} importantForAccessibility={activeIndex == 1 ? 'no' : 'no-hide-descendants'}>
+      <View collapsable={false} key="nav_songlist" style={styles.pageStyle} importantForAccessibility={activeIndex == 1 ? 'yes' : 'no-hide-descendants'}>
         <SongListPage />
       </View>
-      <View collapsable={false} key="nav_top" style={styles.pageStyle} importantForAccessibility={activeIndex == 2 ? 'no' : 'no-hide-descendants'}>
+      <View collapsable={false} key="nav_top" style={styles.pageStyle} importantForAccessibility={activeIndex == 2 ? 'yes' : 'no-hide-descendants'}>
         <LeaderboardPage />
       </View>
-      <View collapsable={false} key="nav_love" style={styles.pageStyle} importantForAccessibility={activeIndex == 3 ? 'no' : 'no-hide-descendants'}>
+      <View collapsable={false} key="nav_love" style={styles.pageStyle} importantForAccessibility={activeIndex == 3 ? 'yes' : 'no-hide-descendants'}>
         <MylistPage />
       </View>
-      <View collapsable={false} key="nav_setting" style={styles.pageStyle} importantForAccessibility={activeIndex == 4 ? 'no' : 'no-hide-descendants'}>
+      <View collapsable={false} key="nav_setting" style={styles.pageStyle} importantForAccessibility={activeIndex == 4 ? 'yes' : 'no-hide-descendants'}>
         <SettingPage />
       </View>
       {/* <View collapsable={false} key="nav_search" style={styles.pageStyle}>
