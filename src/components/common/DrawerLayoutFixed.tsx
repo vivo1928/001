@@ -53,7 +53,7 @@ const DrawerLayoutFixed = forwardRef<DrawerLayoutFixedType, Props>(({ visibleNav
   const wrappedRenderNavigationView = useCallback(() => {
     if (!renderNavigationView) return null
     return (
-      <View importantForAccessibility={isDrawerOpen ? 'auto' : 'no-hide-descendants'} accessible={false}>
+      <View importantForAccessibility={isDrawerOpen ? 'auto' : 'no-hide-descendants'}>
         {renderNavigationView()}
       </View>
     )

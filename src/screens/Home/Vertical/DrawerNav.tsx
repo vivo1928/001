@@ -126,10 +126,10 @@ export default memo(() => {
 
 
   return (
-    <View style={{ ...styles.container, backgroundColor: theme['c-content-background'] }} accessible={false}>
+    <View style={{ ...styles.container, backgroundColor: theme['c-content-background'] }} importantForAccessibility="no">
       <Header />
-      <ScrollView style={styles.menus} accessible={false}>
-        <View style={styles.list} accessible={false}>
+      <ScrollView style={styles.menus} importantForAccessibility="no">
+        <View style={styles.list} importantForAccessibility="no">
           {NAV_MENUS.map(menu => <MenuItem key={menu.id} id={menu.id} icon={menu.icon} onPress={handlePress} />)}
         </View>
       </ScrollView>
