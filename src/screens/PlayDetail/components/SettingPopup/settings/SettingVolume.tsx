@@ -1,6 +1,6 @@
 import { useState } from 'react'
 
-import { View } from 'react-native'
+import { View, AccessibilityInfo } from 'react-native'
 import { useTheme } from '@/store/theme/hook'
 import Text from '@/components/common/Text'
 import { useSettingValue } from '@/store/setting/hook'
@@ -25,6 +25,7 @@ const Volume = () => {
     value = Math.trunc(value)
     setSliderSize(value)
     void setVolume(value / 100)
+    AccessibilityInfo.announceForAccessibility(t('play_detail_setting_volume') + ' ' + value)
   }
   const handleSlidingComplete: SliderProps['onSlidingComplete'] = value => {
     setSliding(false)
@@ -46,6 +47,7 @@ const Volume = () => {
           onSlidingStart={handleSlidingStart}
           step={1}
           value={volume}
+          accessibilityLabel={t('play_detail_setting_volume')}
         />
       </View>
     </View>

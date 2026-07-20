@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ComponentRef } from 'react'
-import { View } from 'react-native'
+import { View, AccessibilityInfo } from 'react-native'
 import Search from '../Views/Search'
 import SongList from '../Views/SongList'
 import Mylist from '../Views/Mylist'
@@ -193,6 +193,14 @@ const indexMap = [
   'nav_setting',
 ] as const
 
+const pageNameKeys = [
+  'nav_search',
+  'nav_songlist',
+  'nav_top',
+  'nav_love',
+  'nav_setting',
+] as const
+
 const Main = () => {
   const pagerViewRef = useRef<ComponentRef<typeof PagerView>>(null)
   let activeIndexRef = useRef(viewMap[commonState.navActiveId])
@@ -222,6 +230,8 @@ const Main = () => {
     if (activeIndexRef.current != viewMap[commonState.navActiveId]) {
       setNavActiveId(indexMap[activeIndexRef.current])
     }
+    // 切换页面时播报页面名称
+    AccessibilityInfo.announceForAccessibility(global.i18n.t(pageNameKeys[activeIndexRef.current]))
   }, [])
 
   const onPageScrollStateChanged = useCallback(({ nativeEvent }: PageScrollStateChangedNativeEvent) => {

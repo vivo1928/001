@@ -12,9 +12,10 @@ export type SliderProps = Pick<_SliderProps,
 | 'onSlidingComplete'
 | 'onValueChange'
 | 'step'
+| 'accessibilityLabel'
 >
 
-export default memo(({ value, minimumValue, maximumValue, onSlidingStart, onSlidingComplete, onValueChange, step }: SliderProps) => {
+export default memo(({ value, minimumValue, maximumValue, onSlidingStart, onSlidingComplete, onValueChange, step, accessibilityLabel }: SliderProps) => {
   const theme = useTheme()
 
   const handleValueChange = (value: number) => {
@@ -35,6 +36,7 @@ export default memo(({ value, minimumValue, maximumValue, onSlidingStart, onSlid
       onSlidingComplete={onSlidingComplete}
       onValueChange={handleValueChange}
       step={step}
+      accessibilityLabel={accessibilityLabel}
     />
   )
 })

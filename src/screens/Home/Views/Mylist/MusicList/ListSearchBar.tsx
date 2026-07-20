@@ -16,6 +16,7 @@ type SearchInputType = InputType
 
 const SearchInput = forwardRef<SearchInputType, SearchInputProps>(({ onSearch }, ref) => {
   const [text, setText] = useState('')
+  const t = useI18n()
 
   const handleChangeText = (text: string) => {
     setText(text)
@@ -31,6 +32,7 @@ const SearchInput = forwardRef<SearchInputType, SearchInputProps>(({ onSearch },
       // onFocus={showTipList}
       clearBtn
       ref={ref}
+      accessibilityLabel={t('search_input')}
     />
   )
 })

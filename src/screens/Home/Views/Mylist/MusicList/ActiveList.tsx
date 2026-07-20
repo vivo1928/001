@@ -63,7 +63,8 @@ export default forwardRef<ActiveListType, ActiveListProps>(({ onShowSearchBar, o
       <Icon style={styles.currentListIcon} color={theme['c-button-font']} name="chevron-right" size={12} />
       { fetching ? <Loading color={theme['c-button-font']} style={styles.loading} /> : null }
       <Text style={styles.currentListText} numberOfLines={1} color={theme['c-button-font']}>{currentListName}</Text>
-      <TouchableOpacity style={styles.currentListBtns} onPress={onShowSearchBar}>
+      <TouchableOpacity style={styles.currentListBtns} onPress={onShowSearchBar}
+        accessibilityLabel={global.i18n.t('search_input')} accessibilityRole="button">
         <Icon color={theme['c-button-font']} name="search-2" />
       </TouchableOpacity>
     </TouchableOpacity>

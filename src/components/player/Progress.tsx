@@ -1,5 +1,5 @@
 import { memo, useCallback, useEffect, useRef, useState } from 'react'
-import { View, PanResponder } from 'react-native'
+import { View, PanResponder, AccessibilityInfo } from 'react-native'
 import { useDrag } from '@/utils/hooks'
 import { createStyle } from '@/utils/tools'
 import { useTheme } from '@/store/theme/hook'
@@ -26,10 +26,12 @@ const BufferedBar = memo(({ progress }: { progress: number }) => {
   return <View style={{ ...styles.progressBar, backgroundColor: theme['c-primary-light-600-alpha-900'], position: 'absolute', width: `${progress * 100}%`, left: 0, top: 0 }}></View>
 })
 
-const PreassBar = memo(({ onDragState, setDragProgress, onSetProgress }: {
+const PreassBar = memo(({ onDragState, setDragProgress, onSetProgress, progress, duration }: {
   onDragState: (drag: boolean) => void
   setDragProgress: (progress: number) => void
   onSetProgress: (progress: number) => void
+  progress: number
+  duration: number
 }) => {
   const {
     onLayout,
@@ -37,9 +39,6 @@ const PreassBar = memo(({ onDragState, setDragProgress, onSetProgress }: {
     onDragEnd,
     onDrag,
   } = useDrag(onSetProgress, onDragState, setDragProgress)
-  // const handlePress = useCallback((event: GestureResponderEvent) => {
-  //   onPress(event.nativeEvent.locationX)
-  // }, [onPress])
 
   const panResponder = useRef(
     PanResponder.create({
@@ -63,7 +62,38 @@ const PreassBar = memo(({ onDragState, setDragProgress, onSetProgress }: {
     }),
   ).current
 
-  return <View onLayout={onLayout} style={styles.pressBar} {...panResponder.panHandlers} />
+  const progressPercent = Math.round(progress * 100)
+
+  const handleAccessibilityAction = useCallback((event: { nativeEvent: { actionName: string } }) => {
+    const step = 0.05
+    let newProgress = progress
+    switch (event.nativeEvent.actionName) {
+      case 'increment':
+        newProgress = Math.min(1, progress + step)
+        break
+      case 'decrement':
+        newProgress = Math.max(0, progress - step)
+        break
+      default:
+        return
+    }
+    onSetProgress(newProgress * duration)
+    AccessibilityInfo.announceForAccessibility(Math.round(newProgress * 100) + '%')
+  }, [progress, duration, onSetProgress])
+
+  return <View
+    onLayout={onLayout}
+    style={styles.pressBar}
+    {...panResponder.panHandlers}
+    accessible={true}
+    accessibilityRole="adjustable"
+    accessibilityLabel={progressPercent + '%'}
+    accessibilityActions={[
+      { name: 'increment' },
+      { name: 'decrement' },
+    ]}
+    onAccessibilityAction={handleAccessibilityAction}
+  />
 })
 
 
@@ -133,7 +163,7 @@ const Progress = ({ progress, duration, buffered, paddingTop }: {
               )
         }
       </View>
-      <PreassBar onDragState={setDraging} setDragProgress={setDragProgress} onSetProgress={onSetProgress} />
+      <PreassBar onDragState={setDraging} setDragProgress={setDragProgress} onSetProgress={onSetProgress} progress={progress} duration={duration} />
       {/* <View style={{ ...styles.progressBar, height: '100%', width: progressStr }}><Pressable style={styles.progressDot}></Pressable></View> */}
     </View>
   )
