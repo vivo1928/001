@@ -196,6 +196,7 @@ const indexMap = [
 const Main = () => {
   const pagerViewRef = useRef<ComponentRef<typeof PagerView>>(null)
   let activeIndexRef = useRef(viewMap[commonState.navActiveId])
+  const [activeIndex, setActiveIndex] = useState(activeIndexRef.current)
   // const isScrollingRef = useRef(false)
   // const scrollPositionRef = useRef(-1)
 
@@ -217,6 +218,7 @@ const Main = () => {
   const onPageSelected = useCallback(({ nativeEvent }: PagerViewOnPageSelectedEvent) => {
     // console.log(nativeEvent)
     activeIndexRef.current = nativeEvent.position
+    setActiveIndex(nativeEvent.position)
     if (activeIndexRef.current != viewMap[commonState.navActiveId]) {
       setNavActiveId(indexMap[activeIndexRef.current])
     }
@@ -248,6 +250,7 @@ const Main = () => {
       const index = viewMap[id]
       if (activeIndexRef.current == index) return
       activeIndexRef.current = index
+      setActiveIndex(index)
       pagerViewRef.current?.setPageWithoutAnimation(index)
     }
     const handleConfigUpdate = (keys: Array<keyof LX.AppSetting>, setting: Partial<LX.AppSetting>) => {
@@ -275,19 +278,19 @@ const Main = () => {
       style={styles.pagerView}
       importantForAccessibility="no"
     >
-      <View collapsable={false} key="nav_search" style={styles.pageStyle} importantForAccessibility="no">
+      <View collapsable={false} key="nav_search" style={styles.pageStyle} importantForAccessibility={activeIndex == 0 ? 'no' : 'no-hide-descendants'}>
         <SearchPage />
       </View>
-      <View collapsable={false} key="nav_songlist" style={styles.pageStyle} importantForAccessibility="no">
+      <View collapsable={false} key="nav_songlist" style={styles.pageStyle} importantForAccessibility={activeIndex == 1 ? 'no' : 'no-hide-descendants'}>
         <SongListPage />
       </View>
-      <View collapsable={false} key="nav_top" style={styles.pageStyle} importantForAccessibility="no">
+      <View collapsable={false} key="nav_top" style={styles.pageStyle} importantForAccessibility={activeIndex == 2 ? 'no' : 'no-hide-descendants'}>
         <LeaderboardPage />
       </View>
-      <View collapsable={false} key="nav_love" style={styles.pageStyle} importantForAccessibility="no">
+      <View collapsable={false} key="nav_love" style={styles.pageStyle} importantForAccessibility={activeIndex == 3 ? 'no' : 'no-hide-descendants'}>
         <MylistPage />
       </View>
-      <View collapsable={false} key="nav_setting" style={styles.pageStyle} importantForAccessibility="no">
+      <View collapsable={false} key="nav_setting" style={styles.pageStyle} importantForAccessibility={activeIndex == 4 ? 'no' : 'no-hide-descendants'}>
         <SettingPage />
       </View>
       {/* <View collapsable={false} key="nav_search" style={styles.pageStyle}>
@@ -306,7 +309,7 @@ const Main = () => {
         <Setting />
       </View> */}
     </PagerView>
-  ), [onPageScrollStateChanged, onPageSelected])
+  ), [onPageScrollStateChanged, onPageSelected, activeIndex])
 
   return component
 }

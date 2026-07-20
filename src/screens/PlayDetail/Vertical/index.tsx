@@ -80,10 +80,10 @@ export default memo(({ componentId }: { componentId: string }) => {
           style={styles.pagerView}
           importantForAccessibility="no"
         >
-          <View collapsable={false} importantForAccessibility="no">
+          <View collapsable={false} importantForAccessibility={pageIndex == 0 ? 'no' : 'no-hide-descendants'}>
             <Pic componentId={componentId} />
           </View>
-          <View collapsable={false} importantForAccessibility="no">
+          <View collapsable={false} importantForAccessibility={pageIndex == 1 ? 'no' : 'no-hide-descendants'}>
             <LyricPage activeIndex={pageIndex} />
           </View>
         </PagerView>

@@ -83,6 +83,7 @@ export default memo(({ componentId }: {
 }) => {
   const pagerViewRef = useRef<PagerView>(null)
   const [activeId, setActiveId] = useState<ActiveId>('hot')
+  const [pageIndex, setPageIndex] = useState(0)
   const [musicInfo, setMusicInfo] = useState<LX.Music.MusicInfo | null>(getMusicInfo(playerState.playMusicInfo.musicInfo))
   const t = useI18n()
   const theme = useTheme()
@@ -106,6 +107,7 @@ export default memo(({ componentId }: {
   }, [])
 
   const onPageSelected = useCallback(({ nativeEvent }: PagerViewOnPageSelectedEvent) => {
+    setPageIndex(nativeEvent.position)
     setActiveId(TABS[nativeEvent.position])
   }, [])
 
@@ -148,16 +150,16 @@ export default memo(({ componentId }: {
           style={styles.pagerView}
           importantForAccessibility="no"
         >
-          <View collapsable={false} style={styles.pageStyle} importantForAccessibility="no">
+          <View collapsable={false} style={styles.pageStyle} importantForAccessibility={pageIndex == 0 ? 'no' : 'no-hide-descendants'}>
             <HotCommentPage activeId={activeId} musicInfo={musicInfo as LX.Music.MusicInfoOnline} onUpdateTotal={setHotTotal} />
           </View>
-          <View collapsable={false} style={styles.pageStyle} importantForAccessibility="no">
+          <View collapsable={false} style={styles.pageStyle} importantForAccessibility={pageIndex == 1 ? 'no' : 'no-hide-descendants'}>
             <NewCommentPage activeId={activeId} musicInfo={musicInfo as LX.Music.MusicInfoOnline} onUpdateTotal={setNewTotal} />
           </View>
         </PagerView>
       </View>
     )
-  }, [activeId, musicInfo, onPageSelected, refreshComment, setHotTotal, setNewTotal, tabs, theme, toggleTab])
+  }, [activeId, musicInfo, onPageSelected, refreshComment, setHotTotal, setNewTotal, tabs, theme, toggleTab, pageIndex])
 
   return (
     <PageContent>
