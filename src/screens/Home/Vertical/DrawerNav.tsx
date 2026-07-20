@@ -11,8 +11,6 @@ import { exitApp, setNavActiveId } from '@/core/common'
 import Text from '@/components/common/Text'
 import { useSettingValue } from '@/store/setting/hook'
 
-const MENU_ITEM_HEIGHT = 50
-
 const styles = createStyle({
   container: {
     flex: 1,
@@ -39,7 +37,6 @@ const styles = createStyle({
     paddingLeft: 25,
     paddingRight: 25,
     alignItems: 'center',
-    minHeight: MENU_ITEM_HEIGHT,
   },
   iconContent: {
     width: 24,
