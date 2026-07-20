@@ -47,6 +47,11 @@ jobs:
         run: |
           sed -i 's/org.gradle.jvmargs=.*/org.gradle.jvmargs=-Xmx8g -XX:MaxMetaspaceSize=512m/' android/gradle.properties
 
+      - name: Generate React Native JS Bundle
+        run: |
+          mkdir -p android/app/src/main/assets
+          npx react-native bundle --platform android --dev false --entry-file index.js --bundle-output android/app/src/main/assets/index.android.bundle --assets-dest android/app/src/main/res/
+
       - name: Build Debug APK
         run: cd android && ./gradlew assembleDebug --no-daemon --stacktrace
 
