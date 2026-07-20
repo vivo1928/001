@@ -53,7 +53,7 @@ const Header = () => {
   const theme = useTheme()
   const statusBarHeight = useStatusbarHeight()
   return (
-    <View style={{ paddingTop: statusBarHeight }}>
+    <View style={{ paddingTop: statusBarHeight }} importantForAccessibility="no">
       <View style={styles.header}>
         <Icon name="logo" color={theme['c-primary-dark-100-alpha-300']} size={22} />
       </View>
@@ -75,12 +75,12 @@ const MenuItem = ({ id, icon, onPress }: {
   const label = t(id)
 
   return activeId == id
-    ? <View style={styles.menuItem} accessibilityLabel={label} accessibilityRole="menuitem" accessibilityState={{ selected: true }}>
+    ? <View style={styles.menuItem} accessibilityLabel={label} accessibilityState={{ selected: true }}>
         <View style={styles.iconContent}>
           <Icon name={icon} size={20} color={theme['c-primary-font-active']} />
         </View>
       </View>
-    : <TouchableOpacity style={styles.menuItem} onPress={() => { onPress(id) }} accessibilityLabel={label} accessibilityRole="menuitem">
+    : <TouchableOpacity style={styles.menuItem} onPress={() => { onPress(id) }} accessibilityLabel={label}>
         <View style={styles.iconContent}>
           <Icon name={icon} size={20} color={theme['c-font-label']} />
         </View>

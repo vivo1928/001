@@ -51,7 +51,7 @@ const Header = () => {
   const theme = useTheme()
   const statusBarHeight = useStatusbarHeight()
   return (
-    <View style={{ paddingTop: statusBarHeight, backgroundColor: theme['c-primary-light-700-alpha-500'] }}>
+    <View style={{ paddingTop: statusBarHeight, backgroundColor: theme['c-primary-light-700-alpha-500'] }} importantForAccessibility="no">
       <View style={styles.header}>
         <Icon name="logo" color={theme['c-primary-dark-100-alpha-300']} size={28} />
         <Text style={styles.headerText} size={28} color={theme['c-primary-dark-100-alpha-300']}>LX Music</Text>
@@ -74,13 +74,13 @@ const MenuItem = ({ id, icon, onPress }: {
   const label = t(id)
 
   return activeId == id
-    ? <View style={styles.menuItem} accessibilityLabel={label} accessibilityRole="menuitem" accessibilityState={{ selected: true }}>
+    ? <View style={styles.menuItem} accessibilityLabel={label} accessibilityState={{ selected: true }}>
         <View style={styles.iconContent}>
           <Icon name={icon} size={20} color={theme['c-primary-font-active']} />
         </View>
         <Text style={styles.text} color={theme['c-primary-font']}>{label}</Text>
       </View>
-    : <TouchableOpacity style={styles.menuItem} onPress={() => { onPress(id) }} accessibilityLabel={label} accessibilityRole="menuitem">
+    : <TouchableOpacity style={styles.menuItem} onPress={() => { onPress(id) }} accessibilityLabel={label}>
         <View style={styles.iconContent}>
           <Icon name={icon} size={20} color={theme['c-font-label']} />
         </View>
