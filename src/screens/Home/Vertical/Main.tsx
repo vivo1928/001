@@ -275,19 +275,19 @@ const Main = () => {
       style={styles.pagerView}
       importantForAccessibility="no"
     >
-      <View collapsable={false} key="nav_search" style={styles.pageStyle}>
+      <View collapsable={false} key="nav_search" style={styles.pageStyle} importantForAccessibility="no">
         <SearchPage />
       </View>
-      <View collapsable={false} key="nav_songlist" style={styles.pageStyle}>
+      <View collapsable={false} key="nav_songlist" style={styles.pageStyle} importantForAccessibility="no">
         <SongListPage />
       </View>
-      <View collapsable={false} key="nav_top" style={styles.pageStyle}>
+      <View collapsable={false} key="nav_top" style={styles.pageStyle} importantForAccessibility="no">
         <LeaderboardPage />
       </View>
-      <View collapsable={false} key="nav_love" style={styles.pageStyle}>
+      <View collapsable={false} key="nav_love" style={styles.pageStyle} importantForAccessibility="no">
         <MylistPage />
       </View>
-      <View collapsable={false} key="nav_setting" style={styles.pageStyle}>
+      <View collapsable={false} key="nav_setting" style={styles.pageStyle} importantForAccessibility="no">
         <SettingPage />
       </View>
       {/* <View collapsable={false} key="nav_search" style={styles.pageStyle}>

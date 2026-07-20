@@ -148,10 +148,10 @@ export default memo(({ componentId }: {
           style={styles.pagerView}
           importantForAccessibility="no"
         >
-          <View collapsable={false} style={styles.pageStyle}>
+          <View collapsable={false} style={styles.pageStyle} importantForAccessibility="no">
             <HotCommentPage activeId={activeId} musicInfo={musicInfo as LX.Music.MusicInfoOnline} onUpdateTotal={setHotTotal} />
           </View>
-          <View collapsable={false} style={styles.pageStyle}>
+          <View collapsable={false} style={styles.pageStyle} importantForAccessibility="no">
             <NewCommentPage activeId={activeId} musicInfo={musicInfo as LX.Music.MusicInfoOnline} onUpdateTotal={setNewTotal} />
           </View>
         </PagerView>
