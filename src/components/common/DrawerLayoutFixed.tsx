@@ -16,10 +16,11 @@ export interface DrawerLayoutFixedType {
   fixWidth: () => void
 }
 
-const DrawerLayoutFixed = forwardRef<DrawerLayoutFixedType, Props>(({ visibleNavNames, widthPercentage, widthPercentageMax, children, ...props }, ref) => {
+const DrawerLayoutFixed = forwardRef<DrawerLayoutFixedType, Props>(({ visibleNavNames, widthPercentage, widthPercentageMax, children, renderNavigationView, ...props }, ref) => {
   const drawerLayoutRef = useRef<DrawerLayoutAndroid>(null)
   const [w, setW] = useState<number | `${number}%`>('100%')
   const [drawerWidth, setDrawerWidth] = useState(0)
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false)
   const changedRef = useRef({ width: 0, changed: false })
 
   const fixDrawerWidth = useCallback(() => {
@@ -47,6 +48,16 @@ const DrawerLayoutFixed = forwardRef<DrawerLayoutFixedType, Props>(({ visibleNav
     },
   }), [fixDrawerWidth])
 
+
+  // 抽屉关闭时隐藏抽屉内容的无障碍焦点，避免触摸浏览时 TalkBack 读到抽屉中的菜单项
+  const wrappedRenderNavigationView = useCallback(() => {
+    if (!renderNavigationView) return null
+    return (
+      <View importantForAccessibility={isDrawerOpen ? 'auto' : 'no-hide-descendants'}>
+        {renderNavigationView()}
+      </View>
+    )
+  }, [renderNavigationView, isDrawerOpen])
 
   const handleLayout = useCallback((e: LayoutChangeEvent) => {
     // console.log('handleLayout', e.nativeEvent.layout.width, changedRef.current.width)
@@ -79,6 +90,9 @@ const DrawerLayoutFixed = forwardRef<DrawerLayoutFixedType, Props>(({ visibleNav
         ref={drawerLayoutRef}
         keyboardDismissMode="on-drag"
         drawerWidth={drawerWidth}
+        renderNavigationView={wrappedRenderNavigationView}
+        onDrawerOpen={() => setIsDrawerOpen(true)}
+        onDrawerClose={() => setIsDrawerOpen(false)}
         {...props}
       >
         <View style={{ marginRight: w == '100%' ? 0 : -1, flex: 1 }}>
