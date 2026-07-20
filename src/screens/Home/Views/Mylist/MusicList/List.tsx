@@ -278,13 +278,14 @@ const List = forwardRef<ListType, ListProps>(({ onShowMenu, onMuiltSelectMode, o
       numColumns={rowInfo.current.rowNum}
       horizontal={false}
       // updateCellsBatchingPeriod={80}
-      windowSize={8}
-      removeClippedSubviews={true}
+      windowSize={5}
+      removeClippedSubviews={false}
       initialNumToRender={12}
       renderItem={renderItem}
       keyExtractor={getkey}
       extraData={activeIndex}
       getItemLayout={getItemLayout}
+      maintainVisibleContentPosition={{ minIndexForVisible: 0, autoscrollToTopThreshold: 10 }}
     />
   )
 })

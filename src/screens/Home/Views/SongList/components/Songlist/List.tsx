@@ -158,8 +158,8 @@ export default forwardRef<ListType, ListProps>(({ onRefresh, onLoadMore, onOpenD
                 data={list}
                 maxToRenderPerBatch={4}
                 // updateCellsBatchingPeriod={80}
-                windowSize={8}
-                removeClippedSubviews={true}
+                windowSize={5}
+                removeClippedSubviews={false}
                 // initialNumToRender={12}
                 renderItem={renderItem}
                 keyExtractor={getkey}
@@ -168,6 +168,7 @@ export default forwardRef<ListType, ListProps>(({ onRefresh, onLoadMore, onOpenD
                 // refreshing={refreshing}
                 onEndReachedThreshold={0.6}
                 onEndReached={handleLoadMore}
+                maintainVisibleContentPosition={{ minIndexForVisible: 0, autoscrollToTopThreshold: 10 }}
                 refreshControl={refreshControl}
                 ListFooterComponent={footerComponent}
               />
