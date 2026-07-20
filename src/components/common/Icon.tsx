@@ -47,6 +47,7 @@ export const Icon = memo(({ size = 15, rawSize, color, style, ...props }: IconPr
       color={color ?? theme['c-font']}
       // @ts-expect-error
       style={newStyle}
+      importantForAccessibility="no"
       {...props}
     />
   )
