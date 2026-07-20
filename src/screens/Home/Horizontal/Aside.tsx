@@ -68,8 +68,8 @@ const Header = () => {
   const theme = useTheme()
   const statusBarHeight = useStatusbarHeight()
   return (
-    <View style={{ paddingTop: statusBarHeight }}>
-      <View style={styles.header}>
+    <View style={{ paddingTop: statusBarHeight }} accessible={false}>
+      <View style={styles.header} accessible={false}>
         <Icon name="logo" color={theme['c-primary-dark-100-alpha-300']} size={22} />
         {/* <Text style={styles.headerText} size={16} color={theme['c-primary-dark-100-alpha-300']}>LX Music</Text> */}
       </View>
@@ -92,12 +92,12 @@ const MenuItem = ({ id, icon, onPress }: {
 
   return activeId == id
     ? <View style={styles.menuItem} accessibilityLabel={label} accessibilityRole="menuitem" accessibilityState={{ selected: true }}>
-        <View style={styles.iconContent} importantForAccessibility="no">
+        <View style={styles.iconContent} accessible={false}>
           <Icon name={icon} size={20} color={theme['c-primary-font-active']} />
         </View>
       </View>
     : <TouchableOpacity style={styles.menuItem} onPress={() => { onPress(id) }} accessibilityLabel={label} accessibilityRole="menuitem">
-        <View style={styles.iconContent} importantForAccessibility="no">
+        <View style={styles.iconContent} accessible={false}>
           <Icon name={icon} size={20} color={theme['c-font-label']} />
         </View>
       </TouchableOpacity>

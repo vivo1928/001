@@ -61,8 +61,8 @@ const Header = () => {
   const theme = useTheme()
   const statusBarHeight = useStatusbarHeight()
   return (
-    <View style={{ paddingTop: statusBarHeight, backgroundColor: theme['c-primary-light-700-alpha-500'] }}>
-      <View style={styles.header}>
+    <View style={{ paddingTop: statusBarHeight, backgroundColor: theme['c-primary-light-700-alpha-500'] }} accessible={false}>
+      <View style={styles.header} accessible={false}>
         <Icon name="logo" color={theme['c-primary-dark-100-alpha-300']} size={28} />
         <Text style={styles.headerText} size={28} color={theme['c-primary-dark-100-alpha-300']}>LX Music</Text>
       </View>
@@ -85,16 +85,16 @@ const MenuItem = ({ id, icon, onPress }: {
 
   return activeId == id
     ? <View style={styles.menuItem} accessibilityLabel={label} accessibilityRole="menuitem" accessibilityState={{ selected: true }}>
-        <View style={styles.iconContent} importantForAccessibility="no">
+        <View style={styles.iconContent} accessible={false}>
           <Icon name={icon} size={20} color={theme['c-primary-font-active']} />
         </View>
-        <Text style={styles.text} color={theme['c-primary-font']} importantForAccessibility="no">{label}</Text>
+        <Text style={styles.text} color={theme['c-primary-font']} accessible={false}>{label}</Text>
       </View>
     : <TouchableOpacity style={styles.menuItem} onPress={() => { onPress(id) }} accessibilityLabel={label} accessibilityRole="menuitem">
-        <View style={styles.iconContent} importantForAccessibility="no">
+        <View style={styles.iconContent} accessible={false}>
           <Icon name={icon} size={20} color={theme['c-font-label']} />
         </View>
-        <Text style={styles.text} importantForAccessibility="no">{label}</Text>
+        <Text style={styles.text} accessible={false}>{label}</Text>
       </TouchableOpacity>
 }
 
@@ -143,4 +143,3 @@ export default memo(() => {
     </View>
   )
 })
-

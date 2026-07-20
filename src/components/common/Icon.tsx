@@ -3,7 +3,7 @@ import icoMoonConfig from '@/resources/fonts/selection.json'
 import { scaleSizeW } from '@/utils/pixelRatio'
 import { memo, type ComponentProps } from 'react'
 import { useTextShadow, useTheme } from '@/store/theme/hook'
-import { StyleSheet, type StyleProp, type TextStyle } from 'react-native'
+import { StyleSheet, View, type StyleProp, type TextStyle } from 'react-native'
 
 // import IconAntDesign from 'react-native-vector-icons/AntDesign'
 // import IconEntypo from 'react-native-vector-icons/Entypo'
@@ -42,14 +42,15 @@ export const Icon = memo(({ size = 15, rawSize, color, style, ...props }: IconPr
     textShadowRadius: 2,
   }, style) : style
   return (
-    <IcoMoon
-      size={rawSize ?? scaleSizeW(size)}
-      color={color ?? theme['c-font']}
-      // @ts-expect-error
-      style={newStyle}
-      importantForAccessibility="no"
-      {...props}
-    />
+    <View accessible={false} importantForAccessibility="no">
+      <IcoMoon
+        size={rawSize ?? scaleSizeW(size)}
+        color={color ?? theme['c-font']}
+        // @ts-expect-error
+        style={newStyle}
+        {...props}
+      />
+    </View>
   )
 })
 
