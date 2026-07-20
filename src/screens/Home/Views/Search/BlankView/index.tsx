@@ -57,7 +57,7 @@ export default forwardRef<BlankViewType, BlankViewProps>(({ onSearch }, ref) => 
           )
         : (
             <View style={styles.welcome}>
-              <Text size={22} color={theme['c-font-label']}>{t('search__welcome')}</Text>
+              <Text size={22} color={theme['c-font-label']} accessibilityLabel={t('nav_search')}>{t('search__welcome')}</Text>
             </View>
           )
       : null
