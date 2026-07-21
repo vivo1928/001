@@ -12,9 +12,11 @@ export type SliderProps = {
   onValueChange?: (value: number) => void
   step?: number
   accessibilityLabel?: string
+  /** 用来自定义无障碍播报数值的格式化函数，如 (v) => (v / 100).toFixed(2) + 'x' */
+  accessibilityValueFormatter?: (value: number) => string
 }
 
-export default memo(({ value, minimumValue, maximumValue, onSlidingStart, onSlidingComplete, onValueChange, step = 1, accessibilityLabel }: SliderProps) => {
+export default memo(({ value, minimumValue, maximumValue, onSlidingStart, onSlidingComplete, onValueChange, step = 1, accessibilityLabel, accessibilityValueFormatter }: SliderProps) => {
   const theme = useTheme()
   const infoRef = useRef({
     progressWidth: 0,
@@ -83,15 +85,21 @@ export default memo(({ value, minimumValue, maximumValue, onSlidingStart, onSlid
     setDragValue(newValue)
     onValueChange?.(newValue)
     onSlidingComplete?.(newValue)
-    AccessibilityInfo.announceForAccessibility(String(Math.round(newValue)))
-  }, [displayValue, minimumValue, maximumValue, step, clampValue, onValueChange, onSlidingComplete])
+    if (accessibilityValueFormatter) {
+      AccessibilityInfo.announceForAccessibility(accessibilityValueFormatter(newValue))
+    } else {
+      AccessibilityInfo.announceForAccessibility(String(Math.round(newValue)))
+    }
+  }, [displayValue, minimumValue, maximumValue, step, clampValue, onValueChange, onSlidingComplete, accessibilityValueFormatter])
 
   return (
     <View style={styles.container} onLayout={onLayout} {...panResponder.panHandlers}
       accessible={true}
       accessibilityRole="adjustable"
       accessibilityLabel={accessibilityLabel}
-      accessibilityValue={{ now: Math.round(displayValue), min: minimumValue, max: maximumValue }}
+      accessibilityValue={accessibilityValueFormatter
+        ? { now: accessibilityValueFormatter(displayValue), min: accessibilityValueFormatter(minimumValue), max: accessibilityValueFormatter(maximumValue) }
+        : { now: Math.round(displayValue), min: minimumValue, max: maximumValue }}
       accessibilityActions={[
         { name: 'increment' },
         { name: 'decrement' },

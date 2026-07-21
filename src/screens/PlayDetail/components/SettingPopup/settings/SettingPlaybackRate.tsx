@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 
-import { View, AccessibilityInfo } from 'react-native'
+import { View } from 'react-native'
 import { useTheme } from '@/store/theme/hook'
 import Text from '@/components/common/Text'
 import { useSettingValue } from '@/store/setting/hook'
@@ -16,6 +16,8 @@ import settingState from '@/store/setting/state'
 
 const MIN_VALUE = 60
 const MAX_VALUE = 200
+
+const formatRate = (value: number) => (value / 100).toFixed(2) + 'x'
 
 export default () => {
   const theme = useTheme()
@@ -38,7 +40,6 @@ export default () => {
     value = Math.trunc(value)
     setSliderSize(value)
     void setPlaybackRate(parseFloat((value / 100).toFixed(2)))
-    AccessibilityInfo.announceForAccessibility((value / 100).toFixed(2) + '倍')
   }, [])
 
   const handleSlidingComplete: SliderProps['onSlidingComplete'] = useCallback(value => {
@@ -75,6 +76,7 @@ export default () => {
           step={1}
           value={sliderSize}
           accessibilityLabel={t('play_detail_setting_playback_rate')}
+          accessibilityValueFormatter={formatRate}
         />
       </View>
       <ButtonPrimary onPress={handleReset}>{t('play_detail_setting_playback_rate_reset')}</ButtonPrimary>
