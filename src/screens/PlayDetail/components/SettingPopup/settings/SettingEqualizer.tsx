@@ -4,7 +4,7 @@ import { useTheme } from '@/store/theme/hook'
 import Text from '@/components/common/Text'
 import { createStyle } from '@/utils/tools'
 import { useI18n } from '@/lang'
-import { getBandInfo, setBandLevel, setAllBandLevels, setEnabled, isEnabled as isEqEnabled, isAvailable, type BandInfo } from '@/utils/nativeModules/equalizer'
+import { getBandInfo, setBandLevel, setAllBandLevels, setEnabled, isEnabled as isEqEnabled, type BandInfo } from '@/utils/nativeModules/equalizer'
 
 const EQ_MIN_DB = -12
 const EQ_MAX_DB = 12
@@ -63,19 +63,6 @@ const eqStyles = createStyle({
     right: 0,
     borderRadius: 4,
   },
-  bandSliderThumb: {
-    width: 36,
-    height: 28,
-    borderRadius: 4,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 2,
-  },
-  bandSliderThumbText: {
-    fontSize: 9,
-    textAlign: 'center',
-    lineHeight: 12,
-  },
   bandLabel: {
     fontSize: 10,
     marginTop: 4,
@@ -122,13 +109,10 @@ const BandSlider = ({ freq, level, enabled, onAdjust, onAdjustComplete }: BandSl
   const onAdjustCompleteRef = useRef(onAdjustComplete)
   onAdjustCompleteRef.current = onAdjustComplete
 
-  // Convert level (-12 to 12) to height percentage (0% to 100%)
   const fillPercent = enabled ? ((level - EQ_MIN_DB) / (EQ_MAX_DB - EQ_MIN_DB)) * 100 : 0
   const fillColor = enabled ? theme['c-primary'] : theme['c-font-label']
-
   const dBLabel = level > 0 ? `+${level}` : `${level}`
 
-  // Handle accessibility adjustments
   const handleAccessibilityAction = useCallback((event: any) => {
     const action = event.nativeEvent?.actionName
     let newLevel = levelRef.current
@@ -161,7 +145,6 @@ const BandSlider = ({ freq, level, enabled, onAdjust, onAdjustComplete }: BandSl
           opacity: enabled ? 0.8 : 0.3,
         }]} />
       </View>
-      {/* Up/down buttons for visual adjustment */}
       <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2 }}>
         <TouchableOpacity
           onPress={() => {
@@ -201,31 +184,21 @@ export default () => {
   const [levels, setLevels] = useState<number[]>([])
   const [enabled, setEqEnabled] = useState(false)
   const [initialized, setInitialized] = useState(false)
-  const [notAvailable, setNotAvailable] = useState(false)
 
-  // Initialize equalizer
+  // 软件均衡器永远可用，直接初始化
   useEffect(() => {
     void (async () => {
       try {
-        // First, quick check if equalizer is available
-        const available = await isAvailable()
-        if (!available) {
-          setNotAvailable(true)
-          return
-        }
         const bandInfo = await getBandInfo()
         if (bandInfo && bandInfo.length > 0) {
           setBands(bandInfo)
           setLevels(new Array(bandInfo.length).fill(0))
-          const enabled = await isEqEnabled()
-          setEqEnabled(enabled)
+          const eqEnabled = await isEqEnabled()
+          setEqEnabled(eqEnabled)
           setInitialized(true)
-        } else {
-          setNotAvailable(true)
         }
       } catch (e) {
-        setNotAvailable(true)
-        console.log('Equalizer not available:', e)
+        console.log('Equalizer init error:', e)
       }
     })()
   }, [])
@@ -252,18 +225,10 @@ export default () => {
     void setAllBandLevels(newLevels.map(l => l * 100))
   }, [bands.length])
 
-  if (notAvailable) {
-    return (
-      <View style={eqStyles.container}>
-        <Text size={14} color={theme['c-font-label']}>{t('eq_not_available')}</Text>
-      </View>
-    )
-  }
-
   if (!initialized) {
     return (
       <View style={eqStyles.container}>
-        <Text color={theme['c-font-label']}>{t('eq_not_available')}</Text>
+        <Text size={14} color={theme['c-font-label']}>{t('eq_title')}</Text>
       </View>
     )
   }
