@@ -20,6 +20,8 @@ public class EqualizerModule extends ReactContextBaseJavaModule {
   private int[] bandLevels;
   private short numberOfBands;
   private int audioSessionId = 0;
+  private boolean availabilityChecked = false;
+  private boolean isAvailable = false;
 
   EqualizerModule(ReactApplicationContext reactContext) {
     super(reactContext);
@@ -31,20 +33,87 @@ public class EqualizerModule extends ReactContextBaseJavaModule {
     return "EqualizerModule";
   }
 
-  private void initEqualizer() {
-    if (equalizer != null) return;
+  /**
+   * Check if Equalizer is available on this device without actually initializing it.
+   * This is a lightweight check that can be called early.
+   */
+  @ReactMethod
+  public void isAvailable(Promise promise) {
     try {
+      if (availabilityChecked) {
+        promise.resolve(isAvailable);
+        return;
+      }
+      // Try to create a temporary equalizer to check availability
+      Equalizer testEq = null;
+      try {
+        testEq = new Equalizer(0, 0);
+        isAvailable = true;
+        availabilityChecked = true;
+      } catch (UnsupportedOperationException e) {
+        Log.w("Equalizer", "Equalizer not supported on this device: " + e.getMessage());
+        isAvailable = false;
+        availabilityChecked = true;
+      } catch (RuntimeException e) {
+        Log.w("Equalizer", "Equalizer initialization failed: " + e.getMessage());
+        isAvailable = false;
+        availabilityChecked = true;
+      } finally {
+        if (testEq != null) {
+          try { testEq.release(); } catch (Exception ignored) {}
+        }
+      }
+      promise.resolve(isAvailable);
+    } catch (Exception e) {
+      promise.resolve(false);
+    }
+  }
+
+  /**
+   * Set the audio session ID. Call this before initEqualizer if you have a specific
+   * audio session (e.g., from ExoPlayer). Use 0 for global output mix.
+   */
+  @ReactMethod
+  public void setAudioSessionId(int id, Promise promise) {
+    try {
+      if (equalizer != null) {
+        // Already initialized, need to re-create
+        equalizer.setEnabled(false);
+        equalizer.release();
+        equalizer = null;
+      }
+      audioSessionId = id;
+      promise.resolve(true);
+    } catch (Exception e) {
+      promise.reject("ERROR", e.getMessage());
+    }
+  }
+
+  private synchronized void initEqualizer() {
+    if (equalizer != null) return;
+    if (!isAvailable && availabilityChecked) return;
+
+    try {
+      // Priority 0 = lowest, so system DSP can take over if needed
       equalizer = new Equalizer(0, audioSessionId);
-      equalizer.setEnabled(true);
       isEnabled = true;
       numberOfBands = equalizer.getNumberOfBands();
       minBandLevel = equalizer.getBandLevelRange()[0];
       maxBandLevel = equalizer.getBandLevelRange()[1];
       bandLevels = new int[numberOfBands];
-      Log.d("Equalizer", "Initialized with " + numberOfBands + " bands, range: " + minBandLevel + " to " + maxBandLevel);
-    } catch (Exception e) {
+      isAvailable = true;
+      availabilityChecked = true;
+      Log.d("Equalizer", "Initialized with " + numberOfBands + " bands, range: " + minBandLevel + " to " + maxBandLevel + ", sessionId: " + audioSessionId);
+    } catch (UnsupportedOperationException e) {
+      Log.w("Equalizer", "Equalizer not supported on this device: " + e.getMessage());
+      equalizer = null;
+      isAvailable = false;
+      availabilityChecked = true;
+    } catch (RuntimeException e) {
       Log.e("Equalizer", "Failed to init equalizer: " + e.getMessage());
       equalizer = null;
+      isAvailable = false;
+      availabilityChecked = true;
     }
   }
 
@@ -58,7 +127,7 @@ public class EqualizerModule extends ReactContextBaseJavaModule {
       }
       promise.resolve((int) numberOfBands);
     } catch (Exception e) {
-      promise.reject("ERROR", e.getMessage());
+      promise.resolve(0);
     }
   }
 
@@ -72,17 +141,21 @@ public class EqualizerModule extends ReactContextBaseJavaModule {
       }
       WritableArray bands = Arguments.createArray();
       for (short i = 0; i < numberOfBands; i++) {
-        WritableMap band = Arguments.createMap();
-        int centerFreq = equalizer.getCenterFreq(i);
-        band.putInt("index", i);
-        band.putInt("centerFreq", centerFreq);
-        band.putInt("minLevel", minBandLevel);
-        band.putInt("maxLevel", maxBandLevel);
-        bands.pushMap(band);
+        try {
+          WritableMap band = Arguments.createMap();
+          int centerFreq = equalizer.getCenterFreq(i);
+          band.putInt("index", i);
+          band.putInt("centerFreq", centerFreq);
+          band.putInt("minLevel", minBandLevel);
+          band.putInt("maxLevel", maxBandLevel);
+          bands.pushMap(band);
+        } catch (Exception e) {
+          Log.w("Equalizer", "Failed to get band " + i + ": " + e.getMessage());
+        }
       }
       promise.resolve(bands);
     } catch (Exception e) {
-      promise.reject("ERROR", e.getMessage());
+      promise.resolve(Arguments.createArray());
     }
   }
 
@@ -103,7 +176,8 @@ public class EqualizerModule extends ReactContextBaseJavaModule {
         promise.resolve(false);
       }
     } catch (Exception e) {
-      promise.reject("ERROR", e.getMessage());
+      Log.e("Equalizer", "setBandLevel failed: " + e.getMessage());
+      promise.resolve(false);
     }
   }
 
@@ -115,18 +189,21 @@ public class EqualizerModule extends ReactContextBaseJavaModule {
         promise.resolve(false);
         return;
       }
-      // Parse JSON array: [3, -2, 0, 5, 1, ...]
       org.json.JSONArray jsonArray = new org.json.JSONArray(levelsJson);
       int count = Math.min(jsonArray.length(), numberOfBands);
       for (int i = 0; i < count; i++) {
-        int level = jsonArray.getInt(i);
-        int clamped = Math.max(minBandLevel, Math.min(maxBandLevel, level));
-        equalizer.setBandLevel((short) i, (short) clamped);
-        bandLevels[i] = clamped;
+        try {
+          int level = jsonArray.getInt(i);
+          int clamped = Math.max(minBandLevel, Math.min(maxBandLevel, level));
+          equalizer.setBandLevel((short) i, (short) clamped);
+          bandLevels[i] = clamped;
+        } catch (Exception e) {
+          Log.w("Equalizer", "setAllBandLevels failed at band " + i + ": " + e.getMessage());
+        }
       }
       promise.resolve(true);
     } catch (Exception e) {
-      promise.reject("ERROR", e.getMessage());
+      promise.resolve(false);
     }
   }
 
@@ -144,7 +221,7 @@ public class EqualizerModule extends ReactContextBaseJavaModule {
         promise.resolve(0);
       }
     } catch (Exception e) {
-      promise.reject("ERROR", e.getMessage());
+      promise.resolve(0);
     }
   }
 
@@ -158,7 +235,7 @@ public class EqualizerModule extends ReactContextBaseJavaModule {
       }
       promise.resolve((int) equalizer.getCurrentPreset());
     } catch (Exception e) {
-      promise.reject("ERROR", e.getMessage());
+      promise.resolve(-1);
     }
   }
 
@@ -173,7 +250,7 @@ public class EqualizerModule extends ReactContextBaseJavaModule {
       equalizer.usePreset(preset);
       promise.resolve(true);
     } catch (Exception e) {
-      promise.reject("ERROR", e.getMessage());
+      promise.resolve(false);
     }
   }
 
@@ -186,12 +263,17 @@ public class EqualizerModule extends ReactContextBaseJavaModule {
         return;
       }
       WritableArray names = Arguments.createArray();
-      for (short i = 0; i < equalizer.getNumberOfPresets(); i++) {
-        names.pushString(equalizer.getPresetName(i));
+      short numPresets = equalizer.getNumberOfPresets();
+      for (short i = 0; i < numPresets; i++) {
+        try {
+          names.pushString(equalizer.getPresetName(i));
+        } catch (Exception e) {
+          Log.w("Equalizer", "getPresetNames failed at " + i + ": " + e.getMessage());
+        }
       }
       promise.resolve(names);
     } catch (Exception e) {
-      promise.reject("ERROR", e.getMessage());
+      promise.resolve(Arguments.createArray());
     }
   }
 
@@ -207,7 +289,8 @@ public class EqualizerModule extends ReactContextBaseJavaModule {
       isEnabled = enabled;
       promise.resolve(true);
     } catch (Exception e) {
-      promise.reject("ERROR", e.getMessage());
+      Log.e("Equalizer", "setEnabled failed: " + e.getMessage());
+      promise.resolve(false);
     }
   }
 
@@ -220,7 +303,7 @@ public class EqualizerModule extends ReactContextBaseJavaModule {
       }
       promise.resolve(isEnabled);
     } catch (Exception e) {
-      promise.reject("ERROR", e.getMessage());
+      promise.resolve(false);
     }
   }
 
@@ -234,7 +317,7 @@ public class EqualizerModule extends ReactContextBaseJavaModule {
       }
       promise.resolve(true);
     } catch (Exception e) {
-      promise.reject("ERROR", e.getMessage());
+      promise.resolve(true);
     }
   }
 }

@@ -4,7 +4,7 @@ import { useTheme } from '@/store/theme/hook'
 import Text from '@/components/common/Text'
 import { createStyle } from '@/utils/tools'
 import { useI18n } from '@/lang'
-import { getBandInfo, setBandLevel, setAllBandLevels, setEnabled, isEnabled as isEqEnabled, type BandInfo } from '@/utils/nativeModules/equalizer'
+import { getBandInfo, setBandLevel, setAllBandLevels, setEnabled, isEnabled as isEqEnabled, isAvailable, type BandInfo } from '@/utils/nativeModules/equalizer'
 
 const EQ_MIN_DB = -12
 const EQ_MAX_DB = 12
@@ -201,11 +201,18 @@ export default () => {
   const [levels, setLevels] = useState<number[]>([])
   const [enabled, setEqEnabled] = useState(false)
   const [initialized, setInitialized] = useState(false)
+  const [notAvailable, setNotAvailable] = useState(false)
 
   // Initialize equalizer
   useEffect(() => {
     void (async () => {
       try {
+        // First, quick check if equalizer is available
+        const available = await isAvailable()
+        if (!available) {
+          setNotAvailable(true)
+          return
+        }
         const bandInfo = await getBandInfo()
         if (bandInfo && bandInfo.length > 0) {
           setBands(bandInfo)
@@ -213,15 +220,14 @@ export default () => {
           const enabled = await isEqEnabled()
           setEqEnabled(enabled)
           setInitialized(true)
+        } else {
+          setNotAvailable(true)
         }
       } catch (e) {
-        // Equalizer not available on this device
+        setNotAvailable(true)
         console.log('Equalizer not available:', e)
       }
     })()
-    return () => {
-      // Don't release on unmount, keep settings
-    }
   }, [])
 
   const handleToggle = useCallback(() => {
@@ -246,6 +252,14 @@ export default () => {
     void setAllBandLevels(newLevels.map(l => l * 100))
   }, [bands.length])
 
+  if (notAvailable) {
+    return (
+      <View style={eqStyles.container}>
+        <Text size={14} color={theme['c-font-label']}>{t('eq_not_available')}</Text>
+      </View>
+    )
+  }
+
   if (!initialized) {
     return (
       <View style={eqStyles.container}>
@@ -265,7 +279,6 @@ export default () => {
             borderColor: enabled ? theme['c-primary'] : theme['c-font-label'],
           }]}
           accessibilityLabel={enabled ? t('eq_disable') : t('eq_enable')}
-          accessibilityRole="switch"
           accessibilityState={{ checked: enabled }}
         >
           <Text style={eqStyles.toggleText} color={enabled ? theme['c-primary-font'] : theme['c-font-label']}>
