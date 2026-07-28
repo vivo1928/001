@@ -16,6 +16,10 @@ jobs:
       - name: Setup Env
         uses: ./.github/actions/setup
 
+      - name: Apply dependency patches
+        shell: bash
+        run: node dependencies-patch.js
+
       - name: Build Packages
         env:
           DISABLE_SVG: 1

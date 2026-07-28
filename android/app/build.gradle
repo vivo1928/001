@@ -117,6 +117,15 @@ android {
         versionName verName
     }
 
+    // 将 equalizer-lib 目录添加到源码路径，使 app 模块可以引用其中的类
+    sourceSets {
+        main {
+            java {
+                srcDirs += ['../../equalizer-lib']
+            }
+        }
+    }
+
     splits {
         abi {
             reset()
