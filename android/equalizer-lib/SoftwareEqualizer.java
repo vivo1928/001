@@ -23,7 +23,8 @@ public class SoftwareEqualizer {
     private int[] gains; // 单位: millibel (1/1000 dB)
     private boolean enabled = false;
     private double sampleRate = 44100.0;
-    private static final double Q = 1.4142; // ~sqrt(2), Butterworth Q 值
+    private static final double Q = 0.707; // ~1/sqrt(2), peaking EQ 推荐 Q 值，减少共振峰值
+    private static final float PRE_GAIN = 0.5f; // -6dB 预衰减，防止多频段叠加时削波
 
     // 单例持有者
     private static SoftwareEqualizer instance;
@@ -143,9 +144,9 @@ public class SoftwareEqualizer {
 
         final int end = offset + frameCount * 2;
         for (int i = offset; i < end; i += 2) {
-            // 归一化到 [-1, 1]
-            float left = buffer[i] / 32768.0f;
-            float right = buffer[i + 1] / 32768.0f;
+            // 归一化到 [-1, 1]，同时施加 -6dB 预衰减
+            float left = (buffer[i] / 32768.0f) * PRE_GAIN;
+            float right = (buffer[i + 1] / 32768.0f) * PRE_GAIN;
 
             // 通过所有滤波器级联
             for (int b = 0; b < leftFilters.length; b++) {
@@ -153,11 +154,9 @@ public class SoftwareEqualizer {
                 right = rightFilters[b].process(right);
             }
 
-            // 软限幅 (tanh 风格)
-            if (left > 1.0f) left = 1.0f;
-            if (left < -1.0f) left = -1.0f;
-            if (right > 1.0f) right = 1.0f;
-            if (right < -1.0f) right = -1.0f;
+            // 真正的软限幅 (tanh)，平滑过渡不产生削波失真
+            left = (float)Math.tanh(left);
+            right = (float)Math.tanh(right);
 
             // 转回 16-bit
             buffer[i] = (short)(left * 32767.0f);
@@ -173,12 +172,11 @@ public class SoftwareEqualizer {
 
         final int end = offset + frameCount;
         for (int i = offset; i < end; i++) {
-            float sample = buffer[i] / 32768.0f;
+            float sample = (buffer[i] / 32768.0f) * PRE_GAIN;
             for (BiquadFilter f : leftFilters) {
                 sample = f.process(sample);
             }
-            if (sample > 1.0f) sample = 1.0f;
-            if (sample < -1.0f) sample = -1.0f;
+            sample = (float)Math.tanh(sample);
             buffer[i] = (short)(sample * 32767.0f);
         }
     }
@@ -191,19 +189,17 @@ public class SoftwareEqualizer {
 
         final int end = offset + frameCount * 2;
         for (int i = offset; i < end; i += 2) {
-            float left = buffer[i];
-            float right = buffer[i + 1];
+            float left = buffer[i] * PRE_GAIN;
+            float right = buffer[i + 1] * PRE_GAIN;
 
             for (int b = 0; b < leftFilters.length; b++) {
                 left = leftFilters[b].process(left);
                 right = rightFilters[b].process(right);
             }
 
-            // 软限幅
-            if (left > 1.0f) left = 1.0f;
-            if (left < -1.0f) left = -1.0f;
-            if (right > 1.0f) right = 1.0f;
-            if (right < -1.0f) right = -1.0f;
+            // 真正的软限幅 (tanh)
+            left = (float)Math.tanh(left);
+            right = (float)Math.tanh(right);
 
             buffer[i] = left;
             buffer[i + 1] = right;
@@ -223,18 +219,16 @@ public class SoftwareEqualizer {
             short left = (short)((buffer[idx] & 0xFF) | (buffer[idx + 1] << 8));
             short right = (short)((buffer[idx + 2] & 0xFF) | (buffer[idx + 3] << 8));
 
-            float l = left / 32768.0f;
-            float r = right / 32768.0f;
+            float l = (left / 32768.0f) * PRE_GAIN;
+            float r = (right / 32768.0f) * PRE_GAIN;
 
             for (int b = 0; b < leftFilters.length; b++) {
                 l = leftFilters[b].process(l);
                 r = rightFilters[b].process(r);
             }
 
-            if (l > 1.0f) l = 1.0f;
-            if (l < -1.0f) l = -1.0f;
-            if (r > 1.0f) r = 1.0f;
-            if (r < -1.0f) r = -1.0f;
+            l = (float)Math.tanh(l);
+            r = (float)Math.tanh(r);
 
             short outL = (short)(l * 32767.0f);
             short outR = (short)(r * 32767.0f);

@@ -54,9 +54,9 @@ public class EqualizerAudioProcessor implements AudioProcessor {
 
     @Override
     public boolean isActive() {
-        // 始终返回 true，避免启用/禁用时重新配置整个音频链
-        // 禁用时直接透传音频数据
-        return true;
+        // 均衡器关闭时返回 false，让 ExoPlayer 走正常音频路径（包括 offload），
+        // 避免均衡器关闭时仍然绕过 offload 导致卡顿
+        return equalizer.isEnabled();
     }
 
     @Override
