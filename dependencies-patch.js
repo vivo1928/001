@@ -6,11 +6,9 @@ const path = require('node:path')
 const rootPath = path.join(__dirname, './')
 
 ;(async() => {
-  // 均衡器目标目录（react-native-track-player 模块内）
   const eqTargetDir = path.join(rootPath, 'node_modules/react-native-track-player/android/src/main/java/cn/toside/music/mobile/equalizer')
-  const eqSourceDir = path.join(rootPath, 'android/app/src/main/java/cn/toside/music/mobile/equalizer')
+  const eqSourceDir = path.join(rootPath, 'android/equalizer-lib')
 
-  // Step 1: 复制均衡器核心类到 react-native-track-player 模块（解决跨模块编译问题）
   const eqFiles = [
     'BiquadFilter.java',
     'SoftwareEqualizer.java',
@@ -32,7 +30,6 @@ const rootPath = path.join(__dirname, './')
     }
   }
 
-  // Step 2: 文本替换补丁 - 注入自定义 EqRenderersFactory 到 MusicManager
   const musicManagerPath = path.join(rootPath, 'node_modules/react-native-track-player/android/src/main/java/com/guichaguri/trackplayer/service/MusicManager.java')
 
   const patchs = [
