@@ -183,4 +183,33 @@ public class EqualizerModule extends ReactContextBaseJavaModule {
     public void getSampleRate(Promise promise) {
         promise.resolve((int)equalizer.getSampleRate());
     }
+
+    /**
+     * 设置 Preamp 输出增益（线性倍率）
+     * @param preamp 线性增益，范围 0.1 ~ 2.0，默认 1.0
+     *               0.5 = -6dB, 1.0 = 0dB, 2.0 = +6dB
+     */
+    @ReactMethod
+    public void setPreamp(double preamp, Promise promise) {
+        try {
+            equalizer.setPreamp((float) preamp);
+            promise.resolve(null);
+        } catch (Exception e) {
+            Log.e(TAG, "setPreamp error", e);
+            promise.reject("ERROR", e.getMessage());
+        }
+    }
+
+    /**
+     * 获取当前 Preamp 增益值
+     */
+    @ReactMethod
+    public void getPreamp(Promise promise) {
+        try {
+            promise.resolve((double) equalizer.getPreamp());
+        } catch (Exception e) {
+            Log.e(TAG, "getPreamp error", e);
+            promise.reject("ERROR", e.getMessage());
+        }
+    }
 }

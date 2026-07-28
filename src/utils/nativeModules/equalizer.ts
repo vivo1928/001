@@ -116,6 +116,23 @@ export const resetEq = async(): Promise<void> => {
 }
 
 /**
+ * 设置 Preamp 输出增益（线性倍率）
+ * 用于补偿均衡器处理后整体音量的变化
+ * @param preamp 线性增益，范围 0.1 ~ 2.0，默认 1.0
+ *               0.5 = -6dB, 1.0 = 0dB, 2.0 = +6dB
+ */
+export const setPreamp = async(preamp: number): Promise<void> => {
+  await EqualizerModule.setPreamp(preamp)
+}
+
+/**
+ * 获取当前 Preamp 增益值
+ */
+export const getPreamp = async(): Promise<number> => {
+  return await EqualizerModule.getPreamp()
+}
+
+/**
  * 将毫分贝值格式化为可读的 dB 字符串
  * 例如: 0 -> "0dB", 3000 -> "+3dB", -6000 -> "-6dB", 1500 -> "+1.5dB"
  */

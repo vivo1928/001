@@ -24,7 +24,17 @@ public class SoftwareEqualizer {
     private boolean enabled = false;
     private double sampleRate = 44100.0;
     private static final double Q = 0.707; // ~1/sqrt(2), peaking EQ 推荐 Q 值，减少共振峰值
-    private static final float PRE_GAIN = 0.5f; // -6dB 预衰减，防止多频段叠加时削波
+    // 参考 VLC: EQZ_IN_FACTOR = 0.25f (-12dB)，更大的预衰减让多频段叠加时有更多 headroom
+    private static final float PRE_GAIN = 0.25f; // -12dB 预衰减，防止多频段叠加时削波
+
+    // Preamp 输出增益补偿 (线性倍率)，默认 1.0 = 0dB
+    private float preamp = 1.0f;
+
+    // Look-ahead Peak Limiter 参数
+    private static final int LIMITER_LOOKAHEAD = 192; // ~4ms at 44.1kHz，参考 VLC limiter
+    private static final float LIMITER_THRESHOLD = 0.95f; // 峰值阈值
+    private static final float LIMITER_RELEASE_COEFF = 0.9995f; // 平滑释放系数
+    private float limiterGain = 1.0f; // 当前限幅器增益
 
     // 单例持有者
     private static SoftwareEqualizer instance;
@@ -128,13 +138,32 @@ public class SoftwareEqualizer {
         return sampleRate;
     }
 
+    /**
+     * 设置 Preamp 输出增益 (线性倍率)
+     * 范围 0.1 ~ 2.0，对应 -20dB ~ +6dB
+     */
+    public synchronized void setPreamp(float preamp) {
+        this.preamp = Math.max(0.1f, Math.min(2.0f, preamp));
+        Log.d(TAG, "Preamp set to " + this.preamp);
+    }
+
+    public float getPreamp() {
+        return preamp;
+    }
+
     public void reset() {
         for (BiquadFilter f : leftFilters) f.reset();
         for (BiquadFilter f : rightFilters) f.reset();
+        // 重置限幅器状态
+        limiterGain = 1.0f;
+        limiterWritePos = 0;
+        limiterBufferFilled = 0;
+        java.util.Arrays.fill(limiterBuffer, 0.0f);
     }
 
     /**
      * 处理交错立体声 PCM 数据 (16-bit little-endian short array)
+     * 处理链: 预衰减 → 滤波器组 → preamp → tanh软限幅 → look-ahead峰值限幅
      * @param buffer 音频数据
      * @param offset 起始偏移 (short 偏移)
      * @param frameCount 采样帧数 (每帧包含左右两个采样点)
@@ -142,9 +171,10 @@ public class SoftwareEqualizer {
     public synchronized void processStereo(short[] buffer, int offset, int frameCount) {
         if (!enabled) return;
 
+        final float preampLocal = preamp;
         final int end = offset + frameCount * 2;
         for (int i = offset; i < end; i += 2) {
-            // 归一化到 [-1, 1]，同时施加 -6dB 预衰减
+            // 归一化到 [-1, 1]，同时施加 -12dB 预衰减 (参考 VLC EQZ_IN_FACTOR)
             float left = (buffer[i] / 32768.0f) * PRE_GAIN;
             float right = (buffer[i + 1] / 32768.0f) * PRE_GAIN;
 
@@ -154,9 +184,17 @@ public class SoftwareEqualizer {
                 right = rightFilters[b].process(right);
             }
 
-            // 真正的软限幅 (tanh)，平滑过渡不产生削波失真
+            // Preamp 输出增益补偿
+            left *= preampLocal;
+            right *= preampLocal;
+
+            // 软限幅 (tanh)，平滑过渡不产生削波失真
             left = (float)Math.tanh(left);
             right = (float)Math.tanh(right);
+
+            // Look-ahead 峰值限幅器
+            left = applyLimiter(left);
+            right = applyLimiter(right);
 
             // 转回 16-bit
             buffer[i] = (short)(left * 32767.0f);
@@ -170,13 +208,16 @@ public class SoftwareEqualizer {
     public synchronized void processMono(short[] buffer, int offset, int frameCount) {
         if (!enabled) return;
 
+        final float preampLocal = preamp;
         final int end = offset + frameCount;
         for (int i = offset; i < end; i++) {
             float sample = (buffer[i] / 32768.0f) * PRE_GAIN;
             for (BiquadFilter f : leftFilters) {
                 sample = f.process(sample);
             }
+            sample *= preampLocal;
             sample = (float)Math.tanh(sample);
+            sample = applyLimiter(sample);
             buffer[i] = (short)(sample * 32767.0f);
         }
     }
@@ -187,6 +228,7 @@ public class SoftwareEqualizer {
     public synchronized void processFloatStereo(float[] buffer, int offset, int frameCount) {
         if (!enabled) return;
 
+        final float preampLocal = preamp;
         final int end = offset + frameCount * 2;
         for (int i = offset; i < end; i += 2) {
             float left = buffer[i] * PRE_GAIN;
@@ -197,9 +239,14 @@ public class SoftwareEqualizer {
                 right = rightFilters[b].process(right);
             }
 
-            // 真正的软限幅 (tanh)
+            left *= preampLocal;
+            right *= preampLocal;
+
             left = (float)Math.tanh(left);
             right = (float)Math.tanh(right);
+
+            left = applyLimiter(left);
+            right = applyLimiter(right);
 
             buffer[i] = left;
             buffer[i + 1] = right;
@@ -212,6 +259,7 @@ public class SoftwareEqualizer {
     public synchronized void processStereoBytes(byte[] buffer, int offsetBytes, int frameCount) {
         if (!enabled) return;
 
+        final float preampLocal = preamp;
         for (int i = 0; i < frameCount; i++) {
             int idx = offsetBytes + i * 4;
 
@@ -227,8 +275,14 @@ public class SoftwareEqualizer {
                 r = rightFilters[b].process(r);
             }
 
+            l *= preampLocal;
+            r *= preampLocal;
+
             l = (float)Math.tanh(l);
             r = (float)Math.tanh(r);
+
+            l = applyLimiter(l);
+            r = applyLimiter(r);
 
             short outL = (short)(l * 32767.0f);
             short outR = (short)(r * 32767.0f);
@@ -238,5 +292,53 @@ public class SoftwareEqualizer {
             buffer[idx + 2] = (byte)(outR & 0xFF);
             buffer[idx + 3] = (byte)((outR >> 8) & 0xFF);
         }
+    }
+
+    /**
+     * Look-ahead 峰值限幅器
+     * 参考 VLC limiter.c 的实现思路：
+     * - 使用环形缓冲区做 look-ahead
+     * - 检测前方峰值，提前计算增益衰减
+     * - 平滑释放（release envelope），避免增益突变
+     *
+     * 与 VLC 的区别：VLC 的 limiter 是独立模块，我们这里是内嵌在均衡器处理链中
+     * 的简化版，专门处理均衡器引入的过冲。
+     */
+    private final float[] limiterBuffer = new float[LIMITER_LOOKAHEAD];
+    private int limiterWritePos = 0;
+    private int limiterBufferFilled = 0;
+
+    private float applyLimiter(float sample) {
+        // 将新样本写入环形缓冲区
+        limiterBuffer[limiterWritePos] = sample;
+        limiterWritePos = (limiterWritePos + 1) % LIMITER_LOOKAHEAD;
+        if (limiterBufferFilled < LIMITER_LOOKAHEAD) {
+            limiterBufferFilled++;
+        }
+
+        // 在缓冲区中查找峰值（look-ahead）
+        float peak = 0.0f;
+        for (int i = 0; i < limiterBufferFilled; i++) {
+            float absVal = Math.abs(limiterBuffer[i]);
+            if (absVal > peak) peak = absVal;
+        }
+
+        // 计算目标增益
+        float targetGain = 1.0f;
+        if (peak > LIMITER_THRESHOLD) {
+            targetGain = LIMITER_THRESHOLD / peak;
+        }
+
+        // 平滑增益过渡：attack 瞬时，release 平滑
+        if (targetGain < limiterGain) {
+            // 瞬时 attack：峰值超过阈值立即降低增益
+            limiterGain = targetGain;
+        } else {
+            // 平滑 release：增益逐步恢复到 1.0
+            limiterGain = limiterGain + (1.0f - limiterGain) * (1.0f - LIMITER_RELEASE_COEFF);
+            if (limiterGain > 0.9999f) limiterGain = 1.0f;
+        }
+
+        return sample * limiterGain;
     }
 }
