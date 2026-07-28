@@ -1,5 +1,4 @@
 import { memo } from 'react'
-
 import Slider, { type SliderProps } from '@/components/common/Slider'
 
 export type {
