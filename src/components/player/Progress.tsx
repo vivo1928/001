@@ -74,45 +74,34 @@ const PreassBar = memo(({ onDragState, setDragProgress, onSetProgress, progress,
   }, [duration])
 
   const handleAccessibilityAction = useCallback((event: { nativeEvent: { actionName: string } }) => {
-    const step = 0.05
-    let newProgress = progress
     const currentDuration = durationRef.current
     switch (event.nativeEvent.actionName) {
-      case 'increment':
-        newProgress = Math.min(1, progress + step)
-        break
-      case 'decrement':
-        newProgress = Math.max(0, progress - step)
-        break
       case 'seekForward': {
         if (currentDuration <= 0) return
         const seekStep = SEEK_SECONDS / currentDuration
-        newProgress = Math.min(1, progress + seekStep)
+        const newProgress = Math.min(1, progress + seekStep)
+        onSetProgress(newProgress)
+        AccessibilityInfo.announceForAccessibility(t('play_seek_forward'))
         break
       }
       case 'seekBackward': {
         if (currentDuration <= 0) return
         const seekStep = SEEK_SECONDS / currentDuration
-        newProgress = Math.max(0, progress - seekStep)
+        const newProgress = Math.max(0, progress - seekStep)
+        onSetProgress(newProgress)
+        AccessibilityInfo.announceForAccessibility(t('play_seek_backward'))
         break
       }
-      default:
-        return
     }
-    onSetProgress(newProgress)
-    AccessibilityInfo.announceForAccessibility(Math.round(newProgress * 100) + '%')
-  }, [progress, onSetProgress])
+  }, [progress, onSetProgress, t])
 
   return <View
     onLayout={onLayout}
     style={styles.pressBar}
     {...panResponder.panHandlers}
     accessible={true}
-    accessibilityRole="adjustable"
     accessibilityLabel={progressPercent + '%'}
     accessibilityActions={[
-      { name: 'increment' },
-      { name: 'decrement' },
       { name: 'seekForward', label: t('play_seek_forward') },
       { name: 'seekBackward', label: t('play_seek_backward') },
     ]}
