@@ -232,6 +232,8 @@
   "play_mode": "播放模式",
   "play_next": "下一曲",
   "play_prev": "上一曲",
+  "play_seek_backward": "快退10秒",
+  "play_seek_forward": "快进10秒",
   "play_single": "禁用歌曲切换",
   "play_single_loop": "单曲循环播放",
   "player__buffering": "缓冲中...",

@@ -3,6 +3,7 @@ import { View, PanResponder, AccessibilityInfo } from 'react-native'
 import { useDrag } from '@/utils/hooks'
 import { createStyle } from '@/utils/tools'
 import { useTheme } from '@/store/theme/hook'
+import { useI18n } from '@/lang'
 // import { scaleSizeW } from '@/utils/pixelRatio'
 // import { AppColors } from '@/theme'
 
@@ -26,6 +27,8 @@ const BufferedBar = memo(({ progress }: { progress: number }) => {
   return <View style={{ ...styles.progressBar, backgroundColor: theme['c-primary-light-600-alpha-900'], position: 'absolute', width: `${progress * 100}%`, left: 0, top: 0 }}></View>
 })
 
+const SEEK_SECONDS = 10
+
 const PreassBar = memo(({ onDragState, setDragProgress, onSetProgress, progress, duration }: {
   onDragState: (drag: boolean) => void
   setDragProgress: (progress: number) => void
@@ -39,6 +42,7 @@ const PreassBar = memo(({ onDragState, setDragProgress, onSetProgress, progress,
     onDragEnd,
     onDrag,
   } = useDrag(onSetProgress, onDragState, setDragProgress)
+  const t = useI18n()
 
   const panResponder = useRef(
     PanResponder.create({
@@ -64,9 +68,15 @@ const PreassBar = memo(({ onDragState, setDragProgress, onSetProgress, progress,
 
   const progressPercent = Math.round(progress * 100)
 
+  const durationRef = useRef(duration)
+  useEffect(() => {
+    durationRef.current = duration
+  }, [duration])
+
   const handleAccessibilityAction = useCallback((event: { nativeEvent: { actionName: string } }) => {
     const step = 0.05
     let newProgress = progress
+    const currentDuration = durationRef.current
     switch (event.nativeEvent.actionName) {
       case 'increment':
         newProgress = Math.min(1, progress + step)
@@ -74,6 +84,18 @@ const PreassBar = memo(({ onDragState, setDragProgress, onSetProgress, progress,
       case 'decrement':
         newProgress = Math.max(0, progress - step)
         break
+      case 'seekForward': {
+        if (currentDuration <= 0) return
+        const seekStep = SEEK_SECONDS / currentDuration
+        newProgress = Math.min(1, progress + seekStep)
+        break
+      }
+      case 'seekBackward': {
+        if (currentDuration <= 0) return
+        const seekStep = SEEK_SECONDS / currentDuration
+        newProgress = Math.max(0, progress - seekStep)
+        break
+      }
       default:
         return
     }
@@ -91,6 +113,8 @@ const PreassBar = memo(({ onDragState, setDragProgress, onSetProgress, progress,
     accessibilityActions={[
       { name: 'increment' },
       { name: 'decrement' },
+      { name: 'seekForward', label: t('play_seek_forward') },
+      { name: 'seekBackward', label: t('play_seek_backward') },
     ]}
     onAccessibilityAction={handleAccessibilityAction}
   />

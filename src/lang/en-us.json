@@ -232,6 +232,8 @@
   "play_mode": "Play Mode",
   "play_next": "Next Song",
   "play_prev": "Prev Song",
+  "play_seek_backward": "Rewind 10s",
+  "play_seek_forward": "Forward 10s",
   "play_single": "Disable",
   "play_single_loop": "Repeat",
   "player__buffering": "Buffering...",
