@@ -1,5 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { View, PanResponder } from 'react-native'
+import { View, PanResponder, AccessibilityInfo } from 'react-native'
 import { createStyle } from '@/utils/tools'
 import { useTheme } from '@/store/theme/hook'
 import { scaleSizeW, scaleSizeH } from '@/utils/pixelRatio'
@@ -59,6 +59,23 @@ const PreassBar = memo(({ onDragState, setDragProgress, onSetProgress, progress,
 
   const progressPercent = Math.round(progress * 100)
 
+  const handleAccessibilityAction = useCallback((event: { nativeEvent: { actionName: string } }) => {
+    const step = 0.05
+    let newProgress = progress
+    switch (event.nativeEvent.actionName) {
+      case 'increment':
+        newProgress = Math.min(1, progress + step)
+        break
+      case 'decrement':
+        newProgress = Math.max(0, progress - step)
+        break
+      default:
+        return
+    }
+    onSetProgress(newProgress)
+    AccessibilityInfo.announceForAccessibility(Math.round(newProgress * 100) + '%')
+  }, [progress, onSetProgress])
+
   return <View
     onLayout={onLayout}
     style={styles.pressBar}
@@ -66,6 +83,11 @@ const PreassBar = memo(({ onDragState, setDragProgress, onSetProgress, progress,
     accessible={true}
     accessibilityRole="adjustable"
     accessibilityLabel={progressPercent + '%'}
+    accessibilityActions={[
+      { name: 'increment' },
+      { name: 'decrement' },
+    ]}
+    onAccessibilityAction={handleAccessibilityAction}
   />
 })
 

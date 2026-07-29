@@ -10,6 +10,18 @@ import { pause, play, playNext, playPrev } from '@/core/player/player'
 
 let isInitialized = false
 
+// 防止快速连续 seek 导致静音
+let jumpDebounceTimer: ReturnType<typeof setTimeout> | null = null
+const debouncedJump = (callback: () => void) => {
+  if (jumpDebounceTimer) {
+    clearTimeout(jumpDebounceTimer)
+  }
+  jumpDebounceTimer = setTimeout(() => {
+    jumpDebounceTimer = null
+    callback()
+  }, 300)
+}
+
 // let retryTrack: LX.Player.Track | null = null
 // let retryGetUrlId: string | null = null
 // let retryGetUrlNum = 0
@@ -77,16 +89,34 @@ const registerPlaybackService = async() => {
   })
 
   TrackPlayer.addEventListener(TPEvent.RemoteJumpForward, async({ interval }) => {
-    const currentTime = await TrackPlayer.getPosition()
-    const duration = await TrackPlayer.getDuration()
-    const newTime = Math.min(duration, currentTime + (interval as number || 10))
-    global.app_event.setProgress(newTime)
+    debouncedJump(async () => {
+      const currentTime = await TrackPlayer.getPosition()
+      const duration = await TrackPlayer.getDuration()
+      const newTime = Math.min(duration, currentTime + (interval as number || 10))
+      global.app_event.setProgress(newTime)
+      // 确保 seek 后播放器继续播放，防止静音
+      setTimeout(async () => {
+        const state = await TrackPlayer.getState()
+        if (state !== TPState.Playing) {
+          await TrackPlayer.play()
+        }
+      }, 200)
+    })
   })
 
   TrackPlayer.addEventListener(TPEvent.RemoteJumpBackward, async({ interval }) => {
-    const currentTime = await TrackPlayer.getPosition()
-    const newTime = Math.max(0, currentTime - (interval as number || 10))
-    global.app_event.setProgress(newTime)
+    debouncedJump(async () => {
+      const currentTime = await TrackPlayer.getPosition()
+      const newTime = Math.max(0, currentTime - (interval as number || 10))
+      global.app_event.setProgress(newTime)
+      // 确保 seek 后播放器继续播放，防止静音
+      setTimeout(async () => {
+        const state = await TrackPlayer.getState()
+        if (state !== TPState.Playing) {
+          await TrackPlayer.play()
+        }
+      }, 200)
+    })
   })
 
   TrackPlayer.addEventListener(TPEvent.PlaybackState, async info => {
