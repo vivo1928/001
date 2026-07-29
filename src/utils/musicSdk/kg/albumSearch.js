@@ -35,7 +35,7 @@ export default {
 
   albumSearch(str, page, limit) {
     const url = `http://msearch.kugou.com/api/v3/search/album?version=9108&iscorrection=1&highlight=em&plat=0&keyword=${encodeURIComponent(str)}&pagesize=${limit}&page=${page}&sver=2&with_res_tag=1`
-    return httpFetch(url).then(res => res.body)
+    return httpFetch(url).promise.then(res => res.body)
   },
 
   search(str, page = 1, limit, retryNum = 0) {

@@ -39,7 +39,7 @@ export default {
     if (++retryNum > 3) return Promise.reject(new Error('try max num'))
     if (limit == null) limit = this.limit
     return httpFetch(`http://search.kuwo.cn/r.s?all=${encodeURIComponent(str)}&pn=${page - 1}&rn=${limit}&rformat=json&encoding=utf8&ft=artist`).promise.then(({ body }) => {
-      body = objStr2JSON(body)
+      if (typeof body === 'string') body = objStr2JSON(body)
       if (!body || (body.TOTAL == '0' && body.SHOW == '0')) return this.search(str, page, limit, retryNum)
       let list = this.handleResult(body.abslist || [])
       if (list == null || !list.length) return this.search(str, page, limit, retryNum)

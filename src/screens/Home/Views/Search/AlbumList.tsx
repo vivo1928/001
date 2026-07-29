@@ -42,8 +42,10 @@ export default forwardRef<AlbumListType, {}>((props, ref) => {
     async loadList(text, source) {
       listRef.current?.setList([], source == 'all')
       if (searchAlbumState.searchText == text && searchAlbumState.source == source && searchAlbumState.listInfos[searchAlbumState.source]!.list.length) {
-        const mappedList = searchAlbumState.listInfos[searchAlbumState.source]!.list.map(mapToSonglistItem)
-        listRef.current?.setList(mappedList, source == 'all')
+        requestAnimationFrame(() => {
+          const mappedList = searchAlbumState.listInfos[searchAlbumState.source]!.list.map(mapToSonglistItem)
+          listRef.current?.setList(mappedList, source == 'all')
+        })
       } else {
         listRef.current?.setStatus('loading')
         const page = 1
@@ -51,9 +53,11 @@ export default forwardRef<AlbumListType, {}>((props, ref) => {
         searchInfoRef.current.source = source
         return search(text, page, source).then((list) => {
           if (isUnmountedRef.current) return
-          const mappedList = list.map(mapToSonglistItem)
-          listRef.current?.setList(mappedList, source == 'all')
-          listRef.current?.setStatus(searchAlbumState.maxPages[searchAlbumState.source] == page ? 'end' : 'idle')
+          requestAnimationFrame(() => {
+            const mappedList = list.map(mapToSonglistItem)
+            listRef.current?.setList(mappedList, source == 'all')
+            listRef.current?.setStatus(searchAlbumState.maxPages[searchAlbumState.source] == page ? 'end' : 'idle')
+          })
         }).catch(() => {
           if (!isUnmountedRef.current) {
             listRef.current?.setStatus('error')
