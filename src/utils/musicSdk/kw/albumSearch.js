@@ -15,10 +15,10 @@ export default {
       id: item.albumid || item.id,
       name: decodeName(item.albumname || item.album || item.name),
       singer: decodeName(item.artist || item.artistname || ''),
-      img: item.img || item.hts_img || item.pic || '',
+      img: item.pic ? `http://img1.kuwo.cn/star/albumcover/${item.pic}` : (item.img || item.hts_img || ''),
       source: 'kw',
-      song_count: parseInt(item.songnum || item.song_count) || 0,
-      publish_date: item.publish_date || item.publishDate || '',
+      song_count: parseInt(item.musiccnt || item.songnum || item.song_count) || 0,
+      publish_date: item.pub || item.publish_date || item.publishDate || '',
     }))
   },
 
@@ -39,12 +39,12 @@ export default {
   search(str, page = 1, limit, retryNum = 0) {
     if (++retryNum > 3) return Promise.reject(new Error('try max num'))
     if (limit == null) limit = this.limit
-    return httpFetch(`http://search.kuwo.cn/r.s?all=${encodeURIComponent(str)}&pn=${page - 1}&rn=${limit}&rformat=json&encoding=utf8&ft=album`).promise.then(({ body }) => {
+    return httpFetch(`http://search.kuwo.cn/r.s?client=kt&all=${encodeURIComponent(str)}&pn=${page - 1}&rn=${limit}&rformat=json&encoding=utf8&ft=album`).promise.then(({ body }) => {
       if (typeof body === 'string') body = objStr2JSON(body)
       if (!body || (body.TOTAL == '0' && body.SHOW == '0')) return this.search(str, page, limit, retryNum)
       let list = this.handleResult(body.albumlist || body.abslist || [])
       if (list == null || !list.length) return this.search(str, page, limit, retryNum)
-      this.total = parseInt(body.TOTAL) || 0
+      this.total = parseInt(body.TOTAL || body.total) || 0
       this.page = page
       this.allPage = Math.ceil(this.total / limit)
       return Promise.resolve({ list, allPage: this.allPage, limit, total: this.total, source: 'kw' })

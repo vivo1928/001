@@ -38,7 +38,7 @@ export default {
   search(str, page = 1, limit, retryNum = 0) {
     if (++retryNum > 3) return Promise.reject(new Error('try max num'))
     if (limit == null) limit = this.limit
-    return httpFetch(`http://search.kuwo.cn/r.s?all=${encodeURIComponent(str)}&pn=${page - 1}&rn=${limit}&rformat=json&encoding=utf8&ft=artist`).promise.then(({ body }) => {
+    return httpFetch(`http://search.kuwo.cn/r.s?client=kt&all=${encodeURIComponent(str)}&pn=${page - 1}&rn=${limit}&rformat=json&encoding=utf8&ft=artist`).promise.then(({ body }) => {
       if (typeof body === 'string') body = objStr2JSON(body)
       if (!body || (body.TOTAL == '0' && body.SHOW == '0')) return this.search(str, page, limit, retryNum)
       let list = this.handleResult(body.abslist || [])

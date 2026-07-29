@@ -9,13 +9,14 @@ export default {
   allPage: 1,
 
   filterData(rawData) {
+    const stripHtml = (str) => str.replace(/<[^>]+>/g, '')
     return rawData.map(item => ({
       id: item.albumid,
-      name: item.albumname,
-      singer: item.singername,
+      name: stripHtml(item.albumname || ''),
+      singer: stripHtml(item.singername || ''),
       img: (item.imgurl || '').replace('{size}', '480'),
       source: 'kg',
-      publish_date: item.publishdate || '',
+      publish_date: item.publishtime ? item.publishtime.slice(0, 10) : (item.publishdate || ''),
       song_count: item.songcount || 0,
     }))
   },
@@ -35,7 +36,15 @@ export default {
 
   albumSearch(str, page, limit) {
     const url = `http://msearch.kugou.com/api/v3/search/album?version=9108&iscorrection=1&highlight=em&plat=0&keyword=${encodeURIComponent(str)}&pagesize=${limit}&page=${page}&sver=2&with_res_tag=1`
-    return httpFetch(url).promise.then(res => res.body)
+    return httpFetch(url).promise.then(res => {
+      let body = res.body
+      // KG album search API wraps response in HTML comments
+      if (typeof body === 'string') {
+        body = body.replace(/<!--KG_TAG_RES_START-->/, '').replace(/<!--KG_TAG_RES_END-->/, '')
+        try { body = JSON.parse(body) } catch(e) {}
+      }
+      return body
+    })
   },
 
   search(str, page = 1, limit, retryNum = 0) {
