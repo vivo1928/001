@@ -76,7 +76,7 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId }, ref) 
   }
 
   useImperativeHandle(ref, () => ({
-    async loadList(source, id) {
+    loadList(source, id) {
       listRef.current?.setList([])
       listRef.current?.setStatus('loading')
       headerRef.current?.setInfo({
@@ -85,8 +85,7 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId }, ref) 
         imgUrl: info.img,
       })
       const page = 1
-      try {
-        const result = await fetchList(id, page)
+      return fetchList(id, page).then((result) => {
         if (isUnmountedRef.current) return
         listInfoRef.current = {
           list: result.list,
@@ -101,14 +100,16 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId }, ref) 
             imgUrl: result.info.img || info.img,
           })
         }
-        listRef.current?.setList(result.list)
-        listRef.current?.setStatus(result.allPage <= page ? 'end' : 'idle')
-      } catch (err: any) {
+        requestAnimationFrame(() => {
+          listRef.current?.setList(result.list)
+          listRef.current?.setStatus(result.allPage <= page ? 'end' : 'idle')
+        })
+      }).catch((err: any) => {
         console.error(`[AlbumDetail] loadList error: ${err?.message || err}`)
         if (!isUnmountedRef.current) {
           listRef.current?.setStatus('error')
         }
-      }
+      })
     },
   }))
 
