@@ -109,6 +109,10 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId }, ref) 
   const handlePlayList: OnlineListProps['onPlayList'] = (index) => {
     void handlePlay(info.id, info.source, listInfoRef.current.list, index)
   }
+  const handlePlayAll = () => {
+    if (!listInfoRef.current.list.length) return
+    void handlePlay(info.id, info.source, listInfoRef.current.list)
+  }
   const handleRefresh: OnlineListProps['onRefresh'] = () => {
     const page = 1
     listRef.current?.setStatus('refreshing')
@@ -151,7 +155,7 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId }, ref) 
     })
   }
 
-  const header = useMemo(() => <Header ref={headerRef} componentId={componentId} />, [componentId])
+  const header = useMemo(() => <Header ref={headerRef} componentId={componentId} onPlayAll={handlePlayAll} />, [componentId])
 
   return <OnlineList
     ref={listRef}

@@ -9,7 +9,11 @@ import commonState from '@/store/common/state'
 import Text from '@/components/common/Text'
 import { useI18n } from '@/lang'
 
-export default memo(() => {
+export interface ActionBarProps {
+  onPlayAll?: () => void
+}
+
+export default memo(({ onPlayAll }: ActionBarProps) => {
   const theme = useTheme()
   const t = useI18n()
 
@@ -17,9 +21,13 @@ export default memo(() => {
     void pop(commonState.componentIds.singerDetail!)
   }
 
+  const handlePlayAll = () => {
+    onPlayAll?.()
+  }
+
   return (
     <View style={styles.container}>
-      <Button onPress={back} style={styles.controlBtn}>
+      <Button onPress={handlePlayAll} style={styles.controlBtn}>
         <Text style={{ ...styles.controlBtnText, color: theme['c-button-font'] }}>{t('play_all')}</Text>
       </Button>
       <Button onPress={back} style={styles.controlBtn}>

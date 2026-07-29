@@ -23,9 +23,10 @@ export interface HeaderType {
 
 export interface HeaderProps {
   componentId: string
+  onPlayAll?: () => void
 }
 
-export default forwardRef<HeaderType, HeaderProps>(({ componentId }, ref) => {
+export default forwardRef<HeaderType, HeaderProps>(({ componentId, onPlayAll }, ref) => {
   const statusBarHeight = useStatusbarHeight()
   const theme = useTheme()
   const info = useSingerInfo()
@@ -50,7 +51,7 @@ export default forwardRef<HeaderType, HeaderProps>(({ componentId }, ref) => {
           </View>
         </View>
       </View>
-      <ActionBar />
+      <ActionBar onPlayAll={onPlayAll} />
     </View>
   )
 })
