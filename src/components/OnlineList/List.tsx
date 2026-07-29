@@ -234,6 +234,7 @@ const List = forwardRef<ListType, ListProps>(({
       ref={flatListRef}
       style={styles.list}
       data={currentList}
+      extraData={status}
       numColumns={rowInfo.current.rowNum}
       horizontal={false}
       maxToRenderPerBatch={4}

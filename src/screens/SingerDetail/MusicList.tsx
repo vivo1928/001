@@ -38,14 +38,15 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId }, ref) 
     const sdk = musicSdk[info.source]
     if (!sdk) throw new Error('source not found: ' + info.source)
 
-    // Try singer API first (kg, mg have getSingerSongList)
+    // Only kg has a working singer API with getSingerSongList
+    // mg singer API is broken, kw/tx/wy don't have singer API
     const singerApi = sdk.singer
-    if (singerApi?.getSingerSongList) {
+    if (singerApi?.getSingerSongList && info.source === 'kg') {
       try {
         console.log(`[SingerDetail] trying singer API for source=${info.source}`)
         const result = await singerApi.getSingerSongList(id, page, LIMIT)
-        console.log(`[SingerDetail] singer API result: list=${result?.list?.length} total=${result?.total} info=${JSON.stringify(result?.info)}`)
-        if (result && result.list) {
+        console.log(`[SingerDetail] singer API result: list=${result?.list?.length} total=${result?.total}`)
+        if (result && result.list && result.list.length > 0) {
           return {
             list: result.list,
             total: result.total || 0,
@@ -53,6 +54,7 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId }, ref) 
             info: result.info,
           }
         }
+        console.log(`[SingerDetail] singer API returned empty list, falling back to musicSearch`)
       } catch (err) {
         console.log(`[SingerDetail] singer API failed, falling back to music search: ${err}`)
       }
@@ -81,7 +83,8 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId }, ref) 
         imgUrl: info.img,
       })
       const page = 1
-      return fetchList(id, page).then((result) => {
+      try {
+        const result = await fetchList(id, page)
         if (isUnmountedRef.current) return
         listInfoRef.current = {
           list: result.list,
@@ -96,14 +99,14 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId }, ref) 
             imgUrl: result.info.img || info.img,
           })
         }
-        requestAnimationFrame(() => {
-          listRef.current?.setList(result.list)
-          listRef.current?.setStatus(result.allPage <= page ? 'end' : 'idle')
-        })
-      }).catch((err) => {
+        listRef.current?.setList(result.list)
+        listRef.current?.setStatus(result.allPage <= page ? 'end' : 'idle')
+      } catch (err: any) {
         console.error(`[SingerDetail] loadList error: ${err?.message || err}`)
-        listRef.current?.setStatus('error')
-      })
+        if (!isUnmountedRef.current) {
+          listRef.current?.setStatus('error')
+        }
+      }
     },
   }))
 
@@ -143,7 +146,9 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId }, ref) 
       listRef.current?.setStatus(result.allPage <= page ? 'end' : 'idle')
     }).catch((err) => {
       console.error(`[SingerDetail] refresh error: ${err?.message || err}`)
-      listRef.current?.setStatus('error')
+      if (!isUnmountedRef.current) {
+        listRef.current?.setStatus('error')
+      }
     })
   }
   const handleLoadMore: OnlineListProps['onLoadMore'] = () => {
@@ -161,7 +166,9 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId }, ref) 
       listRef.current?.setStatus(result.allPage <= page ? 'end' : 'idle')
     }).catch((err) => {
       console.error(`[SingerDetail] loadMore error: ${err?.message || err}`)
-      listRef.current?.setStatus('error')
+      if (!isUnmountedRef.current) {
+        listRef.current?.setStatus('error')
+      }
     })
   }
 

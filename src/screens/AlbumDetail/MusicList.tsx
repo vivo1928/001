@@ -35,32 +35,38 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId }, ref) 
   }> => {
     console.log(`[AlbumDetail] fetchList source=${info.source} id=${id} name=${info.name} page=${page}`)
     const sdk = musicSdk[info.source]
+    if (!sdk) throw new Error('source not found: ' + info.source)
+
     const albumApi = sdk?.album
 
-    // Try album API first
+    // Try album API first (kw, kg, mg have album APIs)
     if (albumApi) {
       const getDetail = albumApi.getAlbumDetail || albumApi.getAlbumListDetail
       if (getDetail) {
         try {
           console.log(`[AlbumDetail] trying album API for source=${info.source}`)
           const result = await getDetail.call(albumApi, id, page)
-          console.log(`[AlbumDetail] album API result: list=${result?.list?.length} total=${result?.total} info=${JSON.stringify(result?.info)}`)
-          return {
-            list: result.list || [],
-            total: result.total || 0,
-            allPage: result.allPage || Math.ceil((result.total || 0) / (result.limit || LIMIT)),
-            info: result.info,
+          console.log(`[AlbumDetail] album API result: list=${result?.list?.length} total=${result?.total}`)
+          if (result && result.list && result.list.length > 0) {
+            return {
+              list: result.list,
+              total: result.total || 0,
+              allPage: result.allPage || Math.ceil((result.total || 0) / (result.limit || LIMIT)),
+              info: result.info,
+            }
           }
+          console.log(`[AlbumDetail] album API returned empty list, falling back to musicSearch`)
         } catch (err) {
           console.log(`[AlbumDetail] album API failed, falling back to music search: ${err}`)
         }
       }
     }
 
-    // Fallback: use music search
-    console.log(`[AlbumDetail] falling back to musicSearch for name=${info.name}`)
-    if (!sdk?.musicSearch) throw new Error('source not supported')
-    const result = await sdk.musicSearch.search(info.name, page, LIMIT)
+    // Fallback: use music search by album/singer name
+    const searchName = info.name || info.singer || ''
+    console.log(`[AlbumDetail] falling back to musicSearch for name=${searchName}`)
+    if (!sdk?.musicSearch) throw new Error('musicSearch not supported for source: ' + info.source)
+    const result = await sdk.musicSearch.search(searchName, page, LIMIT)
     console.log(`[AlbumDetail] musicSearch result: list=${result?.list?.length} total=${result?.total}`)
     return {
       list: result.list || [],
@@ -79,7 +85,8 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId }, ref) 
         imgUrl: info.img,
       })
       const page = 1
-      return fetchList(id, page).then((result) => {
+      try {
+        const result = await fetchList(id, page)
         if (isUnmountedRef.current) return
         listInfoRef.current = {
           list: result.list,
@@ -94,14 +101,14 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId }, ref) 
             imgUrl: result.info.img || info.img,
           })
         }
-        requestAnimationFrame(() => {
-          listRef.current?.setList(result.list)
-          listRef.current?.setStatus(result.allPage <= page ? 'end' : 'idle')
-        })
-      }).catch((err) => {
+        listRef.current?.setList(result.list)
+        listRef.current?.setStatus(result.allPage <= page ? 'end' : 'idle')
+      } catch (err: any) {
         console.error(`[AlbumDetail] loadList error: ${err?.message || err}`)
-        listRef.current?.setStatus('error')
-      })
+        if (!isUnmountedRef.current) {
+          listRef.current?.setStatus('error')
+        }
+      }
     },
   }))
 
@@ -141,7 +148,9 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId }, ref) 
       listRef.current?.setStatus(result.allPage <= page ? 'end' : 'idle')
     }).catch((err) => {
       console.error(`[AlbumDetail] refresh error: ${err?.message || err}`)
-      listRef.current?.setStatus('error')
+      if (!isUnmountedRef.current) {
+        listRef.current?.setStatus('error')
+      }
     })
   }
   const handleLoadMore: OnlineListProps['onLoadMore'] = () => {
@@ -159,7 +168,9 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId }, ref) 
       listRef.current?.setStatus(result.allPage <= page ? 'end' : 'idle')
     }).catch((err) => {
       console.error(`[AlbumDetail] loadMore error: ${err?.message || err}`)
-      listRef.current?.setStatus('error')
+      if (!isUnmountedRef.current) {
+        listRef.current?.setStatus('error')
+      }
     })
   }
 

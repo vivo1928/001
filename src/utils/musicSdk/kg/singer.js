@@ -20,6 +20,8 @@ export default {
     const requestObj = httpFetch(`http://mobiles.kugou.com/api/v5/singer/info?singerid=${singerid}`)
     let { body, statusCode } = await requestObj.promise
     if (statusCode !== 200) throw new Error('获取歌手信息失败')
+    // KG singer info API may return error without data field
+    if (!body.data) throw new Error('获取歌手信息失败: ' + (body.error || '无数据'))
     return {
       source: 'kg',
       singerid,
@@ -35,6 +37,8 @@ export default {
     const requestObj = httpFetch(`http://mobiles.kugou.com/api/v5/singer/song?singerid=${singerid}&page=${page}&pagesize=${limit}`)
     let { body, statusCode } = await requestObj.promise
     if (statusCode !== 200) throw new Error('获取歌手歌曲列表失败')
+    // KG singer song list API may return error without data field (e.g. "参数不合法")
+    if (body.error || !body.data) throw new Error('获取歌手歌曲列表失败: ' + (body.error || '无数据'))
     let listData = await getMusicInfosByList(body.data.info)
     const singerInfo = await this.getSingerInfo(singerid).catch(() => null)
     return {
