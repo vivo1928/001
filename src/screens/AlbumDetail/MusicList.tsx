@@ -72,6 +72,11 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId }, ref) 
       list: result.list || [],
       total: result.total || 0,
       allPage: result.allPage || 1,
+      info: {
+        name: info.name || searchName,
+        img: info.img,
+        desc: info.singer ? `${info.singer}${info.publish_date ? ' · ' + info.publish_date : ''}` : (info.publish_date || ''),
+      },
     }
   }
 

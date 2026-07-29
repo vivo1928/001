@@ -20,7 +20,7 @@ const search = async (str, page = 1, limit = 20, retryNum = 0) => {
   if (retryNum > 2) return { list: [], allPage: 0, limit, total: 0, source: 'wy' }
 
   try {
-    const result = await eapiRequest('/api/search/artist/list/page', {
+    const requestObj = eapiRequest('/api/search/artist/list/page', {
       keyword: str,
       needCorrect: '1',
       channel: 'typing',
@@ -29,12 +29,14 @@ const search = async (str, page = 1, limit = 20, retryNum = 0) => {
       total: page == 1,
       limit
     })
+    const resp = await requestObj.promise
+    const result = resp.body
 
     if (result.code !== 200) {
       return { list: [], allPage: 0, limit, total: 0, source: 'wy' }
     }
 
-    const body = result.body || result
+    const body = result
     const rawList = body.data ? body.data.resources || [] : (body.result ? body.result.artists || [] : [])
     const filteredList = handleResult(rawList)
     const list = filterData(filteredList)
