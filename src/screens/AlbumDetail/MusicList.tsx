@@ -4,8 +4,6 @@ import Header, { type HeaderType } from './Header'
 import { useAlbumInfo } from './state'
 import { handlePlay } from './listAction'
 import musicSdk from '@/utils/musicSdk'
-import { search } from '@/core/search/music'
-import searchMusicState from '@/store/search/music/state'
 
 export interface MusicListProps {
   componentId: string
@@ -16,39 +14,6 @@ export interface MusicListType {
 }
 
 const LIMIT = 30
-
-const fetchAlbumDetail = async(id: string, name: string, source: LX.OnlineSource, page: number): Promise<{
-  list: LX.Music.MusicInfoOnline[]
-  total: number
-  page: number
-  maxPage: number
-  info?: { name?: string; img?: string; desc?: string; author?: string }
-}> => {
-  const albumApi = musicSdk[source]?.album
-  if (albumApi) {
-    // kw uses getAlbumListDetail, kg/mg use getAlbumDetail
-    const getDetail = albumApi.getAlbumDetail || albumApi.getAlbumListDetail
-    if (getDetail) {
-      const result = await getDetail.call(albumApi, id, page)
-      return {
-        list: result.list || [],
-        total: result.total || 0,
-        page: result.page || page,
-        maxPage: result.allPage || Math.ceil((result.total || 0) / LIMIT),
-        info: result.info,
-      }
-    }
-  }
-  // Fallback: use music search for sources without album API (tx, wy)
-  const list = await search(name, page, source)
-  const listInfo = searchMusicState.listInfos[source]!
-  return {
-    list,
-    total: listInfo.total,
-    page: listInfo.page,
-    maxPage: listInfo.maxPage,
-  }
-}
 
 export default forwardRef<MusicListType, MusicListProps>(({ componentId }, ref) => {
   const listRef = useRef<OnlineListType>(null)
@@ -62,6 +27,43 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId }, ref) 
     maxPage: number
   }>({ list: [], page: 0, total: 0, maxPage: 0 })
 
+  const fetchList = async(id: string, page: number): Promise<{
+    list: LX.Music.MusicInfoOnline[]
+    total: number
+    allPage: number
+    info?: { name?: string; img?: string; desc?: string; author?: string }
+  }> => {
+    const sdk = musicSdk[info.source]
+    const albumApi = sdk?.album
+
+    // Try album API first
+    if (albumApi) {
+      const getDetail = albumApi.getAlbumDetail || albumApi.getAlbumListDetail
+      if (getDetail) {
+        try {
+          const result = await getDetail.call(albumApi, id, page)
+          return {
+            list: result.list || [],
+            total: result.total || 0,
+            allPage: result.allPage || Math.ceil((result.total || 0) / (result.limit || LIMIT)),
+            info: result.info,
+          }
+        } catch (_) {
+          // Fall through to music search
+        }
+      }
+    }
+
+    // Fallback: use music search
+    if (!sdk?.musicSearch) throw new Error('source not supported')
+    const result = await sdk.musicSearch.search(info.name, page, LIMIT)
+    return {
+      list: result.list || [],
+      total: result.total || 0,
+      allPage: result.allPage || 1,
+    }
+  }
+
   useImperativeHandle(ref, () => ({
     async loadList(source, id) {
       listRef.current?.setList([])
@@ -72,13 +74,13 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId }, ref) 
         imgUrl: info.img,
       })
       const page = 1
-      return fetchAlbumDetail(id, info.name, source, page).then((result) => {
+      return fetchList(id, page).then((result) => {
         if (isUnmountedRef.current) return
         listInfoRef.current = {
           list: result.list,
-          page: result.page,
+          page,
           total: result.total,
-          maxPage: result.maxPage,
+          maxPage: result.allPage,
         }
         if (result.info) {
           headerRef.current?.setInfo({
@@ -89,7 +91,7 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId }, ref) 
         }
         requestAnimationFrame(() => {
           listRef.current?.setList(result.list)
-          listRef.current?.setStatus(result.maxPage <= page ? 'end' : 'idle')
+          listRef.current?.setStatus(result.allPage <= page ? 'end' : 'idle')
         })
       }).catch(() => {
         listRef.current?.setStatus('error')
@@ -110,13 +112,13 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId }, ref) 
   const handleRefresh: OnlineListProps['onRefresh'] = () => {
     const page = 1
     listRef.current?.setStatus('refreshing')
-    fetchAlbumDetail(info.id, info.name, info.source, page).then((result) => {
+    fetchList(info.id, page).then((result) => {
       if (isUnmountedRef.current) return
       listInfoRef.current = {
         list: result.list,
-        page: result.page,
+        page,
         total: result.total,
-        maxPage: result.maxPage,
+        maxPage: result.allPage,
       }
       if (result.info) {
         headerRef.current?.setInfo({
@@ -126,7 +128,7 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId }, ref) 
         })
       }
       listRef.current?.setList(result.list)
-      listRef.current?.setStatus(result.maxPage <= page ? 'end' : 'idle')
+      listRef.current?.setStatus(result.allPage <= page ? 'end' : 'idle')
     }).catch(() => {
       listRef.current?.setStatus('error')
     })
@@ -134,16 +136,16 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId }, ref) 
   const handleLoadMore: OnlineListProps['onLoadMore'] = () => {
     listRef.current?.setStatus('loading')
     const page = listInfoRef.current.list.length ? listInfoRef.current.page + 1 : 1
-    fetchAlbumDetail(info.id, info.name, info.source, page).then((result) => {
+    fetchList(info.id, page).then((result) => {
       if (isUnmountedRef.current) return
       listInfoRef.current = {
         list: [...listInfoRef.current.list, ...result.list],
-        page: result.page,
+        page,
         total: result.total,
-        maxPage: result.maxPage,
+        maxPage: result.allPage,
       }
       listRef.current?.setList(listInfoRef.current.list, true)
-      listRef.current?.setStatus(result.maxPage <= page ? 'end' : 'idle')
+      listRef.current?.setStatus(result.allPage <= page ? 'end' : 'idle')
     }).catch(() => {
       listRef.current?.setStatus('error')
     })
