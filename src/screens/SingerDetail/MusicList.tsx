@@ -2,6 +2,7 @@ import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef } from 'rea
 import OnlineList, { type OnlineListType, type OnlineListProps } from '@/components/OnlineList'
 import Header, { type HeaderType } from './Header'
 import { useSingerInfo } from './state'
+import musicSdk from '@/utils/musicSdk'
 import { search } from '@/core/search/music'
 import searchMusicState from '@/store/search/music/state'
 import { handlePlay } from './listAction'
@@ -12,6 +13,37 @@ export interface MusicListProps {
 
 export interface MusicListType {
   loadList: (source: LX.OnlineSource, id: string) => void
+}
+
+const LIMIT = 30
+
+const fetchSingerSongList = async(id: string, name: string, source: LX.OnlineSource, page: number): Promise<{
+  list: LX.Music.MusicInfoOnline[]
+  total: number
+  page: number
+  maxPage: number
+  info?: { name?: string; img?: string; desc?: string }
+}> => {
+  const singerApi = musicSdk[source]?.singer
+  if (singerApi?.getSingerSongList) {
+    const result = await singerApi.getSingerSongList(id, page, LIMIT)
+    return {
+      list: result.list || [],
+      total: result.total || 0,
+      page: result.page || page,
+      maxPage: result.allPage || Math.ceil((result.total || 0) / LIMIT),
+      info: result.info,
+    }
+  }
+  // Fallback: use music search for sources without singer API (kw, tx, wy)
+  const list = await search(name, page, source)
+  const listInfo = searchMusicState.listInfos[source]!
+  return {
+    list,
+    total: listInfo.total,
+    page: listInfo.page,
+    maxPage: listInfo.maxPage,
+  }
 }
 
 export default forwardRef<MusicListType, MusicListProps>(({ componentId }, ref) => {
@@ -36,18 +68,24 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId }, ref) 
         imgUrl: info.img,
       })
       const page = 1
-      return search(info.name, page, source).then((list) => {
+      return fetchSingerSongList(id, info.name, source, page).then((result) => {
         if (isUnmountedRef.current) return
-        const listInfo = searchMusicState.listInfos[source]!
         listInfoRef.current = {
-          list: list,
-          page: listInfo.page,
-          total: listInfo.total,
-          maxPage: listInfo.maxPage,
+          list: result.list,
+          page: result.page,
+          total: result.total,
+          maxPage: result.maxPage,
+        }
+        if (result.info) {
+          headerRef.current?.setInfo({
+            name: result.info.name || info.name || '',
+            desc: result.info.desc || '',
+            imgUrl: result.info.img || info.img,
+          })
         }
         requestAnimationFrame(() => {
-          listRef.current?.setList(list)
-          listRef.current?.setStatus(listInfo.maxPage <= page ? 'end' : 'idle')
+          listRef.current?.setList(result.list)
+          listRef.current?.setStatus(result.maxPage <= page ? 'end' : 'idle')
         })
       }).catch(() => {
         listRef.current?.setStatus('error')
@@ -68,17 +106,23 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId }, ref) 
   const handleRefresh: OnlineListProps['onRefresh'] = () => {
     const page = 1
     listRef.current?.setStatus('refreshing')
-    search(info.name, page, info.source).then((list) => {
+    fetchSingerSongList(info.id, info.name, info.source, page).then((result) => {
       if (isUnmountedRef.current) return
-      const listInfo = searchMusicState.listInfos[info.source]!
       listInfoRef.current = {
-        list: list,
-        page: listInfo.page,
-        total: listInfo.total,
-        maxPage: listInfo.maxPage,
+        list: result.list,
+        page: result.page,
+        total: result.total,
+        maxPage: result.maxPage,
       }
-      listRef.current?.setList(list)
-      listRef.current?.setStatus(listInfo.maxPage <= page ? 'end' : 'idle')
+      if (result.info) {
+        headerRef.current?.setInfo({
+          name: result.info.name || info.name || '',
+          desc: result.info.desc || '',
+          imgUrl: result.info.img || info.img,
+        })
+      }
+      listRef.current?.setList(result.list)
+      listRef.current?.setStatus(result.maxPage <= page ? 'end' : 'idle')
     }).catch(() => {
       listRef.current?.setStatus('error')
     })
@@ -86,17 +130,16 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId }, ref) 
   const handleLoadMore: OnlineListProps['onLoadMore'] = () => {
     listRef.current?.setStatus('loading')
     const page = listInfoRef.current.list.length ? listInfoRef.current.page + 1 : 1
-    search(info.name, page, info.source).then((list) => {
+    fetchSingerSongList(info.id, info.name, info.source, page).then((result) => {
       if (isUnmountedRef.current) return
-      const listInfo = searchMusicState.listInfos[info.source]!
       listInfoRef.current = {
-        list: [...listInfoRef.current.list, ...list],
-        page: listInfo.page,
-        total: listInfo.total,
-        maxPage: listInfo.maxPage,
+        list: [...listInfoRef.current.list, ...result.list],
+        page: result.page,
+        total: result.total,
+        maxPage: result.maxPage,
       }
       listRef.current?.setList(listInfoRef.current.list, true)
-      listRef.current?.setStatus(listInfo.maxPage <= page ? 'end' : 'idle')
+      listRef.current?.setStatus(result.maxPage <= page ? 'end' : 'idle')
     }).catch(() => {
       listRef.current?.setStatus('error')
     })
