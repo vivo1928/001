@@ -2,6 +2,10 @@ import { apis } from '../api-source'
 import leaderboard from './leaderboard'
 import songList from './songList'
 import musicSearch from './musicSearch'
+import albumSearch from './albumSearch'
+import singerSearch from './singerSearch'
+import album from './album'
+import singer from './singer'
 import pic from './pic'
 import lyric from './lyric'
 import hotSearch from './hotSearch'
@@ -12,6 +16,10 @@ const mg = {
   // tipSearch,
   songList,
   musicSearch,
+  albumSearch,
+  singerSearch,
+  album,
+  singer,
   leaderboard,
   hotSearch,
   comment,

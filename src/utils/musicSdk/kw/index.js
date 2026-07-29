@@ -1,6 +1,8 @@
 import { httpFetch } from '../../request'
 import tipSearch from './tipSearch'
 import musicSearch from './musicSearch'
+import albumSearch from './albumSearch'
+import singerSearch from './singerSearch'
 import { formatSinger } from './util'
 import leaderboard from './leaderboard'
 import lyric from './lyric'
@@ -34,6 +36,8 @@ const kw = {
 
   tipSearch,
   musicSearch,
+  albumSearch,
+  singerSearch,
   leaderboard,
   songList,
   hotSearch,

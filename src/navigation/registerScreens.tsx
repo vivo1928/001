@@ -6,6 +6,8 @@ import {
   Home,
   PlayDetail,
   SonglistDetail,
+  SingerDetail,
+  AlbumDetail,
   Comment,
   // Setting,
 } from '@/screens'
@@ -15,6 +17,8 @@ import {
   HOME_SCREEN,
   PLAY_DETAIL_SCREEN,
   SONGLIST_DETAIL_SCREEN,
+  SINGER_DETAIL_SCREEN,
+  ALBUM_DETAIL_SCREEN,
   COMMENT_SCREEN,
   VERSION_MODAL,
   PACT_MODAL,
@@ -43,6 +47,8 @@ export default () => {
   Navigation.registerComponent(HOME_SCREEN, () => WrappedComponent(Home))
   Navigation.registerComponent(PLAY_DETAIL_SCREEN, () => WrappedComponent(PlayDetail))
   Navigation.registerComponent(SONGLIST_DETAIL_SCREEN, () => WrappedComponent(SonglistDetail))
+  Navigation.registerComponent(SINGER_DETAIL_SCREEN, () => WrappedComponent(SingerDetail))
+  Navigation.registerComponent(ALBUM_DETAIL_SCREEN, () => WrappedComponent(AlbumDetail))
   Navigation.registerComponent(COMMENT_SCREEN, () => WrappedComponent(Comment))
   Navigation.registerComponent(VERSION_MODAL, () => WrappedComponent(VersionModal))
   Navigation.registerComponent(PACT_MODAL, () => WrappedComponent(PactModal))

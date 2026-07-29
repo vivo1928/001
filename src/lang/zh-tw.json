@@ -254,6 +254,8 @@
   "search_input": "搜尋框",
   "search_type_music": "歌曲",
   "search_type_songlist": "歌單",
+  "search_type_album": "專輯",
+  "search_type_singer": "歌手",
   "setting__other_dislike_list": "「不喜歡的歌曲」規則",
   "setting__other_dislike_list_label": "規則數量：{num}",
   "setting__other_dislike_list_saved_tip": "已儲存",

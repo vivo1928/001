@@ -1,9 +1,11 @@
 import leaderboard from './leaderboard'
 import { apis } from '../api-source'
+import songList from './songList'
+import musicSearch from './musicSearch'
+import albumSearch from './albumSearch'
+import singerSearch from './singerSearch'
 import getLyric from './lyric'
 import getMusicInfo from './musicInfo'
-import musicSearch from './musicSearch'
-import songList from './songList'
 import hotSearch from './hotSearch'
 import comment from './comment'
 // import tipSearch from './tipSearch'
@@ -11,8 +13,10 @@ import comment from './comment'
 const wy = {
   // tipSearch,
   leaderboard,
-  musicSearch,
   songList,
+  musicSearch,
+  albumSearch,
+  singerSearch,
   hotSearch,
   comment,
   getMusicUrl(songInfo, type) {

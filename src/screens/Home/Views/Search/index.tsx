@@ -9,6 +9,8 @@ import HeaderBar, { type HeaderBarProps, type HeaderBarType } from './HeaderBar'
 import searchState, { type SearchType } from '@/store/search/state'
 import searchMusicState from '@/store/search/music/state'
 import searchSonglistState from '@/store/search/songlist/state'
+import searchAlbumState from '@/store/search/album/state'
+import searchSingerState from '@/store/search/singer/state'
 import { getSearchSetting, saveSearchSetting } from '@/utils/data'
 import { createStyle } from '@/utils/tools'
 import TipList, { type TipListType } from './TipList'
@@ -19,7 +21,7 @@ import { addHistoryWord } from '@/core/search/search'
 interface SearchInfo {
   temp_source: LX.OnlineSource
   source: LX.OnlineSource | 'all'
-  searchType: 'music' | 'songlist'
+  searchType: SearchType
 }
 
 export default () => {
@@ -42,6 +44,12 @@ export default () => {
           break
         case 'songlist':
           headerBarRef.current?.setSourceList(searchSonglistState.sources, info.source)
+          break
+        case 'album':
+          headerBarRef.current?.setSourceList(searchAlbumState.sources, info.source)
+          break
+        case 'singer':
+          headerBarRef.current?.setSourceList(searchSingerState.sources, info.source)
           break
       }
       headerBarRef.current?.setText(searchState.searchText)

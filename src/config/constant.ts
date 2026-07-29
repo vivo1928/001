@@ -24,6 +24,8 @@ export enum COMPONENT_IDS {
   home = 'home',
   playDetail = 'playDetail',
   songlistDetail = 'songlistDetail',
+  singerDetail = 'singerDetail',
+  albumDetail = 'albumDetail',
   comment = 'comment',
 }
 
@@ -144,7 +146,7 @@ export const DEFAULT_SETTING = {
   search: {
     temp_source: 'kw' as LX.OnlineSource,
     source: 'all' as LX.OnlineSource | 'all',
-    type: 'music' as 'music' | 'songlist',
+    type: 'music' as 'music' | 'songlist' | 'album' | 'singer',
   },
 
   viewPrevState: {
