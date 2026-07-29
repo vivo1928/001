@@ -36,13 +36,20 @@ export default {
     let { body, statusCode } = await requestObj.promise
     if (statusCode !== 200) throw new Error('获取歌手歌曲列表失败')
     let listData = await getMusicInfosByList(body.data.info)
+    const singerInfo = await this.getSingerInfo(singerid).catch(() => null)
     return {
       source: 'kg',
       list: listData,
       id: `kg__singer_${singerid}`,
       singerid,
       total: body.data.total,
+      limit,
       allPage: Math.ceil(body.data.total / limit),
+      info: {
+        name: singerInfo?.info?.name || '',
+        img: singerInfo?.info?.img,
+        desc: singerInfo?.info?.desc || '',
+      },
     }
   },
   async getSingerAlbumList(singerid, page, limit) {

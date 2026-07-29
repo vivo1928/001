@@ -33,6 +33,7 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId }, ref) 
     allPage: number
     info?: { name?: string; img?: string; desc?: string; author?: string }
   }> => {
+    console.log(`[AlbumDetail] fetchList source=${info.source} id=${id} name=${info.name} page=${page}`)
     const sdk = musicSdk[info.source]
     const albumApi = sdk?.album
 
@@ -41,22 +42,26 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId }, ref) 
       const getDetail = albumApi.getAlbumDetail || albumApi.getAlbumListDetail
       if (getDetail) {
         try {
+          console.log(`[AlbumDetail] trying album API for source=${info.source}`)
           const result = await getDetail.call(albumApi, id, page)
+          console.log(`[AlbumDetail] album API result: list=${result?.list?.length} total=${result?.total} info=${JSON.stringify(result?.info)}`)
           return {
             list: result.list || [],
             total: result.total || 0,
             allPage: result.allPage || Math.ceil((result.total || 0) / (result.limit || LIMIT)),
             info: result.info,
           }
-        } catch (_) {
-          // Fall through to music search
+        } catch (err) {
+          console.log(`[AlbumDetail] album API failed, falling back to music search: ${err}`)
         }
       }
     }
 
     // Fallback: use music search
+    console.log(`[AlbumDetail] falling back to musicSearch for name=${info.name}`)
     if (!sdk?.musicSearch) throw new Error('source not supported')
     const result = await sdk.musicSearch.search(info.name, page, LIMIT)
+    console.log(`[AlbumDetail] musicSearch result: list=${result?.list?.length} total=${result?.total}`)
     return {
       list: result.list || [],
       total: result.total || 0,
@@ -93,7 +98,8 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId }, ref) 
           listRef.current?.setList(result.list)
           listRef.current?.setStatus(result.allPage <= page ? 'end' : 'idle')
         })
-      }).catch(() => {
+      }).catch((err) => {
+        console.error(`[AlbumDetail] loadList error: ${err?.message || err}`)
         listRef.current?.setStatus('error')
       })
     },
@@ -133,7 +139,8 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId }, ref) 
       }
       listRef.current?.setList(result.list)
       listRef.current?.setStatus(result.allPage <= page ? 'end' : 'idle')
-    }).catch(() => {
+    }).catch((err) => {
+      console.error(`[AlbumDetail] refresh error: ${err?.message || err}`)
       listRef.current?.setStatus('error')
     })
   }
@@ -150,7 +157,8 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId }, ref) 
       }
       listRef.current?.setList(listInfoRef.current.list, true)
       listRef.current?.setStatus(result.allPage <= page ? 'end' : 'idle')
-    }).catch(() => {
+    }).catch((err) => {
+      console.error(`[AlbumDetail] loadMore error: ${err?.message || err}`)
       listRef.current?.setStatus('error')
     })
   }

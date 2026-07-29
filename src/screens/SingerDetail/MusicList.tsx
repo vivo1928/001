@@ -34,6 +34,7 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId }, ref) 
     allPage: number
     info?: { name?: string; img?: string; desc?: string }
   }> => {
+    console.log(`[SingerDetail] fetchList source=${info.source} id=${id} name=${info.name} page=${page}`)
     const sdk = musicSdk[info.source]
     if (!sdk) throw new Error('source not found: ' + info.source)
 
@@ -41,7 +42,9 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId }, ref) 
     const singerApi = sdk.singer
     if (singerApi?.getSingerSongList) {
       try {
+        console.log(`[SingerDetail] trying singer API for source=${info.source}`)
         const result = await singerApi.getSingerSongList(id, page, LIMIT)
+        console.log(`[SingerDetail] singer API result: list=${result?.list?.length} total=${result?.total} info=${JSON.stringify(result?.info)}`)
         if (result && result.list) {
           return {
             list: result.list,
@@ -50,14 +53,16 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId }, ref) 
             info: result.info,
           }
         }
-      } catch (_) {
-        // Fall through to music search
+      } catch (err) {
+        console.log(`[SingerDetail] singer API failed, falling back to music search: ${err}`)
       }
     }
 
     // Fallback: use music search by singer name
+    console.log(`[SingerDetail] falling back to musicSearch for name=${info.name}`)
     if (!sdk?.musicSearch) throw new Error('musicSearch not supported for source: ' + info.source)
     const result = await sdk.musicSearch.search(info.name, page, LIMIT)
+    console.log(`[SingerDetail] musicSearch result: list=${result?.list?.length} total=${result?.total}`)
     return {
       list: result.list || [],
       total: result.total || 0,
@@ -95,7 +100,8 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId }, ref) 
           listRef.current?.setList(result.list)
           listRef.current?.setStatus(result.allPage <= page ? 'end' : 'idle')
         })
-      }).catch(() => {
+      }).catch((err) => {
+        console.error(`[SingerDetail] loadList error: ${err?.message || err}`)
         listRef.current?.setStatus('error')
       })
     },
@@ -135,7 +141,8 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId }, ref) 
       }
       listRef.current?.setList(result.list)
       listRef.current?.setStatus(result.allPage <= page ? 'end' : 'idle')
-    }).catch(() => {
+    }).catch((err) => {
+      console.error(`[SingerDetail] refresh error: ${err?.message || err}`)
       listRef.current?.setStatus('error')
     })
   }
@@ -152,7 +159,8 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId }, ref) 
       }
       listRef.current?.setList(listInfoRef.current.list, true)
       listRef.current?.setStatus(result.allPage <= page ? 'end' : 'idle')
-    }).catch(() => {
+    }).catch((err) => {
+      console.error(`[SingerDetail] loadMore error: ${err?.message || err}`)
       listRef.current?.setStatus('error')
     })
   }
