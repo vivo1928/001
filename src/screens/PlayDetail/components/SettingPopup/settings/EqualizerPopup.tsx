@@ -232,7 +232,7 @@ export default forwardRef<EqualizerPopupType>((_, ref) => {
                       borderColor: eqEnabled ? theme['c-primary'] : theme['c-font-label'],
                     },
                   ]}
-                  accessibilityLabel={eqEnabled ? t('eq_disable') : t('eq_enable')}
+                  accessibilityLabel={t('eq_title')}
                   accessibilityState={{ checked: eqEnabled }}
                   accessibilityRole="switch"
                 >
