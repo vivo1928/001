@@ -36,7 +36,7 @@ export default memo(({ item, index, width, showSource, onPress }: {
             </TouchableOpacity>
           </View>
         )
-      : <View style={{ ...styles.listItem, width: itemWidth }} />
+      : <View style={{ ...styles.listItem, width: itemWidth }} accessible={false} importantForAccessibility="no" />
   )
 })
 

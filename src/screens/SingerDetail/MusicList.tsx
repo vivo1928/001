@@ -38,8 +38,7 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId }, ref) 
     const sdk = musicSdk[info.source]
     if (!sdk) throw new Error('source not found: ' + info.source)
 
-    // Only kg has a working singer API with getSingerSongList
-    // mg singer API is broken, kw/tx/wy don't have singer API
+    // Try singer API first for kg (only kg has a working singer API with getSingerSongList)
     const singerApi = sdk.singer
     if (singerApi?.getSingerSongList && info.source === 'kg') {
       try {
@@ -61,9 +60,12 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId }, ref) 
     }
 
     // Fallback: use music search by singer name
-    console.log(`[SingerDetail] falling back to musicSearch for name=${info.name}`)
+    // This works for all sources since musicSearch is the standard song search API
+    const searchName = info.name || ''
+    if (!searchName) throw new Error('Singer name is empty')
+    console.log(`[SingerDetail] falling back to musicSearch for name=${searchName}`)
     if (!sdk?.musicSearch) throw new Error('musicSearch not supported for source: ' + info.source)
-    const result = await sdk.musicSearch.search(info.name, page, LIMIT)
+    const result = await sdk.musicSearch.search(searchName, page, LIMIT)
     console.log(`[SingerDetail] musicSearch result: list=${result?.list?.length} total=${result?.total}`)
     return {
       list: result.list || [],

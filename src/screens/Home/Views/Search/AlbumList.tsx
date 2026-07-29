@@ -40,11 +40,11 @@ export default forwardRef<AlbumListType, {}>((props, ref) => {
 
   useImperativeHandle(ref, () => ({
     async loadList(text, source) {
-      listRef.current?.setList([], source == 'all')
+      listRef.current?.setList([], false)
       if (searchAlbumState.searchText == text && searchAlbumState.source == source && searchAlbumState.listInfos[searchAlbumState.source]!.list.length) {
         requestAnimationFrame(() => {
           const mappedList = searchAlbumState.listInfos[searchAlbumState.source]!.list.map(mapToSonglistItem)
-          listRef.current?.setList(mappedList, source == 'all')
+          listRef.current?.setList(mappedList, false)
         })
       } else {
         listRef.current?.setStatus('loading')
@@ -55,7 +55,7 @@ export default forwardRef<AlbumListType, {}>((props, ref) => {
           if (isUnmountedRef.current) return
           requestAnimationFrame(() => {
             const mappedList = list.map(mapToSonglistItem)
-            listRef.current?.setList(mappedList, source == 'all')
+            listRef.current?.setList(mappedList, false)
             listRef.current?.setStatus(searchAlbumState.maxPages[searchAlbumState.source] == page ? 'end' : 'idle')
           })
         }).catch(() => {
@@ -81,7 +81,7 @@ export default forwardRef<AlbumListType, {}>((props, ref) => {
     search(searchInfoRef.current.text, page, searchInfoRef.current.source).then((list) => {
       if (isUnmountedRef.current) return
       const mappedList = list.map(mapToSonglistItem)
-      listRef.current?.setList(mappedList, searchInfoRef.current.source == 'all')
+      listRef.current?.setList(mappedList, false)
       listRef.current?.setStatus(searchAlbumState.maxPages[searchAlbumState.source] == page ? 'end' : 'idle')
     }).catch(() => {
       listRef.current?.setStatus('error')
@@ -94,7 +94,7 @@ export default forwardRef<AlbumListType, {}>((props, ref) => {
     search(searchInfoRef.current.text, page, searchInfoRef.current.source).then((list) => {
       if (isUnmountedRef.current) return
       const mappedList = list.map(mapToSonglistItem)
-      listRef.current?.setList(mappedList, searchInfoRef.current.source == 'all')
+      listRef.current?.setList(mappedList, false)
       listRef.current?.setStatus(searchAlbumState.maxPages[searchAlbumState.source] == page ? 'end' : 'idle')
     }).catch(() => {
       listRef.current?.setStatus('error')
