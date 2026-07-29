@@ -262,6 +262,8 @@ export const updateOptions = async(options = {
     Capability.SeekTo,
     Capability.SkipToNext,
     Capability.SkipToPrevious,
+    Capability.JumpForward,
+    Capability.JumpBackward,
   ],
 
   notificationCapabilities: [
@@ -279,6 +281,10 @@ export const updateOptions = async(options = {
     Capability.Stop,
     Capability.SkipToNext,
   ],
+
+  // 快进/快退间隔（秒），TalkBack 三指手势使用
+  forwardJumpInterval: 10,
+  backwardJumpInterval: 10,
 
   // Icons for the notification on Android (if you don't like the default ones)
   // playIcon: require('./play-icon.png'),

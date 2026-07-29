@@ -76,6 +76,19 @@ const registerPlaybackService = async() => {
     global.app_event.setProgress(position as number)
   })
 
+  TrackPlayer.addEventListener(TPEvent.RemoteJumpForward, async({ interval }) => {
+    const currentTime = await TrackPlayer.getPosition()
+    const duration = await TrackPlayer.getDuration()
+    const newTime = Math.min(duration, currentTime + (interval as number || 10))
+    global.app_event.setProgress(newTime)
+  })
+
+  TrackPlayer.addEventListener(TPEvent.RemoteJumpBackward, async({ interval }) => {
+    const currentTime = await TrackPlayer.getPosition()
+    const newTime = Math.max(0, currentTime - (interval as number || 10))
+    global.app_event.setProgress(newTime)
+  })
+
   TrackPlayer.addEventListener(TPEvent.PlaybackState, async info => {
     if (global.lx.gettingUrlId || isTempId()) return
     // let currentIsPlaying = false
