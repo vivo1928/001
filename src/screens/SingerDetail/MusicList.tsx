@@ -98,10 +98,8 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId }, ref) 
             imgUrl: result.info.img || info.img,
           })
         }
-        requestAnimationFrame(() => {
-          listRef.current?.setList(result.list)
-          listRef.current?.setStatus(result.allPage <= page ? 'end' : 'idle')
-        })
+        listRef.current?.setList(result.list)
+        listRef.current?.setStatus(result.allPage <= page ? 'end' : 'idle')
       }).catch((err: any) => {
         console.error(`[SingerDetail] loadList error: ${err?.message || err}`)
         if (!isUnmountedRef.current) {
