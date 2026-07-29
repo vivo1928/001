@@ -42,9 +42,9 @@ export default {
     if (++retryNum > 3) return Promise.reject(new Error('try max num'))
     if (limit == null) limit = this.limit
     return this.albumSearch(str, page, limit).then(result => {
-      if (!result || result.error_code !== 0) return this.search(str, page, limit, retryNum)
-      let list = this.handleResult(result.data.lists || result.data || [])
-      if (list == null) return this.search(str, page, limit, retryNum)
+      if (!result || result.errcode !== 0) return this.search(str, page, limit, retryNum)
+      let list = this.handleResult(result.data.info || result.data.lists || [])
+      if (list == null || !list.length) return this.search(str, page, limit, retryNum)
       this.total = result.data.total
       this.page = page
       this.allPage = Math.ceil(this.total / limit)

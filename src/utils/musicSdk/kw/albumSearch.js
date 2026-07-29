@@ -12,13 +12,13 @@ export default {
 
   filterData(rawList) {
     return rawList.map(item => ({
-      id: item.albumid,
-      name: decodeName(item.albumname || item.name),
-      singer: decodeName(item.artist || item.artistname),
-      img: item.pic || item.img || '',
+      id: item.albumid || item.id,
+      name: decodeName(item.albumname || item.album || item.name),
+      singer: decodeName(item.artist || item.artistname || ''),
+      img: item.img || item.hts_img || item.pic || '',
       source: 'kw',
-      song_count: parseInt(item.songnum) || 0,
-      publish_date: item.publish_date || '',
+      song_count: parseInt(item.songnum || item.song_count) || 0,
+      publish_date: item.publish_date || item.publishDate || '',
     }))
   },
 
@@ -26,8 +26,9 @@ export default {
     const ids = new Set()
     const list = []
     rawList.forEach(item => {
-      if (!ids.has(item.albumid)) {
-        ids.add(item.albumid)
+      const id = item.albumid || item.id
+      if (!ids.has(id)) {
+        ids.add(id)
         list.push(item)
       }
     })
@@ -35,19 +36,15 @@ export default {
     return this.filterData(newList)
   },
 
-  albumSearch(str, page, limit) {
-    const url = `http://search.kuwo.cn/r.s?pn=${page - 1}&rn=${limit}&stype=album&all=${encodeURIComponent(str)}&show_copyright_off=0&encoding=utf&vipver=MUSIC_9.1.0`
-    return httpFetch(url).then(res => objStr2JSON(res.body))
-  },
-
   search(str, page = 1, limit, retryNum = 0) {
     if (++retryNum > 3) return Promise.reject(new Error('try max num'))
     if (limit == null) limit = this.limit
-    return this.albumSearch(str, page, limit).then(result => {
-      if (!result || result.error_code !== 0) return this.search(str, page, limit, retryNum)
-      let list = this.handleResult(result.data.lists || result.data || [])
-      if (list == null) return this.search(str, page, limit, retryNum)
-      this.total = result.data.total
+    return httpFetch(`http://search.kuwo.cn/r.s?all=${encodeURIComponent(str)}&pn=${page - 1}&rn=${limit}&rformat=json&encoding=utf8&ft=album`).promise.then(({ body }) => {
+      body = objStr2JSON(body)
+      if (!body || (body.TOTAL == '0' && body.SHOW == '0')) return this.search(str, page, limit, retryNum)
+      let list = this.handleResult(body.albumlist || body.abslist || [])
+      if (list == null || !list.length) return this.search(str, page, limit, retryNum)
+      this.total = parseInt(body.TOTAL) || 0
       this.page = page
       this.allPage = Math.ceil(this.total / limit)
       return Promise.resolve({ list, allPage: this.allPage, limit, total: this.total, source: 'kw' })

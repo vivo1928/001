@@ -26,13 +26,13 @@ export default forwardRef<ListType, ListProps>(({ onSearch }, ref) => {
       if (text) {
         setShowListView(false)
         setListType(type)
-        // const listDetailInfo = searchMusicState.listDetailInfo
-        requestAnimationFrame(() => {
+        // Use setTimeout to ensure the new list component has mounted before calling loadList
+        setTimeout(() => {
           listRef.current?.loadList(text, source)
-        })
+        }, 0)
       } else {
         setShowListView(true)
-        requestAnimationFrame(() => {
+        setTimeout(() => {
           blankViewRef.current?.show(source)
         })
       }

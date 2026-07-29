@@ -41,10 +41,10 @@ export default {
     if (++retryNum > 3) return Promise.reject(new Error('try max num'))
     if (limit == null) limit = this.limit
     return this.singerSearch(str, page, limit).then(result => {
-      if (!result || result.error_code !== 0) return this.search(str, page, limit, retryNum)
-      let list = this.handleResult(result.data.lists || result.data || [])
-      if (list == null) return this.search(str, page, limit, retryNum)
-      this.total = result.data.total
+      if (!result || result.errcode !== 0) return this.search(str, page, limit, retryNum)
+      let list = this.handleResult(Array.isArray(result.data) ? result.data : (result.data.lists || []))
+      if (list == null || !list.length) return this.search(str, page, limit, retryNum)
+      this.total = result.data.total || list.length
       this.page = page
       this.allPage = Math.ceil(this.total / limit)
       return Promise.resolve({ list, allPage: this.allPage, limit, total: this.total, source: 'kg' })
