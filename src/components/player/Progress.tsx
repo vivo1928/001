@@ -62,6 +62,9 @@ const PreassBar = memo(({ onDragState, setDragProgress, onSetProgress, progress,
     }),
   ).current
 
+  // 防抖：防止快速连续 seek 导致静音
+  const a11yDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
   const progressPercent = Math.round(progress * 100)
 
   const handleAccessibilityAction = useCallback((event: { nativeEvent: { actionName: string } }) => {
@@ -77,7 +80,14 @@ const PreassBar = memo(({ onDragState, setDragProgress, onSetProgress, progress,
       default:
         return
     }
-    onSetProgress(newProgress)
+    // 防抖：300ms 内连续操作只执行最后一次 seek
+    if (a11yDebounceRef.current) {
+      clearTimeout(a11yDebounceRef.current)
+    }
+    a11yDebounceRef.current = setTimeout(() => {
+      a11yDebounceRef.current = null
+      onSetProgress(newProgress)
+    }, 300)
     AccessibilityInfo.announceForAccessibility(Math.round(newProgress * 100) + '%')
   }, [progress, onSetProgress])
 
