@@ -1,13 +1,14 @@
 import { decodeName, formatPlayTime, sizeFormate } from '../../index'
 import { createHttpFetch } from './util'
+import { httpFetch } from '../../request'
 
 /**
- * 酷狗专辑模块 — 多 API 回退，确保可靠性
- * 
+ * 酷狗专辑模块 — 多 API 并发 + 搜索降级，确保可靠性
+ *
  * API 链路：
- * 1. mobilecdn.kugou.com/api/v3/album/song — 主 API
- * 2. mobiles.kugou.com/api/v3/album/song — 备用 API（同接口不同域名）
- * 3. songsearch.kugou.com — 兜底搜索（按专辑名，结果会过滤）
+ * 1. mobilecdn / mobiles / mobcdn.kugou.com — 并发请求专辑列表
+ * 2. gateway.kugou.com — 获取歌曲详情（hash → 完整信息）
+ * 3. songsearch.kugou.com — 降级搜索（当专辑 API 返回空时）
  */
 
 // 歌曲详情接口（直接内联，不依赖 musicInfo.js 的复杂链路）
@@ -97,6 +98,48 @@ const toMusicInfo = (item) => {
   }
 }
 
+// 将搜索结果的歌曲转为标准格式（用于降级搜索）
+const searchToMusicInfo = (rawData) => {
+  const types = []
+  const _types = {}
+  if (rawData.FileSize !== 0) {
+    let size = sizeFormate(rawData.FileSize)
+    types.push({ type: '128k', size, hash: rawData.FileHash })
+    _types['128k'] = { size, hash: rawData.FileHash }
+  }
+  if (rawData.HQFileSize !== 0) {
+    let size = sizeFormate(rawData.HQFileSize)
+    types.push({ type: '320k', size, hash: rawData.HQFileHash })
+    _types['320k'] = { size, hash: rawData.HQFileHash }
+  }
+  if (rawData.SQFileSize !== 0) {
+    let size = sizeFormate(rawData.SQFileSize)
+    types.push({ type: 'flac', size, hash: rawData.SQFileHash })
+    _types.flac = { size, hash: rawData.SQFileHash }
+  }
+  if (rawData.ResFileSize !== 0) {
+    let size = sizeFormate(rawData.ResFileSize)
+    types.push({ type: 'flac24bit', size, hash: rawData.ResFileHash })
+    _types.flac24bit = { size, hash: rawData.ResFileHash }
+  }
+  return {
+    singer: decodeName(rawData.SingerName || ''),
+    name: decodeName(rawData.SongName),
+    albumName: decodeName(rawData.AlbumName || ''),
+    albumId: rawData.AlbumID || '',
+    songmid: rawData.Audioid || '',
+    source: 'kg',
+    interval: rawData.Duration ? formatPlayTime(rawData.Duration) : '',
+    img: null,
+    lrc: null,
+    hash: rawData.FileHash,
+    otherSource: null,
+    types,
+    _types,
+    typeUrl: {},
+  }
+}
+
 export default {
   /**
    * 通过AlbumId获取专辑信息（非阻塞）
@@ -130,12 +173,22 @@ export default {
   },
 
   /**
-   * 尝试从指定域名获取专辑歌曲列表
+   * 尝试从指定域名获取专辑歌曲列表（带超时）
    */
-  async _fetchAlbumList(host, id, page, limit) {
+  async _fetchAlbumList(host, id, page, limit, timeoutMs = 8000) {
     const url = `http://${host}/api/v3/album/song?version=9108&albumid=${id}&plat=0&pagesize=${limit}&area_code=0&page=${page}&with_res_tag=0`
     console.log(`[kg album] trying ${host} for albumId=${id}`)
-    const result = await createHttpFetch(url)
+
+    // 使用 Promise.race 加超时，避免单个主机卡住太久
+    const timeoutPromise = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error(`timeout ${host}`)), timeoutMs)
+    )
+
+    const result = await Promise.race([
+      createHttpFetch(url),
+      timeoutPromise,
+    ])
+
     if (!result || !result.info || !Array.isArray(result.info)) {
       throw new Error(`Empty response from ${host}`)
     }
@@ -143,37 +196,174 @@ export default {
   },
 
   /**
-   * 通过AlbumId获取专辑 — 多API回退
+   * 并发请求所有主机，返回第一个有效结果
    */
-  async getAlbumDetail(id, page = 1, limit = 200) {
-    let albumList = null
-    let lastError = null
-
-    // 尝试多个 API 域名
+  async _fetchAlbumListRace(id, page, limit) {
     const hosts = [
       'mobilecdn.kugou.com',
       'mobiles.kugou.com',
       'mobcdn.kugou.com',
     ]
 
+    // 并发请求所有主机，返回第一个有效结果
+    // 用 Promise 包装实现竞速，兼容 React Native 环境
+    let winner = null
+    let pending = hosts.length
+
+    const raceResult = await new Promise((resolve) => {
+      for (const host of hosts) {
+        this._fetchAlbumList(host, id, page, limit)
+          .then(result => {
+            if (result && result.info && result.info.length > 0) {
+              if (!winner) {
+                winner = result
+                console.log(`[kg album] success with ${host}, got ${result.info.length} songs`)
+                resolve(result)
+              }
+            }
+          })
+          .catch(err => {
+            console.log(`[kg album] ${host} failed:`, err?.message)
+          })
+          .finally(() => {
+            pending--
+            if (pending === 0 && !winner) resolve(null)
+          })
+      }
+    })
+
+    if (raceResult) return raceResult
+
+    // 所有主机并发都失败，尝试串行回退（某些网络环境可能并发受限）
+    console.log('[kg album] concurrent failed, trying sequential fallback')
     for (const host of hosts) {
       try {
-        albumList = await this._fetchAlbumList(host, id, page, limit)
-        if (albumList && albumList.info && albumList.info.length > 0) {
-          console.log(`[kg album] success with ${host}, got ${albumList.info.length} songs`)
-          break
+        const result = await this._fetchAlbumList(host, id, page, limit, 12000)
+        if (result && result.info && result.info.length > 0) {
+          console.log(`[kg album] sequential success with ${host}, got ${result.info.length} songs`)
+          return result
         }
-      } catch (err) {
-        lastError = err
-        console.log(`[kg album] ${host} failed:`, err?.message)
+      } catch (e) {
+        console.log(`[kg album] sequential ${host} failed:`, e?.message)
+      }
+    }
+    throw new Error('All album API hosts failed')
+  },
+
+  /**
+   * 降级方案：通过歌曲搜索 API 搜索专辑名，再按专辑名过滤
+   */
+  async _searchSongsByAlbumName(albumName, singerName, page, limit) {
+    const keyword = `${albumName} ${singerName || ''}`.trim()
+    console.log(`[kg album] fallback search: keyword="${keyword}" page=${page}`)
+
+    const searchUrl = `https://songsearch.kugou.com/song_search_v2?keyword=${encodeURIComponent(keyword)}&page=${page}&pagesize=${limit}&userid=0&clientver=&platform=WebFilter&filter=2&iscorrection=1&privilege_filter=0&area_code=1`
+
+    const result = await httpFetch(searchUrl).promise
+    const body = result.body
+
+    if (!body || body.error_code !== 0 || !body.data?.lists) {
+      throw new Error('Search API failed: ' + (body?.error || 'unknown'))
+    }
+
+    const allSongs = []
+    const seen = new Set()
+
+    for (const item of body.data.lists) {
+      // 按专辑名模糊匹配
+      const itemAlbumName = decodeName(item.AlbumName || '')
+      const targetAlbumName = decodeName(albumName || '')
+
+      // 简单包含匹配（忽略大小写和空格）
+      const normalize = (s) => (s || '').toLowerCase().replace(/\s+/g, '')
+      if (normalize(itemAlbumName).includes(normalize(targetAlbumName)) ||
+          normalize(targetAlbumName).includes(normalize(itemAlbumName))) {
+        const key = item.Audioid + item.FileHash
+        if (seen.has(key)) continue
+        seen.add(key)
+        allSongs.push(searchToMusicInfo(item))
+
+        // 也添加 Grp 中的子项
+        if (item.Grp) {
+          for (const childItem of item.Grp) {
+            const childKey = childItem.Audioid + childItem.FileHash
+            if (seen.has(childKey)) continue
+            seen.add(childKey)
+            const childInfo = searchToMusicInfo(childItem)
+            childInfo.albumName = decodeName(item.AlbumName || '')
+            allSongs.push(childInfo)
+          }
+        }
       }
     }
 
-    if (!albumList || !albumList.info || albumList.info.length === 0) {
-      throw new Error(`All album API hosts failed: ${lastError?.message || 'empty result'}`)
+    console.log(`[kg album] fallback search got ${allSongs.length} songs (total=${body.data.total})`)
+    return {
+      list: allSongs,
+      total: allSongs.length,
+      allPage: Math.ceil(allSongs.length / limit),
+    }
+  },
+
+  /**
+   * 通过AlbumId获取专辑 — 多API回退 + 搜索降级
+   * @param {string} id - 专辑ID
+   * @param {number} page - 页码
+   * @param {number} limit - 每页条数
+   * @param {string} [albumName] - 专辑名（可选，用于降级搜索）
+   * @param {string} [singerName] - 歌手名（可选，用于降级搜索）
+   */
+  async getAlbumDetail(id, page = 1, limit = 200, albumName, singerName) {
+    let albumList = null
+    let lastError = null
+
+    // 1. 尝试并发请求所有专辑 API 主机
+    try {
+      albumList = await this._fetchAlbumListRace(id, page, limit)
+    } catch (err) {
+      lastError = err
+      console.log('[kg album] all album API hosts failed:', err?.message)
     }
 
-    // 获取歌曲详情
+    // 2. 如果专辑 API 失败，尝试降级搜索
+    if (!albumList || !albumList.info || albumList.info.length === 0) {
+      if (albumName) {
+        console.log(`[kg album] album API empty, trying search fallback for "${albumName}"`)
+        try {
+          const searchResult = await this._searchSongsByAlbumName(albumName, singerName, page, limit)
+          if (searchResult.list && searchResult.list.length > 0) {
+            // 获取专辑信息（非阻塞）
+            let info = { name: albumName, image: '', desc: '', authorName: singerName || '' }
+            try {
+              info = await this.getAlbumInfo(id)
+            } catch (err) {
+              console.log(`[kg album] getAlbumInfo failed (non-blocking):`, err?.message)
+            }
+
+            return {
+              list: searchResult.list,
+              page,
+              limit,
+              total: searchResult.total,
+              source: 'kg',
+              info: {
+                name: info.name || albumName || '',
+                img: info.image || '',
+                desc: info.desc || '',
+                author: info.authorName || singerName || '',
+              },
+            }
+          }
+        } catch (searchErr) {
+          console.log('[kg album] search fallback also failed:', searchErr?.message)
+          lastError = searchErr
+        }
+      }
+
+      throw new Error(`All album methods failed: ${lastError?.message || 'empty result'}`)
+    }
+
+    // 3. 获取歌曲详情
     let result = []
     try {
       const detailList = await getSongDetail(albumList.info.map(item => ({ hash: item.hash })))
@@ -187,7 +377,7 @@ export default {
       throw new Error('No valid songs after detail fetch')
     }
 
-    // 获取专辑信息（非阻塞）
+    // 4. 获取专辑信息（非阻塞）
     let info = { name: '', image: '', desc: '', authorName: '' }
     try {
       info = await this.getAlbumInfo(id)

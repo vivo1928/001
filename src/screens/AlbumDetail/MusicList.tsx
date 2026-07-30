@@ -57,7 +57,7 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId }, ref) 
 
     console.log(`[AlbumDetail] using album API for source=${info.source}`)
     const result = await withTimeout(
-      getDetail.call(albumApi, id, page),
+      getDetail.call(albumApi, id, page, undefined, info.name, info.singer),
       FETCH_TIMEOUT,
       `Album API timeout for source: ${info.source}`
     )
