@@ -14,6 +14,14 @@ export interface MusicListType {
 }
 
 const LIMIT = 30
+const FETCH_TIMEOUT = 15000
+
+const withTimeout = <T,>(promise: Promise<T>, ms: number, msg: string): Promise<T> => {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) => setTimeout(() => reject(new Error(msg)), ms)),
+  ])
+}
 
 export default forwardRef<MusicListType, MusicListProps>(({ componentId }, ref) => {
   const listRef = useRef<OnlineListType>(null)
@@ -37,25 +45,27 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId }, ref) 
     const sdk = musicSdk[info.source]
     if (!sdk) throw new Error('source not found: ' + info.source)
 
+    // Try album API first for sources that have it (kg, kw)
     const albumApi = sdk?.album
-
-    // Try album API first (kw, kg, mg have album APIs)
     if (albumApi) {
       const getDetail = albumApi.getAlbumDetail || albumApi.getAlbumListDetail
       if (getDetail) {
         try {
           console.log(`[AlbumDetail] trying album API for source=${info.source}`)
-          const result = await getDetail.call(albumApi, id, page)
+          const result = await withTimeout(
+            getDetail.call(albumApi, id, page),
+            FETCH_TIMEOUT,
+            `Album API timeout for source: ${info.source}`
+          )
           console.log(`[AlbumDetail] album API result: list=${result?.list?.length} total=${result?.total}`)
           if (result && result.list && result.list.length > 0) {
             return {
               list: result.list,
               total: result.total || 0,
-              allPage: result.allPage || Math.ceil((result.total || 0) / (result.limit || LIMIT)),
+              allPage: result.allPage || Math.ceil((result.total || 0) / LIMIT),
               info: result.info,
             }
           }
-          console.log(`[AlbumDetail] album API returned empty list, falling back to musicSearch`)
         } catch (err) {
           console.log(`[AlbumDetail] album API failed, falling back to music search: ${err}`)
         }
@@ -66,7 +76,11 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId }, ref) 
     const searchName = info.name || info.singer || ''
     console.log(`[AlbumDetail] falling back to musicSearch for name=${searchName}`)
     if (!sdk?.musicSearch) throw new Error('musicSearch not supported for source: ' + info.source)
-    const result = await sdk.musicSearch.search(searchName, page, LIMIT)
+    const result = await withTimeout(
+      sdk.musicSearch.search(searchName, page, LIMIT),
+      FETCH_TIMEOUT,
+      `musicSearch timeout for source: ${info.source}`
+    )
     console.log(`[AlbumDetail] musicSearch result: list=${result?.list?.length} total=${result?.total}`)
     return {
       list: result.list || [],

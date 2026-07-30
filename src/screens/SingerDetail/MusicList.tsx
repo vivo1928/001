@@ -14,6 +14,14 @@ export interface MusicListType {
 }
 
 const LIMIT = 30
+const FETCH_TIMEOUT = 15000
+
+const withTimeout = <T,>(promise: Promise<T>, ms: number, msg: string): Promise<T> => {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) => setTimeout(() => reject(new Error(msg)), ms)),
+  ])
+}
 
 export default forwardRef<MusicListType, MusicListProps>(({ componentId }, ref) => {
   const listRef = useRef<OnlineListType>(null)
@@ -38,33 +46,35 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId }, ref) 
     const sdk = musicSdk[info.source]
     if (!sdk) throw new Error('source not found: ' + info.source)
 
-    // Try singer API first for sources that have getSingerSongList (kg, mg)
-    const singerApi = sdk.singer
-    if (singerApi?.getSingerSongList) {
-      try {
-        console.log(`[SingerDetail] trying singer API for source=${info.source}`)
-        const result = await singerApi.getSingerSongList(id, page, LIMIT)
-        console.log(`[SingerDetail] singer API result: list=${result?.list?.length} total=${result?.total}`)
-        if (result && result.list && result.list.length > 0) {
-          return {
-            list: result.list,
-            total: result.total || 0,
-            allPage: result.allPage || Math.ceil((result.total || 0) / (result.limit || LIMIT)),
-            info: result.info || { name: info.name, img: info.img, desc: '' },
-          }
+    // KG has a working singer API - use it directly
+    if (info.source === 'kg' && sdk.singer?.getSingerSongList) {
+      const result = await withTimeout(
+        sdk.singer.getSingerSongList(id, page, LIMIT),
+        FETCH_TIMEOUT,
+        'KG singer song list timeout'
+      )
+      console.log(`[SingerDetail] KG singer API result: list=${result?.list?.length} total=${result?.total}`)
+      if (result && result.list && result.list.length > 0) {
+        return {
+          list: result.list,
+          total: result.total || 0,
+          allPage: result.allPage || Math.ceil((result.total || 0) / LIMIT),
+          info: result.info || { name: info.name, img: info.img, desc: '' },
         }
-        console.log(`[SingerDetail] singer API returned empty list, falling back to musicSearch`)
-      } catch (err) {
-        console.log(`[SingerDetail] singer API failed, falling back to music search: ${err}`)
       }
     }
 
-    // Fallback: use music search by singer name
+    // For all other sources: use musicSearch by singer name
     const searchName = info.name || ''
     if (!searchName) throw new Error('Singer name is empty')
-    console.log(`[SingerDetail] falling back to musicSearch for name=${searchName}`)
+    console.log(`[SingerDetail] using musicSearch for name=${searchName} source=${info.source}`)
     if (!sdk?.musicSearch) throw new Error('musicSearch not supported for source: ' + info.source)
-    const result = await sdk.musicSearch.search(searchName, page, LIMIT)
+    
+    const result = await withTimeout(
+      sdk.musicSearch.search(searchName, page, LIMIT),
+      FETCH_TIMEOUT,
+      `musicSearch timeout for source: ${info.source}`
+    )
     console.log(`[SingerDetail] musicSearch result: list=${result?.list?.length} total=${result?.total}`)
     return {
       list: result.list || [],
@@ -73,7 +83,7 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId }, ref) 
       info: {
         name: info.name || searchName,
         img: info.img,
-        desc: '',
+        desc: info.song_count ? `${info.song_count} 首歌曲${info.album_count ? ` · ${info.album_count} 张专辑` : ''}` : '',
       },
     }
   }
@@ -85,7 +95,7 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId }, ref) 
       listRef.current?.setStatus('loading')
       headerRef.current?.setInfo({
         name: info.name || '',
-        desc: '',
+        desc: info.song_count ? `${info.song_count} 首歌曲${info.album_count ? ` · ${info.album_count} 张专辑` : ''}` : '',
         imgUrl: info.img,
       })
       const page = 1
