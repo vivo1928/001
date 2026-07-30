@@ -17,7 +17,9 @@ export default ({ componentId, info }: { componentId: string, info: AlbumDetailI
 
     isUnmountedRef.current = false
 
-    musicListRef.current?.loadList(info.source, info.id)
+    if (info && info.source && info.id) {
+      musicListRef.current?.loadList(info.source, info.id)
+    }
 
     return () => {
       isUnmountedRef.current = true
@@ -25,10 +27,15 @@ export default ({ componentId, info }: { componentId: string, info: AlbumDetailI
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // 确保 context 值始终是有效对象，防止渲染崩溃
+  const safeInfo: AlbumDetailInfo = info && info.source
+    ? info
+    : { id: '', name: '', source: 'kw' }
+
   return (
     <PageContent>
       <StatusBar />
-      <AlbumInfoContext.Provider value={info}>
+      <AlbumInfoContext.Provider value={safeInfo}>
         <MusicList ref={musicListRef} componentId={componentId} />
       </AlbumInfoContext.Provider>
       <PlayerBar />

@@ -2,8 +2,9 @@ import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef } from 'rea
 import OnlineList, { type OnlineListType, type OnlineListProps } from '@/components/OnlineList'
 import Header, { type HeaderType } from './Header'
 import { useAlbumInfo } from './state'
-import { handlePlay } from './listAction'
+import { handlePlay, handlePlayAll } from './listAction'
 import musicSdk from '@/utils/musicSdk'
+import { toNewMusicInfo } from '@/utils'
 
 export interface MusicListProps {
   componentId: string
@@ -60,7 +61,8 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId }, ref) 
           console.log(`[AlbumDetail] album API result: list=${result?.list?.length} total=${result?.total}`)
           if (result && result.list && result.list.length > 0) {
             return {
-              list: result.list,
+              // 注意：需要 toNewMusicInfo 转换，确保 meta._qualitys 等字段存在
+              list: result.list.map(s => toNewMusicInfo(s) as LX.Music.MusicInfoOnline),
               total: result.total || 0,
               allPage: result.allPage || Math.ceil((result.total || 0) / LIMIT),
               info: result.info,
@@ -83,7 +85,7 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId }, ref) 
     )
     console.log(`[AlbumDetail] musicSearch result: list=${result?.list?.length} total=${result?.total}`)
     return {
-      list: result.list || [],
+      list: (result.list || []).map(s => toNewMusicInfo(s) as LX.Music.MusicInfoOnline),
       total: result.total || 0,
       allPage: result.allPage || 1,
       info: {
@@ -112,15 +114,17 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId }, ref) 
           total: result.total,
           maxPage: result.allPage,
         }
-        if (result.info) {
-          headerRef.current?.setInfo({
-            name: result.info.name || info.name || '',
-            desc: result.info.desc || result.info.author || (info.singer ? info.singer : ''),
-            imgUrl: result.info.img || info.img,
-          })
-        }
-        listRef.current?.setList(result.list)
-        listRef.current?.setStatus(result.allPage <= page ? 'end' : 'idle')
+        requestAnimationFrame(() => {
+          if (result.info) {
+            headerRef.current?.setInfo({
+              name: result.info.name || info.name || '',
+              desc: result.info.desc || result.info.author || (info.singer ? info.singer : ''),
+              imgUrl: result.info.img || info.img,
+            })
+          }
+          listRef.current?.setList(result.list)
+          listRef.current?.setStatus(result.allPage <= page ? 'end' : 'idle')
+        })
       }).catch((err: any) => {
         console.error(`[AlbumDetail] loadList error: ${err?.message || err}`)
         if (!isUnmountedRef.current) {
@@ -138,11 +142,17 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId }, ref) 
   }, [])
 
   const handlePlayList: OnlineListProps['onPlayList'] = (index) => {
-    void handlePlay(info.id, info.source, listInfoRef.current.list, index)
+    const list = listRef.current?.getList()
+    if (!list || !list[index]) {
+      console.warn(`[AlbumDetail] handlePlayList: invalid index=${index} list.length=${list?.length ?? 'N/A'}`)
+      return
+    }
+    void handlePlay(list[index])
   }
   const handlePlayAll = () => {
-    if (!listInfoRef.current.list.length) return
-    void handlePlay(info.id, info.source, listInfoRef.current.list)
+    const list = listRef.current?.getList()
+    if (!list?.length) return
+    void handlePlayAll(info.id, info.source, list)
   }
   const handleRefresh: OnlineListProps['onRefresh'] = () => {
     const page = 1
@@ -155,15 +165,17 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId }, ref) 
         total: result.total,
         maxPage: result.allPage,
       }
-      if (result.info) {
-        headerRef.current?.setInfo({
-          name: result.info.name || info.name || '',
-          desc: result.info.desc || result.info.author || (info.singer ? info.singer : ''),
-          imgUrl: result.info.img || info.img,
-        })
-      }
-      listRef.current?.setList(result.list)
-      listRef.current?.setStatus(result.allPage <= page ? 'end' : 'idle')
+      requestAnimationFrame(() => {
+        if (result.info) {
+          headerRef.current?.setInfo({
+            name: result.info.name || info.name || '',
+            desc: result.info.desc || result.info.author || (info.singer ? info.singer : ''),
+            imgUrl: result.info.img || info.img,
+          })
+        }
+        listRef.current?.setList(result.list)
+        listRef.current?.setStatus(result.allPage <= page ? 'end' : 'idle')
+      })
     }).catch((err) => {
       console.error(`[AlbumDetail] refresh error: ${err?.message || err}`)
       if (!isUnmountedRef.current) {
@@ -182,8 +194,10 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId }, ref) 
         total: result.total,
         maxPage: result.allPage,
       }
-      listRef.current?.setList(listInfoRef.current.list, true)
-      listRef.current?.setStatus(result.allPage <= page ? 'end' : 'idle')
+      requestAnimationFrame(() => {
+        listRef.current?.setList(listInfoRef.current.list, true)
+        listRef.current?.setStatus(result.allPage <= page ? 'end' : 'idle')
+      })
     }).catch((err) => {
       console.error(`[AlbumDetail] loadMore error: ${err?.message || err}`)
       if (!isUnmountedRef.current) {
@@ -192,6 +206,7 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId }, ref) 
     })
   }
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const header = useMemo(() => <Header ref={headerRef} componentId={componentId} onPlayAll={handlePlayAll} />, [componentId])
 
   return <OnlineList
