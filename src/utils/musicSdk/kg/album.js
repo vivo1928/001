@@ -1,9 +1,12 @@
 import { getMusicInfosByList } from './musicInfo'
 import { createHttpFetch } from './util'
 
+// 最大重试次数
+const MAX_RETRY = 2
+
 export default {
   /**
-   * 通过AlbumId获取专辑信息
+   * 通过AlbumId获取专辑信息（失败不影响歌曲列表）
    * @param {*} id
    */
   async getAlbumInfo(id) {
@@ -29,34 +32,71 @@ export default {
       image: albumInfo.sizable_cover.replace('{size}', 240),
       desc: albumInfo.intro,
       authorName: albumInfo.author_name,
-      // play_count: this.formatPlayCount(info.count),
     }
   },
+
   /**
-   * 通过AlbumId获取专辑
+   * 通过AlbumId获取专辑（带重试 + getAlbumInfo非阻塞）
    * @param {*} id
    * @param {*} page
    */
-  async getAlbumDetail(id, page = 1, limit = 200) {
-    const albumList = await createHttpFetch(`http://mobiles.kugou.com/api/v3/album/song?version=9108&albumid=${id}&plat=0&pagesize=${limit}&area_code=0&page=${page}&with_res_tag=0`)
-    if (!albumList.info) return Promise.reject(new Error('Get album list failed.'))
+  async getAlbumDetail(id, page = 1, limit = 200, retryNum = 0) {
+    if (retryNum > MAX_RETRY) return Promise.reject(new Error('Get album list failed after retries'))
 
-    let result = await getMusicInfosByList(albumList.info)
+    let albumList
+    try {
+      albumList = await createHttpFetch(
+        `http://mobiles.kugou.com/api/v3/album/song?version=9108&albumid=${id}&plat=0&pagesize=${limit}&area_code=0&page=${page}&with_res_tag=0`
+      )
+    } catch (err) {
+      console.log(`[kg album] fetch album list failed (retry ${retryNum + 1}/${MAX_RETRY}):`, err?.message)
+      return this.getAlbumDetail(id, page, limit, retryNum + 1)
+    }
 
-    const info = await this.getAlbumInfo(id)
+    if (!albumList || !albumList.info) {
+      console.log(`[kg album] album list empty, retrying (${retryNum + 1}/${MAX_RETRY})`)
+      return this.getAlbumDetail(id, page, limit, retryNum + 1)
+    }
+
+    // 获取歌曲详细信息（带重试）
+    let result = []
+    try {
+      result = await getMusicInfosByList(albumList.info) || []
+    } catch (err) {
+      console.log(`[kg album] getMusicInfosByList failed, retrying:`, err?.message)
+      // 重试一次
+      try {
+        result = await getMusicInfosByList(albumList.info) || []
+      } catch (err2) {
+        console.log(`[kg album] getMusicInfosByList failed after retry:`, err2?.message)
+        result = []
+      }
+    }
+
+    if (result.length === 0 && retryNum < MAX_RETRY) {
+      console.log(`[kg album] empty result after musicInfo, retrying (${retryNum + 1}/${MAX_RETRY})`)
+      return this.getAlbumDetail(id, page, limit, retryNum + 1)
+    }
+
+    // 尝试获取专辑信息，失败不影响歌曲列表返回
+    let info = { name: '', image: '', desc: '', authorName: '' }
+    try {
+      info = await this.getAlbumInfo(id)
+    } catch (err) {
+      console.log(`[kg album] getAlbumInfo failed (non-blocking):`, err?.message)
+    }
 
     return {
-      list: result || [],
+      list: result,
       page,
       limit,
-      total: albumList.total,
+      total: albumList.total || result.length,
       source: 'kg',
       info: {
-        name: info.name,
-        img: info.image,
-        desc: info.desc,
-        author: info.authorName,
-        // play_count: this.formatPlayCount(info.count),
+        name: info.name || '',
+        img: info.image || '',
+        desc: info.desc || '',
+        author: info.authorName || '',
       },
     }
   },
