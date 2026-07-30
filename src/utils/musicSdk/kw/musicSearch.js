@@ -34,8 +34,8 @@ export default {
       // const format = (info.FORMATS || info.formats).split('|')
 
       if (!info.N_MINFO) {
-        console.log('N_MINFO is undefined')
-        return null
+        console.log('N_MINFO is undefined, skipping item:', info.SONGNAME)
+        continue
       }
 
       const types = []
@@ -78,6 +78,7 @@ export default {
       let interval = parseInt(info.DURATION)
 
       result.push({
+        id: 'kw_' + songId,
         name: decodeName(info.SONGNAME),
         singer: formatSinger(decodeName(info.ARTIST)),
         source: 'kw',

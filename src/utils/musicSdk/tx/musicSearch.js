@@ -124,6 +124,7 @@ export default {
         albumId = item.album.mid
       }
       list.push({
+        id: 'tx_' + item.mid,
         singer: formatSingerName(item.singer, 'name'),
         // name: item.name + (item.title_extra ?? ''),
         name: item.title,

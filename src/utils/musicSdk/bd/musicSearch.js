@@ -46,6 +46,7 @@ export default {
       // types.reverse()
 
       list.push({
+        id: 'bd_' + item.song_id,
         singer: item.author.replace(',', '、'),
         name: item.title,
         albumName: item.album_title,

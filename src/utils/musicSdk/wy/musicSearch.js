@@ -77,6 +77,7 @@ export default {
       types.reverse()
 
       return {
+        id: 'wy_' + item.id,
         singer: this.getSinger(item.ar),
         name: item.name,
         albumName: item.al.name,

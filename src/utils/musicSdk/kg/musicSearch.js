@@ -47,6 +47,7 @@ export default {
       }
     }
     return {
+      id: 'kg_' + rawData.Audioid,
       singer: decodeName(formatSingerName(rawData.Singers, 'name')),
       name: decodeName(rawData.SongName),
       albumName: decodeName(rawData.AlbumName),

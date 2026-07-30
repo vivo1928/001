@@ -174,6 +174,7 @@ export default {
         if (img && !/https?:/.test(data.img3)) img = 'http://d.musicapp.migu.cn' + img
 
         list.push({
+          id: 'mg_' + data.copyrightId,
           singer: formatSingerName(data.singerList),
           name: data.name,
           albumName: data.album,
