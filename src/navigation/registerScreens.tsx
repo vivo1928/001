@@ -31,15 +31,11 @@ import SyncModeModal from './components/SyncModeModal'
 
 function WrappedComponent(Component: any) {
   return function inject(props: Record<string, any>) {
-    const EnhancedComponent = () => (
+    return (
       <Provider>
-        <Component
-          {...props}
-        />
+        <Component {...props} />
       </Provider>
     )
-
-    return <EnhancedComponent />
   }
 }
 
