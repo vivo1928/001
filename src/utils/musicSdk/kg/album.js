@@ -269,30 +269,32 @@ export default {
     const allSongs = []
     const seen = new Set()
 
+    // 规范化：去空格、转小写，用于精确比较
+    const normalize = (s) => (s || '').toLowerCase().replace(/\s+/g, '')
+    const targetAlbumNameNorm = normalize(albumName || '')
+
     for (const item of body.data.lists) {
-      // 按专辑名模糊匹配
       const itemAlbumName = decodeName(item.AlbumName || '')
-      const targetAlbumName = decodeName(albumName || '')
+      const itemAlbumNameNorm = normalize(itemAlbumName)
 
-      // 简单包含匹配（忽略大小写和空格）
-      const normalize = (s) => (s || '').toLowerCase().replace(/\s+/g, '')
-      if (normalize(itemAlbumName).includes(normalize(targetAlbumName)) ||
-          normalize(targetAlbumName).includes(normalize(itemAlbumName))) {
-        const key = item.Audioid + item.FileHash
-        if (seen.has(key)) continue
-        seen.add(key)
-        allSongs.push(searchToMusicInfo(item))
+      // 精确匹配专辑名：忽略大小写和空格，但必须完全相等
+      // 避免把同名/同歌手其他专辑的歌曲混进来
+      if (itemAlbumNameNorm !== targetAlbumNameNorm) continue
 
-        // 也添加 Grp 中的子项
-        if (item.Grp) {
-          for (const childItem of item.Grp) {
-            const childKey = childItem.Audioid + childItem.FileHash
-            if (seen.has(childKey)) continue
-            seen.add(childKey)
-            const childInfo = searchToMusicInfo(childItem)
-            childInfo.albumName = decodeName(item.AlbumName || '')
-            allSongs.push(childInfo)
-          }
+      const key = item.Audioid + item.FileHash
+      if (seen.has(key)) continue
+      seen.add(key)
+      allSongs.push(searchToMusicInfo(item))
+
+      // 也添加 Grp 中的子项
+      if (item.Grp) {
+        for (const childItem of item.Grp) {
+          const childKey = childItem.Audioid + childItem.FileHash
+          if (seen.has(childKey)) continue
+          seen.add(childKey)
+          const childInfo = searchToMusicInfo(childItem)
+          childInfo.albumName = decodeName(item.AlbumName || '')
+          allSongs.push(childInfo)
         }
       }
     }
