@@ -1,8 +1,23 @@
 import { httpFetch } from '../../request'
 import { decodeName } from '../../index'
-import { objStr2JSON } from './util'
 
-let newList = []
+const ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
+
+const getRandomCsrf = () => {
+  return Array(11).fill(0).map(() => ALPHABET[Math.floor(Math.random() * 36)]).join('')
+}
+
+const getHeaders = () => {
+  const csrfToken = getRandomCsrf()
+  return {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/89.0.4389.90 Safari/537.36 Edg/89.0.774.63',
+    'Accept': 'application/json, text/plain, */*',
+    'csrf': csrfToken,
+    'Cookie': `kw_token=${csrfToken}`,
+    'Referer': 'http://www.kuwo.cn/',
+    'Host': 'www.kuwo.cn',
+  }
+}
 
 export default {
   limit: 20,
@@ -12,38 +27,28 @@ export default {
 
   filterData(rawList) {
     return rawList.map(item => ({
-      id: item.ARTISTID || item.id,
-      name: decodeName(item.ARTIST || item.artist || item.name),
-      img: item.PICPATH ? `http://img1.kuwo.cn/star/starheads/${item.PICPATH}` : (item.pic || item.img || ''),
+      id: String(item.id),
+      name: decodeName(item.name || ''),
+      img: item.pic || item.pic120 || item.pic700 || item.pic70 || '',
       source: 'kw',
-      song_count: parseInt(item.SONGNUM) || 0,
-      album_count: parseInt(item.ALBUMNUM) || 0,
+      song_count: parseInt(item.musicNum) || 0,
+      album_count: 0,
     }))
-  },
-
-  handleResult(rawList) {
-    const ids = new Set()
-    const list = []
-    rawList.forEach(item => {
-      const id = item.ARTISTID || item.id
-      if (!ids.has(id)) {
-        ids.add(id)
-        list.push(item)
-      }
-    })
-    newList = list
-    return this.filterData(newList)
   },
 
   search(str, page = 1, limit, retryNum = 0) {
     if (++retryNum > 3) return Promise.reject(new Error('try max num'))
     if (limit == null) limit = this.limit
-    return httpFetch(`http://search.kuwo.cn/r.s?client=kt&all=${encodeURIComponent(str)}&pn=${page - 1}&rn=${limit}&rformat=json&encoding=utf8&ft=artist`).promise.then(({ body }) => {
-      if (typeof body === 'string') body = objStr2JSON(body)
-      if (!body || (body.TOTAL == '0' && body.SHOW == '0')) return this.search(str, page, limit, retryNum)
-      let list = this.handleResult(body.abslist || [])
+    const headers = getHeaders()
+    return httpFetch(`http://www.kuwo.cn/api/www/search/searchArtistBykeyWord?key=${encodeURIComponent(str)}&pn=${page}&rn=${limit}&httpStatus=1`, {
+      headers,
+    }).promise.then(({ body, statusCode }) => {
+      if (statusCode !== 200 || !body || body.code !== 200) return this.search(str, page, limit, retryNum)
+      const rawList = body.data && body.data.list ? body.data.list : []
+      if (!rawList.length) return this.search(str, page, limit, retryNum)
+      let list = this.filterData(rawList)
       if (list == null || !list.length) return this.search(str, page, limit, retryNum)
-      this.total = parseInt(body.TOTAL) || 0
+      this.total = parseInt(body.data.total) || 0
       this.page = page
       this.allPage = Math.ceil(this.total / limit)
       return Promise.resolve({ list, allPage: this.allPage, limit, total: this.total, source: 'kw' })

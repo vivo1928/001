@@ -26,12 +26,12 @@ export default memo(({ item, index, width, showSource, onPress }: {
       ? (
           <View style={{ ...styles.listItem, width: itemWidth }}>
             <View style={{ ...styles.listItemImg, backgroundColor: theme['c-content-background'] }}>
-              <TouchableOpacity activeOpacity={0.5} onPress={handlePress}>
+              <TouchableOpacity activeOpacity={0.5} onPress={handlePress} accessibilityLabel={item.name}>
                 <Image url={item.img} nativeID={`${NAV_SHEAR_NATIVE_IDS.songlistDetail_pic}_from_${item.id}`} style={{ width: itemWidth, height: itemWidth, borderRadius: 4 }} />
                 { showSource ? <Text style={styles.sourceLabel} size={9} color="#fff" >{item.source}</Text> : null }
               </TouchableOpacity>
             </View>
-            <TouchableOpacity activeOpacity={0.5} onPress={handlePress}>
+            <TouchableOpacity activeOpacity={0.5} onPress={handlePress} accessibilityLabel={item.name}>
               <Text style={styles.listItemTitle} numberOfLines={ 2 }>{item.name}</Text>
             </TouchableOpacity>
           </View>
