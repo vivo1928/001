@@ -327,9 +327,10 @@ export default {
       console.log('[kg album] all album API hosts failed:', err?.message)
     }
 
-    // 2. 如果专辑 API 失败，尝试降级搜索
+    // 2. 如果专辑 API 失败，尝试降级搜索（仅第 1 页）
+    // 第 2 页以后返回空表示专辑没更多歌曲了，不应降级搜索
     if (!albumList || !albumList.info || albumList.info.length === 0) {
-      if (albumName) {
+      if (albumName && page === 1) {
         console.log(`[kg album] album API empty, trying search fallback for "${albumName}"`)
         try {
           const searchResult = await this._searchSongsByAlbumName(albumName, singerName, page, limit)
