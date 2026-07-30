@@ -272,14 +272,25 @@ export default {
     // 规范化：去空格、转小写，用于精确比较
     const normalize = (s) => (s || '').toLowerCase().replace(/\s+/g, '')
     const targetAlbumNameNorm = normalize(albumName || '')
+    const targetSingerNameNorm = normalize(singerName || '')
 
     for (const item of body.data.lists) {
       const itemAlbumName = decodeName(item.AlbumName || '')
       const itemAlbumNameNorm = normalize(itemAlbumName)
 
       // 精确匹配专辑名：忽略大小写和空格，但必须完全相等
-      // 避免把同名/同歌手其他专辑的歌曲混进来
       if (itemAlbumNameNorm !== targetAlbumNameNorm) continue
+
+      // 如果有歌手名，同时校验歌手名匹配（模糊包含）
+      // 避免同名专辑由不同歌手演唱时混入
+      if (targetSingerNameNorm) {
+        const itemSingerName = decodeName(item.SingerName || '')
+        const itemSingerNameNorm = normalize(itemSingerName)
+        if (!itemSingerNameNorm.includes(targetSingerNameNorm) &&
+            !targetSingerNameNorm.includes(itemSingerNameNorm)) {
+          continue
+        }
+      }
 
       const key = item.Audioid + item.FileHash
       if (seen.has(key)) continue
