@@ -54,11 +54,9 @@ export const createHttpFetch = async(url, options, retryNum = 0) => {
     return createHttpFetch(url, options, ++retryNum)
   }
   // console.log(result.statusCode, result.body)
+  // 修复：当 error_code/errcode/err_code 都不存在时，默认为 0（表示无错误），避免误判重试
   if (result.statusCode !== 200 ||
-    (
-      result.body.error_code ??
-      result.body.errcode ??
-      result.body.err_code) != 0
+    (result.body.error_code ?? result.body.errcode ?? result.body.err_code ?? 0) != 0
   ) return createHttpFetch(url, options, ++retryNum)
   if (result.body.data) return result.body.data
   if (Array.isArray(result.body.info)) return result.body
