@@ -130,6 +130,7 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId }, ref) 
   }, [])
 
   const handlePlayList: OnlineListProps['onPlayList'] = (index) => {
+    console.log(`[SingerDetail] handlePlayList called: index=${index} list.length=${listInfoRef.current.list.length}`)
     void handlePlay(info.id, info.source, listInfoRef.current.list, index)
   }
   const handlePlayAll = () => {
