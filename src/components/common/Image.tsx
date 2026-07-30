@@ -4,7 +4,6 @@ import { createStyle } from '@/utils/tools'
 import { type ComponentProps, memo, useCallback, useEffect, useMemo, useState } from 'react'
 import { View, type ViewProps, StyleSheet, Image as FastImage } from 'react-native'
 // import FastImage, { type FastImageProps } from 'react-native-fast-image'
-import Text from './Text'
 import { useLayout } from '@/utils/hooks'
 // export type { OnLoadEvent } from 'react-native-fast-image'
 
@@ -26,10 +25,18 @@ const EmptyPic = memo(({ style, nativeID }: { style: ImageProps['style'], native
   const { onLayout, width } = useLayout()
   const size = width * 0.36
 
+  // Use pure visual elements (no text) to prevent screen readers from reading "L" and "X"
   return (
-    <View style={StyleSheet.compose({ ...styles.emptyPic, backgroundColor: theme['c-primary-light-900-alpha-200'], gap: size * 0.1 }, style)} onLayout={onLayout} nativeID={nativeID} accessible={false} importantForAccessibility="no">
-      <Text size={size} color={theme['c-primary-light-400-alpha-200']} accessible={false}>L</Text>
-      <Text size={size} color={theme['c-primary-light-400-alpha-200']} style={styles.text} accessible={false}>X</Text>
+    <View
+      style={StyleSheet.compose({ ...styles.emptyPic, backgroundColor: theme['c-primary-light-900-alpha-200'] }, style)}
+      onLayout={onLayout}
+      nativeID={nativeID}
+      accessible={false}
+      importantForAccessibility="no-hide-descendants"
+      accessibilityElementsHidden={true}
+    >
+      <View style={[styles.emptyPicBar, { width: size * 0.12, height: size * 0.5, backgroundColor: theme['c-primary-light-400-alpha-200'], marginRight: size * 0.08 }]} />
+      <View style={[styles.emptyPicBar, { width: size * 0.12, height: size * 0.5, backgroundColor: theme['c-primary-light-400-alpha-200'] }]} />
     </View>
   )
 })
@@ -88,7 +95,7 @@ const styles = createStyle({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  text: {
-    paddingLeft: 2,
+  emptyPicBar: {
+    borderRadius: 2,
   },
 })
