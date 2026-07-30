@@ -3,6 +3,7 @@ import OnlineList, { type OnlineListType, type OnlineListProps } from '@/compone
 import Header, { type HeaderType } from './Header'
 import { useSingerInfo } from './state'
 import musicSdk from '@/utils/musicSdk'
+import { toNewMusicInfo } from '@/utils'
 import { handlePlay } from './listAction'
 
 export interface MusicListProps {
@@ -46,7 +47,7 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId }, ref) 
         console.log(`[SingerDetail] singer API result: list=${result?.list?.length} total=${result?.total}`)
         if (result && result.list && result.list.length > 0) {
           return {
-            list: result.list,
+            list: result.list.map(s => toNewMusicInfo(s) as LX.Music.MusicInfoOnline),
             total: result.total || 0,
             allPage: result.allPage || Math.ceil((result.total || 0) / LIMIT),
             singerInfo: result.info || undefined,
@@ -67,7 +68,7 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId }, ref) 
     const result = await sdk.musicSearch.search(searchName, page, LIMIT)
     console.log(`[SingerDetail] musicSearch result: list=${result?.list?.length} total=${result?.total}`)
     return {
-      list: result.list || [],
+      list: (result.list || []).map(s => toNewMusicInfo(s) as LX.Music.MusicInfoOnline),
       total: result.total || 0,
       allPage: result.allPage || 1,
     }
