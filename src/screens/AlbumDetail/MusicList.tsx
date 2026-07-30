@@ -46,33 +46,57 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId }, ref) 
     const sdk = musicSdk[info.source]
     if (!sdk) throw new Error('source not found: ' + info.source)
 
+    // 策略：优先使用 album API（按专辑ID获取歌曲），失败则降级到 musicSearch
     const albumApi = sdk?.album
-    if (!albumApi) {
-      throw new Error(`Album API not available for source: ${info.source}`)
+    const getDetail = albumApi?.getAlbumDetail || albumApi?.getAlbumListDetail
+
+    if (getDetail) {
+      try {
+        console.log(`[AlbumDetail] using album API for source=${info.source}`)
+        const result = await withTimeout(
+          getDetail.call(albumApi, id, page),
+          FETCH_TIMEOUT,
+          `Album API timeout for source: ${info.source}`
+        )
+        console.log(`[AlbumDetail] album API result: list=${result?.list?.length} total=${result?.total}`)
+
+        if (result && result.list && result.list.length > 0) {
+          return {
+            list: result.list.map(s => toNewMusicInfo(s) as LX.Music.MusicInfoOnline),
+            total: result.total || 0,
+            allPage: result.allPage || Math.ceil((result.total || 0) / LIMIT),
+            info: result.info,
+          }
+        }
+        console.log('[AlbumDetail] album API returned empty list, falling back to musicSearch')
+      } catch (err: any) {
+        console.log(`[AlbumDetail] album API failed, falling back to musicSearch: ${err?.message || err}`)
+      }
+    } else {
+      console.log(`[AlbumDetail] album API not available for source=${info.source}, using musicSearch`)
     }
 
-    const getDetail = albumApi.getAlbumDetail || albumApi.getAlbumListDetail
-    if (!getDetail) {
-      throw new Error(`Album detail API not available for source: ${info.source}`)
-    }
+    // 降级：使用 musicSearch 按专辑名称搜索歌曲
+    const searchName = info.name || ''
+    if (!searchName) throw new Error('Album name is empty')
+    if (!sdk?.musicSearch) throw new Error('musicSearch not supported for source: ' + info.source)
 
-    console.log(`[AlbumDetail] using album API for source=${info.source}`)
+    console.log(`[AlbumDetail] using musicSearch fallback for name="${searchName}" source=${info.source} page=${page}`)
     const result = await withTimeout(
-      getDetail.call(albumApi, id, page),
+      sdk.musicSearch.search(searchName, page, LIMIT),
       FETCH_TIMEOUT,
-      `Album API timeout for source: ${info.source}`
+      `musicSearch timeout for source: ${info.source}`
     )
-    console.log(`[AlbumDetail] album API result: list=${result?.list?.length} total=${result?.total}`)
+    console.log(`[AlbumDetail] musicSearch fallback result: list=${result?.list?.length} total=${result?.total}`)
 
     if (!result || !result.list || result.list.length === 0) {
-      throw new Error(`Album API returned empty list for source: ${info.source}`)
+      throw new Error(`Both album API and musicSearch failed for source: ${info.source}`)
     }
 
     return {
       list: result.list.map(s => toNewMusicInfo(s) as LX.Music.MusicInfoOnline),
       total: result.total || 0,
       allPage: result.allPage || Math.ceil((result.total || 0) / LIMIT),
-      info: result.info,
     }
   }
 

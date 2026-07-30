@@ -17,14 +17,12 @@ const search = async (str, page = 1, limit = 20, retryNum = 0) => {
   if (retryNum > 2) return { list: [], allPage: 0, limit, total: 0, source: 'wy' }
 
   try {
-    const requestObj = eapiRequest('/api/search/artist/list/page', {
-      keyword: str,
-      needCorrect: '1',
-      channel: 'typing',
-      offset: limit * (page - 1),
-      scene: 'normal',
+    const requestObj = eapiRequest('/api/cloudsearch/pc', {
+      s: str,
+      type: 100, // 100: 歌手
+      limit,
       total: page == 1,
-      limit
+      offset: limit * (page - 1),
     })
     const resp = await requestObj.promise
     const result = resp.body
@@ -33,9 +31,9 @@ const search = async (str, page = 1, limit = 20, retryNum = 0) => {
       return search(str, page, limit, retryNum + 1)
     }
 
-    const rawList = result.data ? (result.data.resources || []) : []
+    const rawList = result.result ? (result.result.artists || []) : []
     const list = filterData(rawList)
-    const total = result.data ? (result.data.totalCount || 0) : 0
+    const total = result.result ? (result.result.artistCount || 0) : 0
     const allPage = Math.ceil(total / limit)
 
     if (!list.length && retryNum < 2) return search(str, page, limit, retryNum + 1)
