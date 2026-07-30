@@ -26,10 +26,15 @@ export default ({ componentId, info }: { componentId: string, info: SingerDetail
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // 确保 context 值始终是有效对象，防止渲染崩溃
+  const safeInfo: SingerDetailInfo = info && info.source
+    ? info
+    : { id: '', name: '', source: 'kw' }
+
   return (
     <PageContent>
       <StatusBar />
-      <SingerInfoContext.Provider value={info}>
+      <SingerInfoContext.Provider value={safeInfo}>
         <MusicList ref={musicListRef} componentId={componentId} />
       </SingerInfoContext.Provider>
       <PlayerBar />

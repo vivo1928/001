@@ -14,14 +14,6 @@ export interface MusicListType {
 }
 
 const LIMIT = 30
-const FETCH_TIMEOUT = 15000
-
-const withTimeout = <T,>(promise: Promise<T>, ms: number, msg: string): Promise<T> => {
-  return Promise.race([
-    promise,
-    new Promise<T>((_, reject) => setTimeout(() => reject(new Error(msg)), ms)),
-  ])
-}
 
 export default forwardRef<MusicListType, MusicListProps>(({ componentId }, ref) => {
   const listRef = useRef<OnlineListType>(null)
@@ -36,78 +28,73 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId }, ref) 
     maxPage: number
   }>({ list: [], page: 0, total: 0, maxPage: 0 })
 
-  const fetchList = async(id: string, page: number): Promise<{
+  const fetchList = async (page: number): Promise<{
     list: LX.Music.MusicInfoOnline[]
     total: number
     allPage: number
-    info?: { name?: string; img?: string; desc?: string }
+    singerInfo?: { name?: string; img?: string; desc?: string }
   }> => {
-    console.log(`[SingerDetail] fetchList source=${info.source} id=${id} name=${info.name} page=${page}`)
     const sdk = musicSdk[info.source]
     if (!sdk) throw new Error('source not found: ' + info.source)
 
-    // 策略：优先使用 singer API（按歌手ID获取歌曲），失败则降级到 musicSearch（按歌手名搜索）
+    // 策略：优先使用 singer API（按歌手ID获取歌曲，可获取歌手简介），失败则降级到 musicSearch
     const hasSingerApi = !!(sdk.singer?.getSingerSongList)
 
     if (hasSingerApi) {
       try {
-        const result = await withTimeout(
-          sdk.singer.getSingerSongList(id, page, LIMIT),
-          FETCH_TIMEOUT,
-          `${info.source} singer song list timeout`
-        )
+        const result = await sdk.singer.getSingerSongList(singerIdRef.current, page, LIMIT)
         console.log(`[SingerDetail] singer API result: list=${result?.list?.length} total=${result?.total}`)
         if (result && result.list && result.list.length > 0) {
           return {
             list: result.list,
             total: result.total || 0,
             allPage: result.allPage || Math.ceil((result.total || 0) / LIMIT),
-            info: result.info || { name: info.name, img: info.img, desc: '' },
+            singerInfo: result.info || undefined,
           }
         }
-        // singer API 返回空列表，降级到 musicSearch
-        console.log(`[SingerDetail] singer API returned empty list, falling back to musicSearch`)
+        console.log('[SingerDetail] singer API returned empty list, falling back to musicSearch')
       } catch (err: any) {
         console.log(`[SingerDetail] singer API failed, falling back to musicSearch: ${err?.message || err}`)
       }
     }
 
-    // 降级：使用 musicSearch 按歌手名称搜索歌曲
+    // 降级：使用 musicSearch 按歌手名称搜索歌曲（和搜索页面歌曲选项卡相同方式）
     const searchName = info.name || ''
     if (!searchName) throw new Error('Singer name is empty')
-    console.log(`[SingerDetail] using musicSearch for name=${searchName} source=${info.source}`)
+    console.log(`[SingerDetail] using musicSearch for name="${searchName}" source=${info.source} page=${page}`)
     if (!sdk?.musicSearch) throw new Error('musicSearch not supported for source: ' + info.source)
 
-    const result = await withTimeout(
-      sdk.musicSearch.search(searchName, page, LIMIT),
-      FETCH_TIMEOUT,
-      `musicSearch timeout for source: ${info.source}`
-    )
+    const result = await sdk.musicSearch.search(searchName, page, LIMIT)
     console.log(`[SingerDetail] musicSearch result: list=${result?.list?.length} total=${result?.total}`)
     return {
       list: result.list || [],
       total: result.total || 0,
       allPage: result.allPage || 1,
-      info: {
-        name: info.name || searchName,
-        img: info.img,
-        desc: info.song_count ? `${info.song_count} 首歌曲${info.album_count ? ` · ${info.album_count} 张专辑` : ''}` : '',
-      },
     }
   }
 
+  // 构建歌手简介文本
+  const buildDesc = (singerInfo?: { name?: string; img?: string; desc?: string }): string => {
+    if (singerInfo?.desc) return singerInfo.desc
+    // 没有简介时显示歌曲数和专辑数
+    const parts: string[] = []
+    if (info.song_count) parts.push(`${info.song_count} 首歌曲`)
+    if (info.album_count) parts.push(`${info.album_count} 张专辑`)
+    return parts.join(' · ')
+  }
+
   useImperativeHandle(ref, () => ({
-    loadList(source, id) {
+    async loadList(source, id) {
       singerIdRef.current = id
       listRef.current?.setList([])
       listRef.current?.setStatus('loading')
       headerRef.current?.setInfo({
         name: info.name || '',
-        desc: info.song_count ? `${info.song_count} 首歌曲${info.album_count ? ` · ${info.album_count} 张专辑` : ''}` : '',
+        desc: buildDesc(),
         imgUrl: info.img,
       })
       const page = 1
-      return fetchList(id, page).then((result) => {
+      return fetchList(page).then((result) => {
         if (isUnmountedRef.current) return
         listInfoRef.current = {
           list: result.list,
@@ -115,15 +102,16 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId }, ref) 
           total: result.total,
           maxPage: result.allPage,
         }
-        if (result.info) {
+        requestAnimationFrame(() => {
+          // 用 API 返回的歌手简介更新 Header
           headerRef.current?.setInfo({
-            name: result.info.name || info.name || '',
-            desc: result.info.desc || '',
-            imgUrl: result.info.img || info.img,
+            name: result.singerInfo?.name || info.name || '',
+            desc: buildDesc(result.singerInfo),
+            imgUrl: result.singerInfo?.img || info.img,
           })
-        }
-        listRef.current?.setList(result.list)
-        listRef.current?.setStatus(result.allPage <= page ? 'end' : 'idle')
+          listRef.current?.setList(result.list)
+          listRef.current?.setStatus(result.allPage <= page ? 'end' : 'idle')
+        })
       }).catch((err: any) => {
         console.error(`[SingerDetail] loadList error: ${err?.message || err}`)
         if (!isUnmountedRef.current) {
@@ -150,7 +138,7 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId }, ref) 
   const handleRefresh: OnlineListProps['onRefresh'] = () => {
     const page = 1
     listRef.current?.setStatus('refreshing')
-    fetchList(singerIdRef.current, page).then((result) => {
+    fetchList(page).then((result) => {
       if (isUnmountedRef.current) return
       listInfoRef.current = {
         list: result.list,
@@ -158,15 +146,10 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId }, ref) 
         total: result.total,
         maxPage: result.allPage,
       }
-      if (result.info) {
-        headerRef.current?.setInfo({
-          name: result.info.name || info.name || '',
-          desc: result.info.desc || '',
-          imgUrl: result.info.img || info.img,
-        })
-      }
-      listRef.current?.setList(result.list)
-      listRef.current?.setStatus(result.allPage <= page ? 'end' : 'idle')
+      requestAnimationFrame(() => {
+        listRef.current?.setList(result.list)
+        listRef.current?.setStatus(result.allPage <= page ? 'end' : 'idle')
+      })
     }).catch((err) => {
       console.error(`[SingerDetail] refresh error: ${err?.message || err}`)
       if (!isUnmountedRef.current) {
@@ -177,7 +160,7 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId }, ref) 
   const handleLoadMore: OnlineListProps['onLoadMore'] = () => {
     listRef.current?.setStatus('loading')
     const page = listInfoRef.current.list.length ? listInfoRef.current.page + 1 : 1
-    fetchList(singerIdRef.current, page).then((result) => {
+    fetchList(page).then((result) => {
       if (isUnmountedRef.current) return
       listInfoRef.current = {
         list: [...listInfoRef.current.list, ...result.list],
@@ -185,8 +168,10 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId }, ref) 
         total: result.total,
         maxPage: result.allPage,
       }
-      listRef.current?.setList(listInfoRef.current.list, true)
-      listRef.current?.setStatus(result.allPage <= page ? 'end' : 'idle')
+      requestAnimationFrame(() => {
+        listRef.current?.setList(listInfoRef.current.list, true)
+        listRef.current?.setStatus(result.allPage <= page ? 'end' : 'idle')
+      })
     }).catch((err) => {
       console.error(`[SingerDetail] loadMore error: ${err?.message || err}`)
       if (!isUnmountedRef.current) {
@@ -195,6 +180,7 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId }, ref) 
     })
   }
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const header = useMemo(() => <Header ref={headerRef} componentId={componentId} onPlayAll={handlePlayAll} />, [componentId])
 
   return <OnlineList
