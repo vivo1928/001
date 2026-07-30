@@ -45,9 +45,9 @@ export default forwardRef<HeaderType, HeaderProps>(({ componentId, onPlayAll }, 
           <Image url={detailInfo.imgUrl} style={{ flex: 1, borderRadius: 4 }} />
         </View>
         <View style={{ flexDirection: 'column', flexGrow: 1, flexShrink: 1, paddingLeft: 5 }}>
-          <Text size={14} numberOfLines={1}>{detailInfo.name}</Text>
-          <View style={{ flexGrow: 0, flexShrink: 1 }}>
-            <Text size={13} color={theme['c-font-label']} numberOfLines={4}>{detailInfo.desc}</Text>
+          <Text size={15} numberOfLines={1} style={{ fontWeight: 'bold' }}>{detailInfo.name}</Text>
+          <View style={{ flexGrow: 0, flexShrink: 1, marginTop: 2 }}>
+            <Text size={13} color={theme['c-font-label']} numberOfLines={6}>{detailInfo.desc}</Text>
           </View>
         </View>
       </View>

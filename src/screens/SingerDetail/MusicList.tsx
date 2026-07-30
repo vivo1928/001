@@ -46,30 +46,38 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId }, ref) 
     const sdk = musicSdk[info.source]
     if (!sdk) throw new Error('source not found: ' + info.source)
 
-    // KG has a working singer API - use it directly
-    if (info.source === 'kg' && sdk.singer?.getSingerSongList) {
-      const result = await withTimeout(
-        sdk.singer.getSingerSongList(id, page, LIMIT),
-        FETCH_TIMEOUT,
-        'KG singer song list timeout'
-      )
-      console.log(`[SingerDetail] KG singer API result: list=${result?.list?.length} total=${result?.total}`)
-      if (result && result.list && result.list.length > 0) {
-        return {
-          list: result.list,
-          total: result.total || 0,
-          allPage: result.allPage || Math.ceil((result.total || 0) / LIMIT),
-          info: result.info || { name: info.name, img: info.img, desc: '' },
+    // 策略：优先使用 singer API（按歌手ID获取歌曲），失败则降级到 musicSearch（按歌手名搜索）
+    const hasSingerApi = !!(sdk.singer?.getSingerSongList)
+
+    if (hasSingerApi) {
+      try {
+        const result = await withTimeout(
+          sdk.singer.getSingerSongList(id, page, LIMIT),
+          FETCH_TIMEOUT,
+          `${info.source} singer song list timeout`
+        )
+        console.log(`[SingerDetail] singer API result: list=${result?.list?.length} total=${result?.total}`)
+        if (result && result.list && result.list.length > 0) {
+          return {
+            list: result.list,
+            total: result.total || 0,
+            allPage: result.allPage || Math.ceil((result.total || 0) / LIMIT),
+            info: result.info || { name: info.name, img: info.img, desc: '' },
+          }
         }
+        // singer API 返回空列表，降级到 musicSearch
+        console.log(`[SingerDetail] singer API returned empty list, falling back to musicSearch`)
+      } catch (err: any) {
+        console.log(`[SingerDetail] singer API failed, falling back to musicSearch: ${err?.message || err}`)
       }
     }
 
-    // For all other sources: use musicSearch by singer name
+    // 降级：使用 musicSearch 按歌手名称搜索歌曲
     const searchName = info.name || ''
     if (!searchName) throw new Error('Singer name is empty')
     console.log(`[SingerDetail] using musicSearch for name=${searchName} source=${info.source}`)
     if (!sdk?.musicSearch) throw new Error('musicSearch not supported for source: ' + info.source)
-    
+
     const result = await withTimeout(
       sdk.musicSearch.search(searchName, page, LIMIT),
       FETCH_TIMEOUT,

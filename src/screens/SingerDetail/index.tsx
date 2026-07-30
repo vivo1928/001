@@ -14,10 +14,11 @@ export default ({ componentId, info }: { componentId: string, info: SingerDetail
 
   useEffect(() => {
     setComponentId(COMPONENT_IDS.singerDetail, componentId)
-
     isUnmountedRef.current = false
 
-    musicListRef.current?.loadList(info.source, info.id)
+    if (info && info.source && info.id) {
+      musicListRef.current?.loadList(info.source, info.id)
+    }
 
     return () => {
       isUnmountedRef.current = true

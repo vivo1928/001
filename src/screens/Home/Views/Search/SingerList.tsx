@@ -27,13 +27,14 @@ export default forwardRef<SingerListType, {}>((props, ref) => {
   const isUnmountedRef = useRef(false)
 
   const handleOpenDetail = (item: ListInfoItem, index: number) => {
+    const albumCount = item.desc ? parseInt(item.desc) : undefined
     navigations.pushSingerDetailScreen(commonState.componentIds.home!, {
       id: item.id,
       name: item.name,
       img: item.img,
       source: item.source,
       song_count: item.play_count ? parseInt(item.play_count) : undefined,
-      album_count: undefined,
+      album_count: isNaN(albumCount as number) ? undefined : albumCount,
     })
   }
 
