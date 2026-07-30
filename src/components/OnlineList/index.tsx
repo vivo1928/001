@@ -21,6 +21,7 @@ export interface OnlineListProps {
 export interface OnlineListType {
   setList: (list: LX.Music.MusicInfoOnline[], isAppend?: boolean, showSource?: boolean) => void
   setStatus: (val: Status) => void
+  getList: () => LX.Music.MusicInfoOnline[]
 }
 
 export default forwardRef<OnlineListType, OnlineListProps>(({
@@ -46,6 +47,9 @@ export default forwardRef<OnlineListType, OnlineListProps>(({
     },
     setStatus(val) {
       listRef.current?.setStatus(val)
+    },
+    getList() {
+      return listRef.current?.getList() ?? []
     },
   }))
 

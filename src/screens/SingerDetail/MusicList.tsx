@@ -4,7 +4,7 @@ import Header, { type HeaderType } from './Header'
 import { useSingerInfo } from './state'
 import musicSdk from '@/utils/musicSdk'
 import { toNewMusicInfo } from '@/utils'
-import { handlePlay } from './listAction'
+import { handlePlay, handlePlayAll } from './listAction'
 
 export interface MusicListProps {
   componentId: string
@@ -130,12 +130,18 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId }, ref) 
   }, [])
 
   const handlePlayList: OnlineListProps['onPlayList'] = (index) => {
-    console.log(`[SingerDetail] handlePlayList called: index=${index} list.length=${listInfoRef.current.list.length}`)
-    void handlePlay(info.id, info.source, listInfoRef.current.list, index)
+    const list = listRef.current?.getList()
+    if (!list || !list[index]) {
+      console.warn(`[SingerDetail] handlePlayList: invalid index=${index} list.length=${list?.length ?? 'N/A'}`)
+      return
+    }
+    console.log(`[SingerDetail] handlePlayList called: index=${index} list.length=${list.length}`)
+    void handlePlay(list[index])
   }
   const handlePlayAll = () => {
-    if (!listInfoRef.current.list.length) return
-    void handlePlay(info.id, info.source, listInfoRef.current.list)
+    const list = listRef.current?.getList()
+    if (!list?.length) return
+    void handlePlayAll(info.id, info.source, list)
   }
   const handleRefresh: OnlineListProps['onRefresh'] = () => {
     const page = 1
