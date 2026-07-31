@@ -1,5 +1,5 @@
-import { httpFetch } from '../../request'
-import { formatPlayTime } from '../../index'
+const { httpFetch } = require('../../request')
+const { formatPlayTime } = require('../../index')
 
 /**
  * 喜马拉雅FM 听书源
@@ -121,14 +121,14 @@ const extractDocs = (body, core) => {
  */
 const fetchJson = async (url) => {
   console.log('[xm fetch]', url.substring(0, 120))
-  const controller = new AbortController()
+  const controller = new global.AbortController()
   const timeoutId = setTimeout(() => {
     console.warn('[xm fetch] timeout, aborting')
     controller.abort()
   }, 15000)
 
   try {
-    const resp = await fetch(url, {
+    const resp = await global.fetch(url, {
       method: 'GET',
       headers: pcHeaders,
       signal: controller.signal,
@@ -455,7 +455,7 @@ const getAnchorDetail = async (anchorId, page = 1, limit = 30) => {
   }
 }
 
-export default {
+module.exports = {
   search,
   getAlbumDetail,
   getAnchorDetail,
