@@ -116,13 +116,50 @@ const extractDocs = (body, core) => {
 
 /**
  * 执行一次 HTTP 请求，返回解析后的 body
+ * 绕过 request.js 封装，直接使用 global.fetch
+ * 避免 request.js 中 cache:'no-store' 等选项在 React Native 上的兼容性问题
  */
 const fetchJson = async (url) => {
-  const resp = await httpFetch(url, { headers: pcHeaders }).promise
-  console.log('[xm] fetch statusCode:', resp?.statusCode, 'ok:', resp?.ok)
-  const body = safeParseBody(resp)
-  if (!body) throw new Error('响应解析异常')
-  return body
+  console.log('[xm fetch]', url.substring(0, 120))
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => {
+    console.warn('[xm fetch] timeout, aborting')
+    controller.abort()
+  }, 15000)
+
+  try {
+    const resp = await fetch(url, {
+      method: 'GET',
+      headers: pcHeaders,
+      signal: controller.signal,
+    })
+    clearTimeout(timeoutId)
+
+    console.log('[xm fetch] status:', resp.status, 'ok:', resp.ok)
+
+    const text = await resp.text()
+    console.log('[xm fetch] body length:', text.length)
+
+    if (!resp.ok) {
+      throw new Error(`HTTP ${resp.status}: ${text.substring(0, 200)}`)
+    }
+
+    let body
+    try {
+      body = JSON.parse(text)
+    } catch (e) {
+      console.error('[xm fetch] JSON parse failed:', e.message, 'body:', text.substring(0, 200))
+      throw new Error('响应解析异常: ' + text.substring(0, 100))
+    }
+
+    return body
+  } catch (err) {
+    clearTimeout(timeoutId)
+    if (err.name === 'AbortError') {
+      throw new Error('请求超时')
+    }
+    throw err
+  }
 }
 
 // ==================== 专辑搜索 ====================

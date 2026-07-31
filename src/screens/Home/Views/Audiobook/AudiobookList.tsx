@@ -28,7 +28,7 @@ export interface AudioListProps {
 
 export interface AudioListType {
   setList: (list: SearchListItem[]) => void
-  setStatus: (val: Status) => void
+  setStatus: (val: Status, errorMsg?: string) => void
 }
 
 const ListItem = ({ item, index, width, onPress, type }: {
@@ -67,14 +67,15 @@ const ListItem = ({ item, index, width, onPress, type }: {
   )
 }
 
-const EmptyView = ({ status, onEmptyPress }: {
+const EmptyView = ({ status, errorMsg, onEmptyPress }: {
   status: Status
+  errorMsg?: string
   onEmptyPress?: () => void
 }) => {
   const theme = useTheme()
   const t = useI18n()
   if (status === 'loading' || status === 'refreshing') return null
-  const text = status === 'error' ? t('list_error') : t('list_empty')
+  const text = status === 'error' ? (errorMsg || t('list_error')) : t('list_empty')
   return (
     <View style={styles.emptyContainer}>
       <Text style={styles.emptyText} color={theme['c-font-label']} onPress={status === 'error' ? onEmptyPress : undefined}>{text}</Text>
@@ -86,6 +87,7 @@ export default forwardRef<AudioListType, AudioListProps>(({ onRefresh, onLoadMor
   const flatListRef = useRef<FlatList>(null)
   const [currentList, setList] = useState<SearchListItem[]>([])
   const [status, setStatus] = useState<Status>('idle')
+  const [errorMsg, setErrorMsg] = useState<string>('')
   const { onLayout, width } = useLayout()
   const theme = useTheme()
 
@@ -93,8 +95,10 @@ export default forwardRef<AudioListType, AudioListProps>(({ onRefresh, onLoadMor
     setList(list) {
       setList(list)
     },
-    setStatus(val) {
+    setStatus(val, errMsg) {
       setStatus(val)
+      if (errMsg) setErrorMsg(errMsg)
+      else if (val !== 'error') setErrorMsg('')
     },
   }), [])
 
@@ -204,7 +208,7 @@ export default forwardRef<AudioListType, AudioListProps>(({ onRefresh, onLoadMor
                 onEndReached={handleLoadMore}
                 refreshControl={refreshControl}
                 ListFooterComponent={footerComponent}
-                ListEmptyComponent={<EmptyView status={status} onEmptyPress={handleEmptyPress} />}
+                ListEmptyComponent={<EmptyView status={status} errorMsg={errorMsg} onEmptyPress={handleEmptyPress} />}
               />
             )
       }

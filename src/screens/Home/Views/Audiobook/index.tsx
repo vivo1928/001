@@ -48,12 +48,13 @@ export default () => {
         )
       })
     }).catch((err: any) => {
-      console.error('[Audiobook] search error:', err?.message || err)
+      const errMsg = err?.message || String(err)
+      console.error('[Audiobook] search error:', errMsg)
       if (!isUnmountedRef.current) {
         if (page === 1) {
           listRef.current?.setList([])
         }
-        listRef.current?.setStatus('error')
+        listRef.current?.setStatus('error', errMsg)
       }
     })
   }, [])
