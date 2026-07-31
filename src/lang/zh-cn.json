@@ -257,6 +257,8 @@
   "search_type_songlist": "歌单",
   "search_type_album": "专辑",
   "search_type_singer": "歌手",
+  "audiobook_type_album": "专辑",
+  "audiobook_type_anchor": "主播",
   "setting__other_dislike_list": "「不喜欢的歌曲」规则",
   "setting__other_dislike_list_label": "规则数量：{num}",
   "setting__other_dislike_list_saved_tip": "已保存",
