@@ -182,8 +182,15 @@ const fetchData = (url, { timeout = 15000, ...options }) => {
         signal: controller.signal,
       }).then(resp => (options.binary ? resp.blob() : resp.text()).then(text => {
         // console.log(options, headers, text)
+        // 安全获取 headers，兼容不同环境的 Headers 实现
+        let headersMap
+        try {
+          headersMap = resp.headers?.map || resp.headers
+        } catch (e) {
+          headersMap = {}
+        }
         return {
-          headers: resp.headers.map,
+          headers: headersMap,
           body: text,
           statusCode: resp.status,
           statusMessage: resp.statusText,

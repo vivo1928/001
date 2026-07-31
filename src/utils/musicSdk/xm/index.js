@@ -15,15 +15,42 @@ import { formatPlayTime } from '../../index'
 const XM_SEARCH_API = 'https://www.ximalaya.com/revision/search'
 const XM_MOBILE_API = 'https://mobile.ximalaya.com'
 
+// 模拟桌面浏览器请求头，绕过 WAF 检测
 const pcHeaders = {
   'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
   'Referer': 'https://www.ximalaya.com/',
   'Accept': 'application/json, text/plain, */*',
+  'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
+  'Cache-Control': 'no-cache',
+  'Pragma': 'no-cache',
 }
 
 const mobileHeaders = {
   'User-Agent': 'Mozilla/5.0 (Linux; Android 12; Pixel 6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36',
   'Referer': 'https://m.ximalaya.com/',
+  'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
+}
+
+/**
+ * 安全解析响应体，处理非 JSON 响应
+ */
+const safeParseBody = (resp) => {
+  const { body } = resp
+  // body 已经是解析后的对象（httpFetch 内部 JSON.parse）
+  if (body && typeof body === 'object' && !Array.isArray(body)) {
+    return body
+  }
+  // body 是字符串，尝试手动解析
+  if (typeof body === 'string' && body.trim().startsWith('{')) {
+    try {
+      return JSON.parse(body)
+    } catch (e) {
+      console.error('[xm] JSON parse failed:', e.message)
+      return null
+    }
+  }
+  console.error('[xm] unexpected body type:', typeof body, 'value:', String(body).substring(0, 200))
+  return null
 }
 
 /**
@@ -39,11 +66,15 @@ const searchAlbum = async (keyword, page = 1, limit = 30) => {
     console.error('[xm searchAlbum] fetch error:', err?.message || err)
     throw err
   }
-  const { body } = resp
+  console.log('[xm searchAlbum] statusCode:', resp?.statusCode, 'ok:', resp?.ok)
+
+  // 使用安全解析处理响应体
+  const body = safeParseBody(resp)
   console.log('[xm searchAlbum] response ret:', body?.ret, 'has data:', !!body?.data)
 
   if (!body || body.ret !== 200) {
-    throw new Error('喜马拉雅搜索失败: ' + (body?.msg || 'unknown'))
+    const errMsg = body?.msg || (typeof body === 'string' ? body.substring(0, 200) : 'unknown')
+    throw new Error('喜马拉雅搜索失败: ' + errMsg)
   }
 
   const data = body.data
@@ -97,11 +128,15 @@ const searchAnchor = async (keyword, page = 1, limit = 30) => {
     console.error('[xm searchAnchor] fetch error:', err?.message || err)
     throw err
   }
-  const { body } = resp
+  console.log('[xm searchAnchor] statusCode:', resp?.statusCode, 'ok:', resp?.ok)
+
+  // 使用安全解析处理响应体
+  const body = safeParseBody(resp)
   console.log('[xm searchAnchor] response ret:', body?.ret, 'has data:', !!body?.data)
 
   if (!body || body.ret !== 200) {
-    throw new Error('喜马拉雅搜索主播失败: ' + (body?.msg || 'unknown'))
+    const errMsg = body?.msg || (typeof body === 'string' ? body.substring(0, 200) : 'unknown')
+    throw new Error('喜马拉雅搜索主播失败: ' + errMsg)
   }
 
   const data = body.data
