@@ -4,7 +4,7 @@ import { View } from 'react-native'
 import HeaderBar, { type HeaderBarProps, type HeaderBarType } from './HeaderBar'
 import TypeSelector from './TypeSelector'
 import AudiobookList, { type AudioListType } from './AudiobookList'
-import { search } from '@/core/audiobook/search'
+import { search, setSearchText } from '@/core/audiobook/search'
 import audiobookState, { type AudiobookSource, type AudiobookType, type SearchListItem } from '@/store/audiobook/state'
 import { createStyle } from '@/utils/tools'
 
@@ -17,6 +17,8 @@ export default () => {
   const headerBarRef = useRef<HeaderBarType>(null)
   const listRef = useRef<AudioListType>(null)
   const searchInfo = useRef<SearchInfo>({ source: 'xm', type: 'album' })
+  // 单独保存最近一次的搜索文本，避免 search 抛错时 state 未更新导致重试失败
+  const lastSearchTextRef = useRef<string>('')
   const isUnmountedRef = useRef(false)
 
   useEffect(() => {
@@ -28,25 +30,28 @@ export default () => {
 
   const handleSourceChange: HeaderBarProps['onSourceChange'] = (source) => {
     searchInfo.current.source = source
-    if (audiobookState.searchText) {
-      performSearch(audiobookState.searchText, 1)
+    if (lastSearchTextRef.current) {
+      performSearch(lastSearchTextRef.current, 1)
     }
   }
 
   const handleTypeChange = (type: AudiobookType) => {
     searchInfo.current.type = type
-    if (audiobookState.searchText) {
-      performSearch(audiobookState.searchText, 1)
+    if (lastSearchTextRef.current) {
+      performSearch(lastSearchTextRef.current, 1)
     }
   }
 
   const performSearch = (text: string, page: number) => {
     if (!text) return
+    // 在调用 search() 前立即保存文本，确保异常路径下重试仍能取到
+    setSearchText(text)
+    lastSearchTextRef.current = text
     // 新搜索时清空列表（对齐 SonglistList/AlbumList 的模式）
     if (page === 1) {
       listRef.current?.setList([])
     }
-    listRef.current?.setStatus(page === 1 ? 'loading' : 'loading')
+    listRef.current?.setStatus('loading')
     search(text, page, searchInfo.current.source, searchInfo.current.type).then(() => {
       if (isUnmountedRef.current) return
       requestAnimationFrame(() => {
@@ -70,13 +75,15 @@ export default () => {
 
   const handleRefresh = () => {
     listRef.current?.setStatus('refreshing')
-    performSearch(audiobookState.searchText, 1)
+    performSearch(lastSearchTextRef.current, 1)
   }
 
   const handleLoadMore = () => {
     const listInfo = audiobookState.listInfo
     const page = listInfo.list.length ? listInfo.page + 1 : 1
-    performSearch(audiobookState.searchText, page)
+    // 优先使用 lastSearchTextRef，避免 search() 抛错时 state.searchText 仍为旧值
+    const text = lastSearchTextRef.current || audiobookState.searchText
+    performSearch(text, page)
   }
 
   const handleOpenDetail = (item: SearchListItem, index: number) => {

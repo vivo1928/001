@@ -4,11 +4,24 @@ import xm from '@/utils/musicSdk/xm'
 const sdkMap: Record<AudiobookSource, typeof xm> = { xm }
 
 /**
+ * 立即更新搜索关键词（在调用 search() 之前调用）
+ * 确保异常路径下也能保留用户输入的关键词，便于"重新加载"使用
+ */
+export const setSearchText = (text: string) => {
+  state.searchText = text
+}
+
+/**
  * 搜索听书
  */
 export const search = async (text: string, page: number, sourceId: AudiobookSource, type: AudiobookType) => {
   const listInfo = state.listInfo
   if (!text) return { list: [], total: 0, allPage: 0 }
+
+  // 在执行搜索前立即写 state，确保异常路径下 state 也有值
+  state.searchText = text
+  state.searchType = type
+  state.source = sourceId
 
   const key = `${page}__${sourceId}__${type}__${text}`
   if (listInfo.key === key && listInfo.list.length) return listInfo
@@ -26,9 +39,6 @@ export const search = async (text: string, page: number, sourceId: AudiobookSour
   listInfo.page = page
   listInfo.maxPage = result.allPage
   listInfo.source = sourceId
-  state.searchText = text
-  state.searchType = type
-  state.source = sourceId
 
   return result
 }

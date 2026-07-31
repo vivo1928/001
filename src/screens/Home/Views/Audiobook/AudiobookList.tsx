@@ -73,7 +73,7 @@ export default forwardRef<AudioListType, AudioListProps>(({ onRefresh, onLoadMor
     setStatus(val) {
       setStatus(val)
     },
-  }))
+  }), [])
 
   const handleLoadMore = () => {
     if (status != 'idle') return
