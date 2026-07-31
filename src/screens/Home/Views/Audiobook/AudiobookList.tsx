@@ -103,6 +103,19 @@ export default forwardRef<AudioListType, AudioListProps>(({ onRefresh, onLoadMor
     onLoadMore()
   }, [status, onLoadMore])
 
+  // rowInfo 必须定义在 renderItem 之前，否则 useCallback 依赖数组中引用 TDZ 变量会崩溃
+  const rowInfo = useMemo(() => {
+    let w = width - GAP
+    let n = width / (MIN_WIDTH + GAP)
+    if (n > 10) n = 10
+    let computedItemWidth = Math.floor(w / n)
+    const num = Math.max(Math.floor(width / computedItemWidth), 2)
+    return {
+      num,
+      width: (width - GAP) / num,
+    }
+  }, [width])
+
   const renderItem: FlatListType['renderItem'] = useCallback(({ item, index }) => (
     <ListItem
       item={item}
@@ -145,18 +158,6 @@ export default forwardRef<AudioListType, AudioListProps>(({ onRefresh, onLoadMor
       </View>
     )
   }, [onLoadMore, status])
-
-  const rowInfo = useMemo(() => {
-    let w = width - GAP
-    let n = width / (MIN_WIDTH + GAP)
-    if (n > 10) n = 10
-    let computedItemWidth = Math.floor(w / n)
-    const num = Math.max(Math.floor(width / computedItemWidth), 2)
-    return {
-      num,
-      width: (width - GAP) / num,
-    }
-  }, [width])
 
   const list = useMemo(() => {
     const list = [...currentList]

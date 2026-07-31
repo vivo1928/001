@@ -4,7 +4,7 @@ import { View } from 'react-native'
 import HeaderBar, { type HeaderBarProps, type HeaderBarType } from './HeaderBar'
 import TypeSelector from './TypeSelector'
 import AudiobookList, { type AudioListType } from './AudiobookList'
-import { search, setSearchText, clearListInfo } from '@/core/audiobook/search'
+import { search, setSearchText } from '@/core/audiobook/search'
 import audiobookState, { type AudiobookSource, type AudiobookType, type SearchListItem } from '@/store/audiobook/state'
 import { createStyle } from '@/utils/tools'
 
@@ -13,7 +13,9 @@ export default () => {
   const listRef = useRef<AudioListType>(null)
   const [searchType, setSearchType] = useState<AudiobookType>('album')
   const [searchSource, setSearchSource] = useState<AudiobookSource>('xm')
-  // 单独保存最近一次的搜索文本，避免 search 抛错时 state 未更新导致重试失败
+  // 用 ref 保存最新值，避免 useCallback 闭包过期问题
+  const searchTypeRef = useRef<AudiobookType>('album')
+  const searchSourceRef = useRef<AudiobookSource>('xm')
   const lastSearchTextRef = useRef<string>('')
   const isUnmountedRef = useRef(false)
 
@@ -24,33 +26,20 @@ export default () => {
     }
   }, [])
 
-  const handleSourceChange: HeaderBarProps['onSourceChange'] = useCallback((source) => {
-    setSearchSource(source)
-    if (lastSearchTextRef.current) {
-      performSearch(lastSearchTextRef.current, 1)
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  // 同步 ref 与 state
+  useEffect(() => { searchTypeRef.current = searchType }, [searchType])
+  useEffect(() => { searchSourceRef.current = searchSource }, [searchSource])
 
-  const handleTypeChange = useCallback((type: AudiobookType) => {
-    setSearchType(type)
-    if (lastSearchTextRef.current) {
-      performSearch(lastSearchTextRef.current, 1)
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
+  // performSearch 全部通过 ref 读取最新值，无闭包依赖，永不变化
   const performSearch = useCallback((text: string, page: number) => {
     if (!text) return
-    // 在调用 search() 前立即保存文本，确保异常路径下重试仍能取到
     setSearchText(text)
     lastSearchTextRef.current = text
-    // 新搜索时清空列表（对齐 SonglistList/AlbumList 的模式）
     if (page === 1) {
       listRef.current?.setList([])
     }
     listRef.current?.setStatus('loading')
-    search(text, page, searchSource, searchType).then(() => {
+    search(text, page, searchSourceRef.current, searchTypeRef.current).then(() => {
       if (isUnmountedRef.current) return
       requestAnimationFrame(() => {
         listRef.current?.setList(audiobookState.listInfo.list)
@@ -61,14 +50,29 @@ export default () => {
     }).catch((err: any) => {
       console.error('[Audiobook] search error:', err?.message || err)
       if (!isUnmountedRef.current) {
-        // 首次搜索失败时清理列表，避免残留旧数据
         if (page === 1) {
           listRef.current?.setList([])
         }
         listRef.current?.setStatus('error')
       }
     })
-  }, [searchSource, searchType])
+  }, [])
+
+  const handleSourceChange: HeaderBarProps['onSourceChange'] = useCallback((source) => {
+    setSearchSource(source)
+    searchSourceRef.current = source
+    if (lastSearchTextRef.current) {
+      performSearch(lastSearchTextRef.current, 1)
+    }
+  }, [performSearch])
+
+  const handleTypeChange = useCallback((type: AudiobookType) => {
+    setSearchType(type)
+    searchTypeRef.current = type
+    if (lastSearchTextRef.current) {
+      performSearch(lastSearchTextRef.current, 1)
+    }
+  }, [performSearch])
 
   const handleSearch: HeaderBarProps['onSearch'] = useCallback((text) => {
     headerBarRef.current?.blur()
@@ -83,13 +87,11 @@ export default () => {
   const handleLoadMore = useCallback(() => {
     const listInfo = audiobookState.listInfo
     const page = listInfo.list.length ? listInfo.page + 1 : 1
-    // 优先使用 lastSearchTextRef，避免 search() 抛错时 state.searchText 仍为旧值
     const text = lastSearchTextRef.current || audiobookState.searchText
     performSearch(text, page)
   }, [performSearch])
 
   const handleOpenDetail = useCallback((item: SearchListItem, index: number) => {
-    // TODO: 打开专辑详情或主播详情页面
     console.log('Open detail:', item.name, item.id)
   }, [])
 
