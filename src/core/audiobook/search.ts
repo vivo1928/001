@@ -16,8 +16,10 @@ export const search = async (text: string, page: number, sourceId: AudiobookSour
   const sdk = sdkMap[sourceId]
   if (!sdk) throw new Error('听书源不支持: ' + sourceId)
 
+  console.log('[audiobook search] start:', text, 'page:', page, 'source:', sourceId, 'type:', type)
   listInfo.key = key
   const result = await sdk.search(text, page, type, listInfo.limit)
+  console.log('[audiobook search] result:', result?.list?.length, 'items, total:', result?.total)
 
   listInfo.list = page === 1 ? result.list : [...listInfo.list, ...result.list]
   listInfo.total = result.total

@@ -40,11 +40,14 @@ export default () => {
     }
   }
 
-  const performSearch = async (text: string, page: number) => {
+  const performSearch = (text: string, page: number) => {
     if (!text) return
+    // 新搜索时清空列表（对齐 SonglistList/AlbumList 的模式）
+    if (page === 1) {
+      listRef.current?.setList([])
+    }
     listRef.current?.setStatus(page === 1 ? 'loading' : 'loading')
-    try {
-      await search(text, page, searchInfo.current.source, searchInfo.current.type)
+    search(text, page, searchInfo.current.source, searchInfo.current.type).then(() => {
       if (isUnmountedRef.current) return
       requestAnimationFrame(() => {
         listRef.current?.setList(audiobookState.listInfo.list)
@@ -52,11 +55,12 @@ export default () => {
           audiobookState.listInfo.maxPage <= page ? 'end' : 'idle'
         )
       })
-    } catch {
+    }).catch((err: any) => {
+      console.error('[Audiobook] search error:', err?.message || err)
       if (!isUnmountedRef.current) {
         listRef.current?.setStatus('error')
       }
-    }
+    })
   }
 
   const handleSearch: HeaderBarProps['onSearch'] = (text) => {

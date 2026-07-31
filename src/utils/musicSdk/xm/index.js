@@ -31,7 +31,16 @@ const mobileHeaders = {
  */
 const searchAlbum = async (keyword, page = 1, limit = 30) => {
   const url = `${XM_SEARCH_API}?kw=${encodeURIComponent(keyword)}&core=album&page=${page}&pageSize=${limit}`
-  const { body } = await httpFetch(url, { headers: pcHeaders }).promise
+  console.log('[xm searchAlbum] fetching:', url)
+  let resp
+  try {
+    resp = await httpFetch(url, { headers: pcHeaders }).promise
+  } catch (err) {
+    console.error('[xm searchAlbum] fetch error:', err?.message || err)
+    throw err
+  }
+  const { body } = resp
+  console.log('[xm searchAlbum] response ret:', body?.ret, 'has data:', !!body?.data)
 
   if (!body || body.ret !== 200) {
     throw new Error('喜马拉雅搜索失败: ' + (body?.msg || 'unknown'))
@@ -45,6 +54,7 @@ const searchAlbum = async (keyword, page = 1, limit = 30) => {
 
   const docs = response.docs || []
   const total = response.numFound || 0
+  console.log('[xm searchAlbum] found', docs.length, 'albums, total:', total)
 
   const list = docs.map(item => ({
     id: String(item.id),
@@ -79,7 +89,16 @@ const searchAlbum = async (keyword, page = 1, limit = 30) => {
 const searchAnchor = async (keyword, page = 1, limit = 30) => {
   // 使用 core=all 来获取用户数据
   const url = `${XM_SEARCH_API}?kw=${encodeURIComponent(keyword)}&core=all&page=${page}&pageSize=${limit}`
-  const { body } = await httpFetch(url, { headers: pcHeaders }).promise
+  console.log('[xm searchAnchor] fetching:', url)
+  let resp
+  try {
+    resp = await httpFetch(url, { headers: pcHeaders }).promise
+  } catch (err) {
+    console.error('[xm searchAnchor] fetch error:', err?.message || err)
+    throw err
+  }
+  const { body } = resp
+  console.log('[xm searchAnchor] response ret:', body?.ret, 'has data:', !!body?.data)
 
   if (!body || body.ret !== 200) {
     throw new Error('喜马拉雅搜索主播失败: ' + (body?.msg || 'unknown'))
@@ -93,6 +112,7 @@ const searchAnchor = async (keyword, page = 1, limit = 30) => {
 
   const docs = userData.docs || []
   const total = userData.numFound || 0
+  console.log('[xm searchAnchor] found', docs.length, 'anchors, total:', total)
 
   const list = docs.map(item => ({
     id: String(item.uid),
