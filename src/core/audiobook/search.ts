@@ -12,6 +12,19 @@ export const setSearchText = (text: string) => {
 }
 
 /**
+ * 清除列表信息（用于搜索失败后的状态恢复）
+ * 对齐歌曲搜索模块 clearListInfo 的行为
+ */
+export const clearListInfo = () => {
+  const listInfo = state.listInfo
+  listInfo.list = []
+  listInfo.page = 0
+  listInfo.maxPage = 0
+  listInfo.total = 0
+  listInfo.key = null
+}
+
+/**
  * 搜索听书
  */
 export const search = async (text: string, page: number, sourceId: AudiobookSource, type: AudiobookType) => {
@@ -30,10 +43,21 @@ export const search = async (text: string, page: number, sourceId: AudiobookSour
   if (!sdk) throw new Error('听书源不支持: ' + sourceId)
 
   console.log('[audiobook search] start:', text, 'page:', page, 'source:', sourceId, 'type:', type)
-  listInfo.key = key
-  const result = await sdk.search(text, page, type, listInfo.limit)
+
+  // 只在首次搜索时设置 key，等 SDK 成功返回后才正式写入
+  // 避免 SDK 抛异常后 state.key 已更新但 list 为空的不一致状态
+  let result
+  try {
+    result = await sdk.search(text, page, type, listInfo.limit)
+  } catch (err) {
+    // 搜索失败时清理 state，对齐歌曲搜索模块的 clearListInfo 行为
+    if (page === 1) clearListInfo()
+    throw err
+  }
   console.log('[audiobook search] result:', result?.list?.length, 'items, total:', result?.total)
 
+  // SDK 成功返回后才写入 key，确保 state 一致性
+  listInfo.key = key
   listInfo.list = page === 1 ? result.list : [...listInfo.list, ...result.list]
   listInfo.total = result.total
   listInfo.page = page

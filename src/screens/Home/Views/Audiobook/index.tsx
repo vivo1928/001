@@ -4,7 +4,7 @@ import { View } from 'react-native'
 import HeaderBar, { type HeaderBarProps, type HeaderBarType } from './HeaderBar'
 import TypeSelector from './TypeSelector'
 import AudiobookList, { type AudioListType } from './AudiobookList'
-import { search, setSearchText } from '@/core/audiobook/search'
+import { search, setSearchText, clearListInfo } from '@/core/audiobook/search'
 import audiobookState, { type AudiobookSource, type AudiobookType, type SearchListItem } from '@/store/audiobook/state'
 import { createStyle } from '@/utils/tools'
 
@@ -63,6 +63,10 @@ export default () => {
     }).catch((err: any) => {
       console.error('[Audiobook] search error:', err?.message || err)
       if (!isUnmountedRef.current) {
+        // 首次搜索失败时清理列表，避免残留旧数据
+        if (page === 1) {
+          listRef.current?.setList([])
+        }
         listRef.current?.setStatus('error')
       }
     })
