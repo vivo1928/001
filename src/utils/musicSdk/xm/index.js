@@ -4,18 +4,23 @@ import { formatPlayTime } from '../../index'
 /**
  * 喜马拉雅FM 听书源
  *
- * 使用 SEO 搜索接口: /revision/search/seo
- * 该接口为搜索引擎爬虫设计，无需 xm-sign 签名
- * 相比之下 /revision/search/main 需要 dws.2.0.0.js 生成的 browserid&&sessionid 签名
+ * 提供两个搜索端点，互相作为 fallback:
+ * 1. SEO 端点: /revision/search/seo — 无需 xm-sign 签名，为搜索引擎爬虫设计
+ * 2. 普通端点: /revision/search — 同样无需签名，响应结构不同
  *
- * 提供:
- * - search: 搜索专辑/主播
- * - getAlbumDetail: 获取专辑章节列表
- * - getAnchorDetail: 获取主播专辑列表
+ * 两个端点都无需 xm-sign（对比 /revision/search/main 需要 dws.2.0.0.js 签名）
+ *
+ * 重试策略（对齐歌曲搜索 SDK 的实现）:
+ * - 最多重试 3 次
+ * - 每次重试切换端点（SEO → 普通 → SEO）
+ * - 网络错误 / API 错误 / 风控 都触发重试
  */
 
 const XM_SEARCH_API = 'https://www.ximalaya.com/revision/search/seo'
+const XM_SEARCH_FALLBACK_API = 'https://www.ximalaya.com/revision/search'
 const XM_MOBILE_API = 'https://mobile.ximalaya.com'
+
+const MAX_RETRY = 3
 
 // 桌面浏览器请求头
 const pcHeaders = {
@@ -33,10 +38,6 @@ const mobileHeaders = {
 
 /**
  * 构建封面图片完整 URL
- * 喜马拉雅返回的 coverPath 是相对路径，需要拼接 CDN 域名
- * 如: storages/xxx.jpeg → https://imagev2.xmcdn.com/storages/xxx.jpeg
- *     group63/M08/xxx.jpg → https://imagev2.xmcdn.com/group63/M08/xxx.jpg
- *     https://thirdwx.qlogo.cn/... → 已经是完整 URL，直接返回
  */
 const buildCoverUrl = (path) => {
   if (!path) return ''
@@ -74,65 +75,122 @@ const safeParseBody = (resp) => {
 }
 
 /**
- * 搜索专辑
- * SEO 接口: /revision/search/seo?core=album&kw=关键词&page=N&rows=N&device=iPhone&condition=relation&isGrayFilter=true&spellchecker=true
- * 成功响应: { ret: 200, data: { album: { docs: [...], total: N, totalPage: N } } }
- * 风控响应: { ret: 200, data: { reason: "risk invalid", riskLevel: 5 } }
+ * 从响应中提取 docs 和 total
+ * 兼容两种端点格式:
+ * - SEO 格式: { ret: 200, data: { album/user: { docs: [...], total: N } } }
+ * - 普通格式: { ret: 200, data: { result: { response: { docs: [...], numFound: N } } } }
  */
-const searchAlbum = async (keyword, page = 1, limit = 30) => {
-  const url = `${XM_SEARCH_API}?kw=${encodeURIComponent(keyword)}&core=album&spellchecker=true&device=iPhone&condition=relation&isGrayFilter=true&page=${page}&rows=${limit}`
-  console.log('[xm searchAlbum] fetching:', url)
-  let resp
-  try {
-    resp = await httpFetch(url, { headers: pcHeaders }).promise
-  } catch (err) {
-    console.error('[xm searchAlbum] fetch error:', err?.message || err)
-    throw err
-  }
-  console.log('[xm searchAlbum] statusCode:', resp?.statusCode, 'ok:', resp?.ok)
-
-  const body = safeParseBody(resp)
-  if (!body) {
-    throw new Error('喜马拉雅搜索失败: 响应解析异常')
-  }
-
-  console.log('[xm searchAlbum] response ret:', body.ret)
-
-  // SEO 接口用 ret: 200 表示成功
-  if (body.ret !== 200) {
-    const errMsg = body.msg || JSON.stringify(body).substring(0, 200)
-    throw new Error('喜马拉雅搜索失败: ' + errMsg)
-  }
+const extractDocs = (body, core) => {
+  if (!body || body.ret !== 200) return null
 
   const data = body.data
-  if (!data) return { list: [], total: 0, page, limit, allPage: 0, source: 'xm' }
+  if (!data) return null
 
-  // 风控拦截: data 中没有 album 字段，而是 reason 字段
+  // 风控拦截
   if (data.reason) {
-    throw new Error('喜马拉雅搜索被风控拦截: ' + data.reason)
+    console.warn('[xm] risk control:', data.reason)
+    return null
   }
 
-  const albumData = data.album
-  if (!albumData) return { list: [], total: 0, page, limit, allPage: 0, source: 'xm' }
+  // SEO 格式: data.album 或 data.user
+  if (data[core] && data[core].docs) {
+    return {
+      docs: data[core].docs,
+      total: data[core].total || 0,
+      totalPage: data[core].totalPage || 0,
+    }
+  }
 
-  const docs = albumData.docs || []
-  const total = albumData.total || 0
-  console.log('[xm searchAlbum] found', docs.length, 'albums, total:', total)
+  // 普通格式: data.result.response.docs
+  if (data.result && data.result.response) {
+    const resp = data.result.response
+    return {
+      docs: resp.docs || [],
+      total: resp.numFound || resp.total || 0,
+      totalPage: resp.totalPage || 0,
+    }
+  }
+
+  return null
+}
+
+/**
+ * 执行一次 HTTP 请求，返回解析后的 body
+ */
+const fetchJson = async (url) => {
+  const resp = await httpFetch(url, { headers: pcHeaders }).promise
+  console.log('[xm] fetch statusCode:', resp?.statusCode, 'ok:', resp?.ok)
+  const body = safeParseBody(resp)
+  if (!body) throw new Error('响应解析异常')
+  return body
+}
+
+// ==================== 专辑搜索 ====================
+
+/**
+ * 构建 SEO 专辑搜索 URL
+ */
+const buildSeoAlbumUrl = (keyword, page, limit) => {
+  return `${XM_SEARCH_API}?kw=${encodeURIComponent(keyword)}&core=album&spellchecker=true&device=iPhone&condition=relation&isGrayFilter=true&page=${page}&rows=${limit}`
+}
+
+/**
+ * 构建普通专辑搜索 URL
+ */
+const buildNormalAlbumUrl = (keyword, page, limit) => {
+  return `${XM_SEARCH_FALLBACK_API}?core=album&kw=${encodeURIComponent(keyword)}&page=${page}&rows=${limit}&spellchecker=true&device=iPhone&condition=relation&isGrayFilter=true`
+}
+
+/**
+ * 专辑搜索（带重试 + 端点 fallback）
+ * 对齐歌曲搜索 SDK 的重试模式: 最多重试 MAX_RETRY 次，每次切换端点
+ */
+const searchAlbum = async (keyword, page = 1, limit = 30, retryCount = 0) => {
+  // 交替使用 SEO 端点和普通端点
+  const useSeo = retryCount % 2 === 0
+  const url = useSeo
+    ? buildSeoAlbumUrl(keyword, page, limit)
+    : buildNormalAlbumUrl(keyword, page, limit)
+
+  console.log(`[xm searchAlbum] attempt ${retryCount + 1}/${MAX_RETRY} endpoint: ${useSeo ? 'seo' : 'normal'} url:`, url)
+
+  let body
+  try {
+    body = await fetchJson(url)
+  } catch (err) {
+    console.error(`[xm searchAlbum] attempt ${retryCount + 1} fetch error:`, err?.message || err)
+    if (retryCount < MAX_RETRY - 1) return searchAlbum(keyword, page, limit, retryCount + 1)
+    throw new Error('喜马拉雅搜索专辑失败: ' + (err?.message || err))
+  }
+
+  // 提取数据
+  const extracted = extractDocs(body, 'album')
+  if (!extracted) {
+    console.warn(`[xm searchAlbum] attempt ${retryCount + 1} extract failed, body.ret:`, body?.ret, 'has reason:', !!body?.data?.reason)
+    if (retryCount < MAX_RETRY - 1) return searchAlbum(keyword, page, limit, retryCount + 1)
+    const errMsg = body?.data?.reason
+      ? '喜马拉雅搜索被风控拦截: ' + body.data.reason
+      : (body?.msg || '响应数据格式异常')
+    throw new Error('喜马拉雅搜索专辑失败: ' + errMsg)
+  }
+
+  const { docs, total } = extracted
+  console.log(`[xm searchAlbum] attempt ${retryCount + 1} OK, found ${docs.length} albums, total: ${total}`)
 
   const list = docs.map(item => ({
-    id: String(item.albumId),
-    name: item.title || '',
+    id: String(item.albumId || item.id),
+    name: item.title || item.name || '',
     author: item.nickname || '',
-    img: buildCoverUrl(item.coverPath),
+    img: buildCoverUrl(item.coverPath || item.cover_path || item.img),
     desc: item.intro || '',
-    playCount: item.playCount || 0,
-    trackCount: item.tracksCount || 0,
+    playCount: item.playCount || item.play || 0,
+    trackCount: item.tracksCount || item.tracks || 0,
     source: 'xm',
-    categoryId: String(item.categoryId || ''),
-    categoryName: item.categoryName || '',
-    isPaid: item.isPaid || false,
+    categoryId: String(item.categoryId || item.category_id || ''),
+    categoryName: item.categoryTitle || item.category_title || '',
+    isPaid: item.isPaid || item.is_paid || false,
     anchorId: String(item.uid || ''),
-    anchorUrl: buildAnchorUrl(item.anchorUrl),
+    anchorUrl: buildAnchorUrl(item.anchorUrl || item.anchor_url),
     albumUrl: item.url ? ('https://www.ximalaya.com' + item.url) : '',
   }))
 
@@ -146,65 +204,70 @@ const searchAlbum = async (keyword, page = 1, limit = 30) => {
   }
 }
 
+// ==================== 主播搜索 ====================
+
 /**
- * 搜索主播
- * SEO 接口: core=user
- * 成功响应: { ret: 200, data: { user: { docs: [...], total: N, totalPage: N } } }
+ * 构建 SEO 主播搜索 URL
  */
-const searchAnchor = async (keyword, page = 1, limit = 30) => {
-  const url = `${XM_SEARCH_API}?kw=${encodeURIComponent(keyword)}&core=user&spellchecker=true&device=iPhone&condition=relation&isGrayFilter=true&page=${page}&rows=${limit}`
-  console.log('[xm searchAnchor] fetching:', url)
-  let resp
+const buildSeoAnchorUrl = (keyword, page, limit) => {
+  return `${XM_SEARCH_API}?kw=${encodeURIComponent(keyword)}&core=user&spellchecker=true&device=iPhone&condition=relation&isGrayFilter=true&page=${page}&rows=${limit}`
+}
+
+/**
+ * 构建普通主播搜索 URL
+ */
+const buildNormalAnchorUrl = (keyword, page, limit) => {
+  return `${XM_SEARCH_FALLBACK_API}?core=user&kw=${encodeURIComponent(keyword)}&page=${page}&rows=${limit}&spellchecker=true&device=iPhone&condition=relation&isGrayFilter=true`
+}
+
+/**
+ * 主播搜索（带重试 + 端点 fallback）
+ */
+const searchAnchor = async (keyword, page = 1, limit = 30, retryCount = 0) => {
+  const useSeo = retryCount % 2 === 0
+  const url = useSeo
+    ? buildSeoAnchorUrl(keyword, page, limit)
+    : buildNormalAnchorUrl(keyword, page, limit)
+
+  console.log(`[xm searchAnchor] attempt ${retryCount + 1}/${MAX_RETRY} endpoint: ${useSeo ? 'seo' : 'normal'} url:`, url)
+
+  let body
   try {
-    resp = await httpFetch(url, { headers: pcHeaders }).promise
+    body = await fetchJson(url)
   } catch (err) {
-    console.error('[xm searchAnchor] fetch error:', err?.message || err)
-    throw err
-  }
-  console.log('[xm searchAnchor] statusCode:', resp?.statusCode, 'ok:', resp?.ok)
-
-  const body = safeParseBody(resp)
-  if (!body) {
-    throw new Error('喜马拉雅搜索主播失败: 响应解析异常')
+    console.error(`[xm searchAnchor] attempt ${retryCount + 1} fetch error:`, err?.message || err)
+    if (retryCount < MAX_RETRY - 1) return searchAnchor(keyword, page, limit, retryCount + 1)
+    throw new Error('喜马拉雅搜索主播失败: ' + (err?.message || err))
   }
 
-  console.log('[xm searchAnchor] response ret:', body.ret)
-
-  // SEO 接口用 ret: 200 表示成功
-  if (body.ret !== 200) {
-    const errMsg = body.msg || JSON.stringify(body).substring(0, 200)
+  // 提取数据（普通端点 user 搜索的 core 是 'user'，但 data.result.response 同样适用）
+  const extracted = extractDocs(body, 'user')
+  if (!extracted) {
+    console.warn(`[xm searchAnchor] attempt ${retryCount + 1} extract failed, body.ret:`, body?.ret, 'has reason:', !!body?.data?.reason)
+    if (retryCount < MAX_RETRY - 1) return searchAnchor(keyword, page, limit, retryCount + 1)
+    const errMsg = body?.data?.reason
+      ? '喜马拉雅搜索被风控拦截: ' + body.data.reason
+      : (body?.msg || '响应数据格式异常')
     throw new Error('喜马拉雅搜索主播失败: ' + errMsg)
   }
 
-  const data = body.data
-  if (!data) return { list: [], total: 0, page, limit, allPage: 0, source: 'xm' }
-
-  // 风控拦截
-  if (data.reason) {
-    throw new Error('喜马拉雅搜索主播被风控拦截: ' + data.reason)
-  }
-
-  const userData = data.user
-  if (!userData) return { list: [], total: 0, page, limit, allPage: 0, source: 'xm' }
-
-  const docs = userData.docs || []
-  const total = userData.total || 0
-  console.log('[xm searchAnchor] found', docs.length, 'anchors, total:', total)
+  const { docs, total } = extracted
+  console.log(`[xm searchAnchor] attempt ${retryCount + 1} OK, found ${docs.length} anchors, total: ${total}`)
 
   const list = docs.map(item => ({
-    id: String(item.uid),
+    id: String(item.uid || item.id),
     name: item.nickname || '',
     author: '',
-    img: buildCoverUrl(item.logoPic),
-    desc: item.description || item.personDescribe || '',
-    followerCount: item.followersCount || 0,
-    albumCount: item.albumCount || 0,
-    trackCount: item.tracksCount || 0,
+    img: buildCoverUrl(item.logoPic || item.logo_pic || item.smallPic || item.small_pic || item.img),
+    desc: item.description || item.personDescribe || item.person_describe || '',
+    followerCount: item.followersCount || item.followers_counts || 0,
+    albumCount: item.albumCount || item.album_counts || 0,
+    trackCount: item.tracksCount || item.tracks_counts || 0,
     source: 'xm',
     isAnchor: true,
-    anchorGrade: item.anchorGrade || 0,
-    verifyType: item.verifyType || 0,
-    isVerified: item.isVerified || false,
+    anchorGrade: item.anchorGrade || item.anchor_grade || 0,
+    verifyType: item.verifyType || item.verify_type || 0,
+    isVerified: item.isVerified || item.is_verified || false,
     anchorUrl: item.url ? ('https://www.ximalaya.com' + item.url) : '',
   }))
 
@@ -229,9 +292,11 @@ const search = async (keyword, page = 1, type = 'album', limit = 30) => {
   }
 }
 
+// ==================== 专辑详情 ====================
+
 /**
  * 获取专辑章节列表
- * 使用 mobile API
+ * 使用 mobile API，失败时尝试备用 URL
  */
 const getAlbumDetail = async (albumId, page = 1, limit = 200) => {
   const url = `${XM_MOBILE_API}/mobile/v1/album/track/ts-${Math.floor(Date.now() / 1000)}?albumId=${albumId}&device=android&isAsc=true&pageId=${page}&pageSize=${limit}`
@@ -258,7 +323,7 @@ const getAlbumDetail = async (albumId, page = 1, limit = 200) => {
   const albumInfo = data.album || data.albumInfo || {}
   const total = data.tracks?.totalCount || data.totalCount || 0
 
-  const list = tracks.map((item, index) => ({
+  const list = tracks.map((item) => ({
     singer: item.nickname || item.anchorName || albumInfo.nickname || '',
     name: item.title || item.trackTitle || '',
     albumName: albumInfo.albumTitle || albumInfo.title || '',
@@ -297,7 +362,7 @@ const getAlbumDetail = async (albumId, page = 1, limit = 200) => {
 
 /**
  * 获取主播的专辑列表
- * 使用 mobile API
+ * 使用 mobile API，失败时尝试备用 URL
  */
 const getAnchorDetail = async (anchorId, page = 1, limit = 30) => {
   const url = `${XM_MOBILE_API}/mobile/v1/artist/albums?anchorId=${anchorId}&device=android&pageId=${page}&pageSize=${limit}`
