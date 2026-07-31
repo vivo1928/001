@@ -1,4 +1,4 @@
-import { useRef, useState, useMemo, forwardRef, useImperativeHandle } from 'react'
+import { useRef, useState, useMemo, useCallback, forwardRef, useImperativeHandle } from 'react'
 import { FlatList, View, RefreshControl, type FlatListProps, TouchableOpacity, Platform } from 'react-native'
 
 import { type SearchListItem, type AudiobookType } from '@/store/audiobook/state'
@@ -31,31 +31,54 @@ export interface AudioListType {
   setStatus: (val: Status) => void
 }
 
-const ListItem = ({ item, index, width, onPress }: {
+const ListItem = ({ item, index, width, onPress, type }: {
   item: SearchListItem
   index: number
   width: number
   onPress: (item: SearchListItem, index: number) => void
+  type: AudiobookType
 }) => {
   const theme = useTheme()
   const itemWidth = width - IMG_GAP
-  const handlePress = () => {
+  const handlePress = useCallback(() => {
     onPress(item, index)
-  }
+  }, [onPress, item, index])
   const isAnchor = 'isAnchor' in item && item.isAnchor
 
+  if (!item.id) {
+    return <View style={{ ...styles.listItem, width: itemWidth }} accessible={false} importantForAccessibility="no" />
+  }
+
   return (
-    item.id
-      ? (
-          <TouchableOpacity activeOpacity={0.5} onPress={handlePress} accessibilityLabel={item.name} style={{ ...styles.listItem, width: itemWidth }}>
-            <View style={{ ...styles.listItemImg, backgroundColor: theme['c-content-background'] }}>
-              <Image url={item.img} nativeID={`${NAV_SHEAR_NATIVE_IDS.songlistDetail_pic}_from_${item.id}`} style={{ width: itemWidth, height: itemWidth, borderRadius: 4 }} />
-            </View>
-            <Text style={styles.listItemTitle} numberOfLines={2}>{item.name}</Text>
-            {item.author ? <Text style={styles.listItemAuthor} size={11} color={theme['c-font-label']} numberOfLines={1}>{item.author}</Text> : null}
-          </TouchableOpacity>
-        )
-      : <View style={{ ...styles.listItem, width: itemWidth }} accessible={false} importantForAccessibility="no" />
+    <TouchableOpacity activeOpacity={0.5} onPress={handlePress} accessibilityLabel={item.name} style={{ ...styles.listItem, width: itemWidth }}>
+      <View style={{ ...styles.listItemImg, backgroundColor: theme['c-content-background'] }}>
+        <Image url={item.img} nativeID={`${NAV_SHEAR_NATIVE_IDS.songlistDetail_pic}_from_${item.id}`} style={{ width: itemWidth, height: itemWidth, borderRadius: 4 }} />
+      </View>
+      <Text style={styles.listItemTitle} numberOfLines={2}>{item.name}</Text>
+      {item.author ? <Text style={styles.listItemAuthor} size={11} color={theme['c-font-label']} numberOfLines={1}>{item.author}</Text> : null}
+      {/* 主播模式额外显示关注/专辑数 */}
+      {isAnchor && type === 'anchor' && 'followerCount' in item ? (
+        <Text style={styles.listItemSub} size={10} color={theme['c-font-label']} numberOfLines={1}>
+          {'followerCount' in item && item.followerCount != null ? `${item.followerCount} 粉丝` : ''}
+          {'albumCount' in item && item.albumCount != null ? ` · ${item.albumCount} 专辑` : ''}
+        </Text>
+      ) : null}
+    </TouchableOpacity>
+  )
+}
+
+const EmptyView = ({ status, onEmptyPress }: {
+  status: Status
+  onEmptyPress?: () => void
+}) => {
+  const theme = useTheme()
+  const t = useI18n()
+  if (status === 'loading' || status === 'refreshing') return null
+  const text = status === 'error' ? t('list_error') : t('list_empty')
+  return (
+    <View style={styles.emptyContainer}>
+      <Text style={styles.emptyText} color={theme['c-font-label']} onPress={status === 'error' ? onEmptyPress : undefined}>{text}</Text>
+    </View>
   )
 }
 
@@ -75,20 +98,22 @@ export default forwardRef<AudioListType, AudioListProps>(({ onRefresh, onLoadMor
     },
   }), [])
 
-  const handleLoadMore = () => {
+  const handleLoadMore = useCallback(() => {
     if (status != 'idle') return
     onLoadMore()
-  }
+  }, [status, onLoadMore])
 
-  const renderItem: FlatListType['renderItem'] = ({ item, index }) => (
+  const renderItem: FlatListType['renderItem'] = useCallback(({ item, index }) => (
     <ListItem
       item={item}
       index={index}
       width={rowInfo.width}
       onPress={onOpenDetail}
+      type={type}
     />
-  )
-  const getkey: FlatListType['keyExtractor'] = item => item.id
+  ), [rowInfo.width, onOpenDetail, type])
+
+  const getkey: FlatListType['keyExtractor'] = useCallback((item, index) => `${item.id}_${index}`, [])
 
   const refreshControl = useMemo(() => (
     <RefreshControl
@@ -139,7 +164,7 @@ export default forwardRef<AudioListType, AudioListProps>(({ onRefresh, onLoadMor
     if (whiteItemNum > 0) whiteItemNum = rowInfo.num - whiteItemNum
     for (let i = 0; i < whiteItemNum; i++) {
       list.push({
-        id: `white__${i}`,
+        id: `white_${rowInfo.num}_${i}`,
         name: '',
         author: '',
         img: '',
@@ -151,6 +176,10 @@ export default forwardRef<AudioListType, AudioListProps>(({ onRefresh, onLoadMor
     }
     return list
   }, [currentList, rowInfo])
+
+  const handleEmptyPress = useCallback(() => {
+    if (status === 'error') onLoadMore()
+  }, [status, onLoadMore])
 
   return (
     <View style={styles.container} onLayout={onLayout}>
@@ -172,9 +201,9 @@ export default forwardRef<AudioListType, AudioListProps>(({ onRefresh, onLoadMor
                 keyExtractor={getkey}
                 onEndReachedThreshold={0.6}
                 onEndReached={handleLoadMore}
-                maintainVisibleContentPosition={{ minIndexForVisible: 0, autoscrollToTopThreshold: 10 }}
                 refreshControl={refreshControl}
                 ListFooterComponent={footerComponent}
+                ListEmptyComponent={<EmptyView status={status} onEmptyPress={handleEmptyPress} />}
               />
             )
       }
@@ -189,10 +218,10 @@ const Footer = ({ label, onLoadMore }: {
 }) => {
   const theme = useTheme()
   const t = useI18n()
-  const handlePress = () => {
+  const handlePress = useCallback(() => {
     if (label != 'list_error') return
     onLoadMore()
-  }
+  }, [label, onLoadMore])
   return (
     label
       ? (
@@ -246,5 +275,18 @@ const styles = createStyle({
   },
   listItemAuthor: {
     marginBottom: 5,
+  },
+  listItemSub: {
+    marginBottom: 5,
+  },
+  emptyContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingTop: 60,
+  },
+  emptyText: {
+    fontSize: 14,
+    textAlign: 'center',
   },
 })
