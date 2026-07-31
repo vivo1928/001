@@ -1,5 +1,5 @@
-const { httpFetch } = require('../../request')
-const { formatPlayTime } = require('../../index')
+import { httpFetch } from '../../request'
+import { formatPlayTime } from '../../index'
 
 /**
  * 喜马拉雅FM 听书源
@@ -455,7 +455,7 @@ const getAnchorDetail = async (anchorId, page = 1, limit = 30) => {
   }
 }
 
-module.exports = {
+export default {
   search,
   getAlbumDetail,
   getAnchorDetail,

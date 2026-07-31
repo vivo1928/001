@@ -1,7 +1,19 @@
 import state, { type AudiobookSource, type AudiobookType } from '@/store/audiobook/state'
-import xm from '@/utils/musicSdk/xm'
 
-const sdkMap: Record<AudiobookSource, typeof xm> = { xm }
+/**
+ * 获取 SDK 实例
+ * 使用 require() 而非 import，避免 TypeScript 的 esModuleInterop 把
+ * export default 包装成 { default: { search, ... } } 导致 .search 丢失
+ * 对齐歌曲搜索模块通过 musicSdk 主入口访问子模块的模式
+ */
+const getSdk = (sourceId: AudiobookSource) => {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const xm = require('@/utils/musicSdk/xm')
+  // 兼容两种导出格式：export default 返回 { default: {...} }，module.exports 直接返回 {...}
+  const sdk = xm.default || xm
+  if (sourceId === 'xm' && sdk.search) return sdk
+  throw new Error('听书源不支持: ' + sourceId)
+}
 
 /**
  * 立即更新搜索关键词（在调用 search() 之前调用）
@@ -31,16 +43,14 @@ export const search = async (text: string, page: number, sourceId: AudiobookSour
   const listInfo = state.listInfo
   if (!text) return { list: [], total: 0, allPage: 0 }
 
-  // 先检查 SDK 是否可用，再更新 state，避免 state 污染
-  const sdk = sdkMap[sourceId]
-  if (!sdk) throw new Error('听书源不支持: ' + sourceId)
-
   const key = `${page}__${sourceId}__${type}__${text}`
   // 如果 key 相同且已有列表数据，直接返回缓存
   if (listInfo.key === key && listInfo.list.length) {
     console.log('[audiobook search] cache hit:', key)
     return listInfo
   }
+
+  const sdk = getSdk(sourceId)
 
   // 更新搜索参数
   state.searchText = text
@@ -52,7 +62,7 @@ export const search = async (text: string, page: number, sourceId: AudiobookSour
   let result
   try {
     result = await sdk.search(text, page, type, listInfo.limit)
-  } catch (err) {
+  } catch (err: any) {
     // 搜索失败时清理 state，对齐歌曲搜索模块的 clearListInfo 行为
     console.error('[audiobook search] failed:', err?.message || err)
     if (page === 1) clearListInfo()
@@ -75,8 +85,7 @@ export const search = async (text: string, page: number, sourceId: AudiobookSour
  * 获取专辑章节列表
  */
 export const getAlbumDetail = async (albumId: string, sourceId: AudiobookSource, page = 1, limit = 200) => {
-  const sdk = sdkMap[sourceId]
-  if (!sdk) throw new Error('听书源不支持: ' + sourceId)
+  const sdk = getSdk(sourceId)
   return sdk.getAlbumDetail(albumId, page, limit)
 }
 
@@ -84,7 +93,6 @@ export const getAlbumDetail = async (albumId: string, sourceId: AudiobookSource,
  * 获取主播专辑列表
  */
 export const getAnchorDetail = async (anchorId: string, sourceId: AudiobookSource, page = 1, limit = 30) => {
-  const sdk = sdkMap[sourceId]
-  if (!sdk) throw new Error('听书源不支持: ' + sourceId)
+  const sdk = getSdk(sourceId)
   return sdk.getAnchorDetail(anchorId, page, limit)
 }
