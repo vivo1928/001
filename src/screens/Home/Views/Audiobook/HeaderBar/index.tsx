@@ -10,7 +10,6 @@ import { type AudiobookSource } from '@/store/audiobook/state'
 
 const SOURCE_LIST: { label: string; id: AudiobookSource }[] = [
   { label: '喜马拉雅', id: 'xm' },
-  { label: '蜻蜓FM', id: 'qt' },
 ]
 
 export interface HeaderBarProps {
@@ -54,15 +53,22 @@ export default forwardRef<HeaderBarType, HeaderBarProps>(({
   }
 
   const currentLabel = SOURCE_LIST.find(s => s.id === source)?.label || '喜马拉雅'
+  const hasMultipleSources = SOURCE_LIST.length > 1
 
   return (
     <View style={{ ...styles.searchBar, borderBottomColor: theme['c-border-background'] }}>
       <View style={styles.selector}>
-        <TouchableOpacity style={styles.sourceBtn} onPress={() => setShowMenu(!showMenu)}>
+        <TouchableOpacity
+          style={styles.sourceBtn}
+          onPress={() => hasMultipleSources && setShowMenu(!showMenu)}
+          activeOpacity={hasMultipleSources ? 0.5 : 1}
+        >
           <Text size={13} numberOfLines={1}>{currentLabel}</Text>
-          <Text size={8} color={theme['c-font-label']} style={{ marginLeft: 3 }}>▼</Text>
+          {hasMultipleSources ? (
+            <Text size={8} color={theme['c-font-label']} style={{ marginLeft: 3 }}>▼</Text>
+          ) : null}
         </TouchableOpacity>
-        {showMenu ? (
+        {showMenu && hasMultipleSources ? (
           <View style={{ ...styles.menu, backgroundColor: theme['c-content-background'], borderColor: theme['c-border-background'] }}>
             {SOURCE_LIST.map(s => (
               <TouchableOpacity
@@ -95,6 +101,7 @@ const styles = createStyle({
     paddingRight: 10,
     borderBottomWidth: BorderWidths.normal,
     alignItems: 'center',
+    overflow: 'visible',
   },
   selector: {
     position: 'relative',

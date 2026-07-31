@@ -1,8 +1,7 @@
 import state, { type AudiobookSource, type AudiobookType } from '@/store/audiobook/state'
 import xm from '@/utils/musicSdk/xm'
-import qt from '@/utils/musicSdk/qt'
 
-const sdkMap: Record<AudiobookSource, typeof xm> = { xm, qt }
+const sdkMap: Record<AudiobookSource, typeof xm> = { xm }
 
 /**
  * 搜索听书

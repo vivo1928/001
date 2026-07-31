@@ -2,11 +2,12 @@
  * 听书状态管理
  * 
  * 类似搜索模块，但只有两个子类型: album(专辑) 和 anchor(主播)
- * 数据源: xm(喜马拉雅), qt(蜻蜓FM)
+ * 数据源: xm(喜马拉雅)
+ * 注: 蜻蜓FM(qt) API 暂不可用，待后续接入
  */
 
 export type AudiobookType = 'album' | 'anchor'
-export type AudiobookSource = 'xm' | 'qt'
+export type AudiobookSource = 'xm'
 
 export interface AlbumInfo {
   id: string
@@ -57,7 +58,7 @@ const state: InitState = {
   searchText: '',
   searchType: 'album',
   source: 'xm',
-  sources: ['xm', 'qt'],
+  sources: ['xm'],
   listInfo: {
     list: [],
     total: 0,
