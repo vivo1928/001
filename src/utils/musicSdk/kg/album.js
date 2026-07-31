@@ -377,11 +377,33 @@ export default {
       throw new Error(`All album methods failed: ${lastError?.message || 'empty result'}`)
     }
 
-    // 3. 获取歌曲详情
+    // 3. 获取歌曲详情（去重 + 保持原始顺序）
     let result = []
     try {
-      const detailList = await getSongDetail(albumList.info.map(item => ({ hash: item.hash })))
+      // 3a. 去重：按 hash 去重，保留首次出现的顺序（即专辑原始曲序）
+      const seenHashes = new Set()
+      const hashOrderMap = new Map() // hash → 原始顺序索引
+      const uniqueHashList = []
+      for (const item of albumList.info) {
+        const h = item.hash
+        if (h && !seenHashes.has(h)) {
+          seenHashes.add(h)
+          hashOrderMap.set(h, uniqueHashList.length)
+          uniqueHashList.push({ hash: h })
+        }
+      }
+      console.log(`[kg album] dedup: ${albumList.info.length} → ${uniqueHashList.length} unique hashes`)
+
+      // 3b. 获取详情
+      const detailList = await getSongDetail(uniqueHashList)
       result = detailList.map(toMusicInfo).filter(Boolean)
+
+      // 3c. 按原始专辑曲序排序，确保序号连续正确
+      result.sort((a, b) => {
+        const idxA = hashOrderMap.get(a.hash) ?? 9999
+        const idxB = hashOrderMap.get(b.hash) ?? 9999
+        return idxA - idxB
+      })
     } catch (err) {
       console.log(`[kg album] getSongDetail failed:`, err?.message)
       throw err
