@@ -430,34 +430,45 @@ const getAlbumDetail = async (albumId, page = 1, limit = 200) => {
  * 获取主播的专辑列表
  * 使用官方 API: anchor/queryAnchorAlbumsByPage
  * 通过 apis.netstart.cn 代理绕过 CSRF 防护
- * 回退方案: 直接请求 ximalaya 官方 API
+ * 代理请求不带 Referer，避免被代理服务器拒绝
  */
 const getAnchorDetail = async (anchorId, page = 1, limit = 30) => {
-  // 方式1: 使用代理 API（最可靠）
   const proxyUrl = `${XM_API_PROXY}/anchor/queryAnchorAlbumsByPage?anchorId=${anchorId}&page=${page}&pageSize=${limit}`
-  // 方式2: 直接请求官方 API（可能被 CSRF/403 拦截）
-  const directUrl = `https://mobile.ximalaya.com/revision/anchor/queryAnchorAlbumsByPage?anchorId=${anchorId}&page=${page}&pageSize=${limit}`
 
   console.log('[xm getAnchorDetail] anchorId:', anchorId, 'page:', page)
 
-  let body
-  let usedFallback = false
+  // 代理请求用精简 headers，不传 Referer（代理不需要）
+  const proxyHeaders = {
+    'User-Agent': pcHeaders['User-Agent'],
+    'Accept': 'application/json, text/plain, */*',
+    'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
+  }
 
-  // 先尝试代理
-  try {
-    body = await fetchJson(proxyUrl, pcHeaders)
-  } catch (e) {
-    console.warn('[xm getAnchorDetail] proxy failed:', e.message, 'trying direct')
+  let body
+  let lastError
+
+  // 代理请求最多重试 2 次
+  for (let attempt = 0; attempt < 2; attempt++) {
     try {
-      body = await fetchJson(directUrl, mobileHeaders)
-      usedFallback = true
-    } catch (e2) {
-      throw new Error('喜马拉雅获取主播专辑列表失败: ' + (e2?.message || e2))
+      console.log(`[xm getAnchorDetail] proxy attempt ${attempt + 1}/2`)
+      body = await fetchJson(proxyUrl, proxyHeaders)
+      break
+    } catch (e) {
+      lastError = e
+      console.warn(`[xm getAnchorDetail] proxy attempt ${attempt + 1} failed:`, e.message)
+      // 短暂等待后重试
+      if (attempt < 1) {
+        await new Promise(resolve => setTimeout(resolve, 500))
+      }
     }
   }
 
-  if (!body || body.ret !== 0) {
-    throw new Error('喜马拉雅获取主播专辑列表失败: ' + (body?.msg || 'unknown'))
+  if (!body) {
+    throw new Error('喜马拉雅获取主播专辑列表失败: ' + (lastError?.message || 'unknown'))
+  }
+
+  if (body.ret !== 0) {
+    throw new Error('喜马拉雅获取主播专辑列表失败: ' + (body?.msg || 'ret=' + body.ret))
   }
 
   const data = body.data
@@ -477,7 +488,7 @@ const getAnchorDetail = async (anchorId, page = 1, limit = 30) => {
   const albums = data.albumBriefDetailInfos || data.albumList || data.albums || data.list || []
   const total = data.totalCount || data.total || 0
 
-  console.log('[xm getAnchorDetail] got', albums.length, 'albums, total:', total, 'usedFallback:', usedFallback)
+  console.log('[xm getAnchorDetail] got', albums.length, 'albums, total:', total)
 
   const list = albums.map(item => {
     const albumInfo = item.albumInfo || item
