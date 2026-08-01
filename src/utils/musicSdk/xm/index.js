@@ -1,137 +1,161 @@
 import { formatPlayTime } from '../../index'
 import { apis } from '../api-source'
+import { aesDecryptSync, AES_MODE } from '../../nativeModules/crypto'
+import { stringMd5 } from 'react-native-quick-md5'
+import { btoa } from 'react-native-quick-base64'
 
 // ============================================================
-// 喜马拉雅音频URL解密（getSoundCryptLink 算法）
+// 喜马拉雅音频URL解密（AES-128-ECB + PKCS7）
 // 逆向自 ximalaya.com 前端 webpack 模块
-// 参考: https://blog.csdn.net/weixin_43582101/article/details/128222064
+// 参考: https://www.52pojie.cn/thread-2061283-1-1.html
 // ============================================================
 
-// 替换表 r — 用于非 www2 设备（旧版桌面/移动端）
-const XM_SUBST_R = new Uint8Array([188, 174, 178, 234, 171, 147, 70, 82, 76, 72, 192, 132, 60, 17, 30, 127, 184, 233, 48, 105, 38, 232, 240, 21, 47, 252, 41, 229, 209, 213, 71, 40, 63, 152, 156, 88, 51, 141, 139, 145, 133, 2, 160, 191, 11, 100, 10, 78, 253, 151, 42, 166, 92, 22, 185, 140, 164, 91, 194, 175, 239, 217, 177, 75, 19, 225, 94, 107, 125, 138, 242, 31, 182, 150, 15, 24, 226, 29, 80, 116, 168, 118, 28, 1, 186, 220, 158, 79, 59, 244, 119, 9, 189, 161, 74, 130, 221, 56, 216, 241, 212, 26, 218, 170, 85, 165, 153, 69, 238, 93, 255, 142, 3, 159, 215, 67, 33, 249, 53, 176, 77, 254, 222, 25, 115, 101, 148, 16, 13, 237, 197, 5, 58, 157, 135, 248, 223, 61, 198, 211, 110, 44, 54, 111, 52, 227, 4, 46, 205, 7, 219, 136, 14, 87, 114, 64, 104, 50, 39, 203, 81, 196, 43, 163, 173, 109, 108, 187, 102, 195, 37, 235, 65, 190, 113, 149, 143, 8, 27, 155, 207, 134, 123, 224, 129, 245, 62, 66, 172, 122, 126, 12, 162, 214, 90, 247, 251, 124, 201, 236, 117, 183, 73, 95, 89, 246, 181, 179, 83, 228, 193, 99, 6, 45, 112, 32, 154, 128, 230, 131, 206, 243, 57, 84, 146, 0, 35, 96, 250, 137, 36, 208, 103, 34, 68, 204, 231, 144, 120, 98, 202, 49, 210, 23, 200, 18, 86, 55, 121, 20, 199, 97, 167, 180, 169, 106])
-
-// 替换表 n — 第二层 XOR key（非 www2 设备）
-const XM_KEY_N = new Uint8Array([20, 234, 159, 167, 230, 233, 58, 255, 158, 36, 210, 254, 133, 166, 59, 63, 209, 177, 184, 155, 85, 235, 94, 1, 242, 87, 228, 232, 191, 3, 69, 178])
-
-// 替换表 o — 用于 www2 / mweb2 设备（当前主流）
-const XM_SUBST_O = new Uint8Array([183, 174, 108, 16, 131, 159, 250, 5, 239, 110, 193, 202, 153, 137, 251, 176, 119, 150, 47, 204, 97, 237, 1, 71, 177, 42, 88, 218, 166, 82, 87, 94, 14, 195, 69, 127, 215, 240, 225, 197, 238, 142, 123, 44, 219, 50, 190, 29, 181, 186, 169, 98, 139, 185, 152, 13, 141, 76, 6, 157, 200, 132, 182, 49, 20, 116, 136, 43, 155, 194, 101, 231, 162, 242, 151, 213, 53, 60, 26, 134, 211, 56, 28, 223, 107, 161, 199, 15, 229, 61, 96, 41, 66, 158, 254, 21, 165, 253, 103, 89, 3, 168, 40, 246, 81, 95, 58, 31, 172, 78, 99, 45, 148, 187, 222, 124, 55, 203, 235, 64, 68, 149, 180, 35, 113, 207, 118, 111, 91, 38, 247, 214, 7, 212, 209, 189, 241, 18, 115, 173, 25, 236, 121, 249, 75, 57, 216, 10, 175, 112, 234, 164, 70, 206, 198, 255, 140, 230, 12, 32, 83, 46, 245, 0, 62, 227, 72, 191, 156, 138, 248, 114, 220, 90, 84, 170, 128, 19, 24, 122, 146, 80, 39, 37, 8, 34, 22, 11, 93, 130, 63, 154, 244, 160, 144, 79, 23, 133, 92, 54, 102, 210, 65, 67, 27, 196, 201, 106, 143, 52, 74, 100, 217, 179, 48, 233, 126, 117, 184, 226, 85, 171, 167, 86, 2, 147, 17, 135, 228, 252, 105, 30, 192, 129, 178, 120, 36, 145, 51, 163, 77, 205, 73, 4, 188, 125, 232, 33, 243, 109, 224, 104, 208, 221, 59, 9])
-
-// 第二层 XOR key a — 用于 www2 / mweb2 设备
-const XM_KEY_A = new Uint8Array([204, 53, 135, 197, 39, 73, 58, 160, 79, 24, 12, 83, 180, 250, 101, 60, 206, 30, 10, 227, 36, 95, 161, 16, 135, 150, 235, 116, 242, 116, 165, 171])
-
-// Base64 解码表
-const XM_B64_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/='
-const XM_B64_LOOKUP = {}
-for (let i = 0; i < XM_B64_CHARS.length; i++) XM_B64_LOOKUP[XM_B64_CHARS[i]] = i
+// AES-128-ECB 密钥（hex格式: aaad3e4fd540b0f79dca95606e72bf93）
+// 转换为 base64 供原生 CryptoModule 使用
+const XM_AES_KEY_B64 = btoa('aaad3e4fd540b0f79dca95606e72bf93'.match(/.{2}/g).map(h => String.fromCharCode(parseInt(h, 16))).join(''))
 
 /**
- * 自定义 Base64 解码（兼容 React Native Hermes 引擎）
- * atob 在 Hermes 中可能不可用，因此使用纯 JS 实现
- */
-const xmBase64Decode = (str) => {
-  str = str.replace(/\s+/g, '')
-  str += '=='.slice(2 - (3 & str.length))
-  let result = ''
-  for (let i = 0; i < str.length;) {
-    const a = XM_B64_LOOKUP[str.charAt(i++)] << 18 | XM_B64_LOOKUP[str.charAt(i++)] << 12 | (XM_B64_LOOKUP[str.charAt(i++)] || 0) << 6 | (XM_B64_LOOKUP[str.charAt(i++)] || 0)
-    result += String.fromCharCode((a >> 16) & 255, (a >> 8) & 255, a & 255)
-  }
-  return result
-}
-
-/**
- * 对 data 字节数组执行 XOR 操作
- * @param {Uint8Array} data - 目标字节数组
- * @param {number} offset - 起始偏移
- * @param {Uint8Array} key - XOR 密钥
- */
-const xmXorBlock = (data, offset, key) => {
-  const len = Math.min(data.length - offset, key.length)
-  for (let i = 0; i < len; i++) {
-    data[offset + i] ^= key[i]
-  }
-}
-
-/**
- * 将字节数组解码为 UTF-8 字符串
- * 仅处理单字节(BMP)和双字节字符，跳过非法序列
- */
-const xmBytesToUtf8 = (bytes) => {
-  let result = ''
-  let i = 0
-  while (i < bytes.length) {
-    const byte = bytes[i++]
-    if (byte < 0x80) {
-      result += String.fromCharCode(byte)
-    } else if (byte < 0xE0 && i < bytes.length) {
-      result += String.fromCharCode((31 & byte) << 6 | 63 & bytes[i++])
-    } else if (byte < 0xF0 && i + 1 < bytes.length) {
-      result += String.fromCharCode((15 & byte) << 12 | (63 & bytes[i++]) << 6 | 63 & bytes[i++])
-    }
-  }
-  return result
-}
-
-/**
- * 喜马拉雅音频 URL 解密算法
- * 逆向自 ximalaya.com 前端 D.getSoundCryptLink
+ * 喜马拉雅音频 URL 解密
+ * 使用 AES-128-ECB + PKCS7 padding
  *
- * 步骤:
- * 1. Base64 解码（替换 _ → /, - → +）
- * 2. 分割为数据部分（前 N-16 字节）和 IV（最后 16 字节）
- * 3. 替换表映射（www2/mweb2 使用 o，其他使用 r）
- * 4. 每 16 字节块与 IV 异或
- * 5. 每 32 字节块与第二 key 异或（www2/mweb2 使用 a，其他使用 n）
- * 6. 解码为 UTF-8 字符串
- *
- * @param {Object} params - 解密参数
- * @param {string} params.link - 加密的音频 URL
- * @param {string} [params.deviceType='www2'] - 设备类型
+ * @param {string} encryptedUrl - 加密的音频 URL（URL-safe base64）
  * @returns {string} 解密后的音频 URL
  */
-const getSoundCryptLink = ({ link, deviceType = 'www2' }) => {
-  // 选择替换表和 key
-  const isWww2 = ['www2', 'mweb2'].includes(deviceType)
-  const subst = isWww2 ? XM_SUBST_O : XM_SUBST_R
-  const key2 = isWww2 ? XM_KEY_A : XM_KEY_N
-
+const decryptXmUrl = (encryptedUrl) => {
   try {
-    // 1. Base64 解码（替换 URL-safe 字符为标准 Base64）
-    const b64 = link.replace(/_/g, '/').replace(/-/g, '+')
-    const decoded = xmBase64Decode(b64)
-    if (decoded.length < 16) return link // 非法数据
+    // 1. 将 URL-safe base64 转换为标准 base64
+    const b64 = encryptedUrl.replace(/-/g, '+').replace(/_/g, '/')
 
-    // 2. 分割为数据（前 decoded.length - 16 字节）和 IV（后 16 字节）
-    const data = new Uint8Array(decoded.length - 16)
-    for (let i = 0; i < decoded.length - 16; i++) data[i] = decoded.charCodeAt(i)
+    // 2. AES-ECB 解密（NoPadding 模式，手动处理 PKCS7）
+    const decryptedB64 = aesDecryptSync(b64, XM_AES_KEY_B64, '', AES_MODE.ECB_128_NoPadding)
 
-    const iv = new Uint8Array(16)
-    for (let i = 0; i < 16; i++) iv[i] = decoded.charCodeAt(decoded.length - 16 + i)
+    // 3. 从 base64 解码为 Buffer
+    const buf = Buffer.from(decryptedB64, 'base64')
 
-    // 3. 替换表映射
-    for (let i = 0; i < data.length; i++) data[i] = subst[data[i]]
-
-    // 4. 每 16 字节块与 IV 异或
-    for (let i = 0; i < data.length; i += 16) xmXorBlock(data, i, iv)
-
-    // 5. 每 32 字节块与第二 key 异或
-    for (let i = 0; i < data.length; i += 32) xmXorBlock(data, i, key2)
-
-    // 6. 解码为 UTF-8 字符串
-    return xmBytesToUtf8(data)
+    // 4. 手动剥离 PKCS7 padding
+    const padLen = buf[buf.length - 1]
+    if (padLen > 0 && padLen <= 16) {
+      return buf.subarray(0, buf.length - padLen).toString('utf8')
+    }
+    return buf.toString('utf8')
   } catch (e) {
-    console.warn('[xm getSoundCryptLink] decrypt failed:', e.message)
-    return link
+    console.warn('[xm decryptXmUrl] decrypt failed:', e.message)
+    return encryptedUrl
   }
 }
 
 /**
- * 通过 mobile-playpage/track/v3/baseInfo API 获取音频播放地址（新方案）
- * 喜马拉雅废弃了旧版 revision/play/v1/audio，改用此接口并加密返回
+ * 生成 xm-sign 签名（旧版算法，device=web 可用）
+ * 格式: MD5("himalaya-" + serverTime) + "(" + random1 + ")" + serverTime + "(" + random2 + ")" + nowTime
  *
- * 参考:
- * - https://blog.csdn.net/weixin_43582101/article/details/128222064
- * - https://blog.csdn.net/yj2094632273/article/details/140407194
+ * @param {string} serverTime - 从 /revision/time 获取的服务器时间
+ * @returns {string} xm-sign 签名
+ */
+const generateXmSign = (serverTime) => {
+  const nowTime = Date.now().toString()
+  const md5Hash = stringMd5('himalaya-' + serverTime)
+  const random1 = Math.floor(Math.random() * 100)
+  const random2 = Math.floor(Math.random() * 100)
+  return `${md5Hash}(${random1})${serverTime}(${random2})${nowTime}`
+}
+
+// 服务器时间缓存（30秒有效期）
+let cachedServerTime = null
+let cachedServerTimeTs = 0
+
+/**
+ * 获取喜马拉雅服务器时间（带缓存）
+ * @returns {Promise<string|null>}
+ */
+const getXmServerTime = async () => {
+  if (cachedServerTime && Date.now() - cachedServerTimeTs < 30000) {
+    return cachedServerTime
+  }
+  try {
+    const resp = await global.fetch('https://www.ximalaya.com/revision/time', {
+      method: 'GET',
+      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
+    })
+    const text = await resp.text()
+    if (text && text.trim().length > 5) {
+      cachedServerTime = text.trim()
+      cachedServerTimeTs = Date.now()
+      return cachedServerTime
+    }
+  } catch (e) {
+    console.warn('[xm getXmServerTime] failed:', e.message)
+  }
+  return null
+}
+
+/**
+ * 通过 track 搜索 API 获取音频播放地址（主要方案，无需签名）
+ * 使用 revision/search?core=track&kw={trackId} 搜索
+ * 搜索结果直接包含 play_path_64 / play_path_32 明文音频URL
+ *
+ * 优点：无需 xm-sign 签名，无需解密，URL 直接可播放
+ * 缺点：部分付费内容可能不返回 URL
+ *
+ * @param {string} trackId - 音频 track ID
+ * @param {string} quality - 音质 ('128k' | '64k' | '32k')
+ * @returns {Promise<string|null>} 音频播放 URL，失败返回 null
+ */
+const fetchAudioUrlFromTrackSearch = async (trackId, quality = '128k') => {
+  const url = `${XM_SEARCH_FALLBACK_API}?core=track&kw=${encodeURIComponent(String(trackId))}&page=1&rows=5&spellchecker=true&device=iPhone&condition=relation&isGrayFilter=true`
+
+  console.log(`[xm fetchAudioUrlFromTrackSearch] trackId:${trackId}, quality:${quality}`)
+
+  let body
+  try {
+    body = await fetchJson(url, pcHeaders)
+  } catch (e) {
+    console.warn('[xm fetchAudioUrlFromTrackSearch] fetch error:', e.message)
+    return null
+  }
+
+  if (!body || body.ret !== 200) {
+    console.warn('[xm fetchAudioUrlFromTrackSearch] API error:', body?.msg || 'ret=' + body?.ret)
+    return null
+  }
+
+  const docs = body.data?.result?.response?.docs || []
+  if (docs.length === 0) {
+    console.warn('[xm fetchAudioUrlFromTrackSearch] no search results')
+    return null
+  }
+
+  // 精确匹配 trackId
+  const track = docs.find(d => String(d.id) === String(trackId)) || docs[0]
+  if (!track) {
+    console.warn('[xm fetchAudioUrlFromTrackSearch] track not found in results')
+    return null
+  }
+
+  // 根据音质选择 URL
+  // play_path_64 = 64kbps (对应 '64k' 音质)
+  // play_path_32 = 32kbps (对应 '32k' 音质)
+  // 128k 音质优先使用 play_path_64（喜马拉雅免费内容通常只有64k）
+  let playUrl = null
+  if (quality === '32k') {
+    playUrl = track.play_path_32 || track.play_path_64
+  } else {
+    // 128k 和 64k 都使用 play_path_64
+    playUrl = track.play_path_64 || track.play_path_32
+  }
+
+  if (playUrl && playUrl.startsWith('http')) {
+    console.log('[xm fetchAudioUrlFromTrackSearch] success:', playUrl.substring(0, 80))
+    return playUrl
+  }
+
+  console.warn('[xm fetchAudioUrlFromTrackSearch] no valid URL in search result')
+  return null
+}
+
+/**
+ * 通过 mobile-playpage/track/v3/baseInfo API 获取音频播放地址（降级方案）
+ * 需要旧版 xm-sign 签名认证（部分场景可能返回 ret:1001）
+ * 返回的 URL 使用 AES-128-ECB 加密，需要解密
  *
  * @param {string} trackId - 音频 track ID
  * @param {string} quality - 音质 ('128k' | '64k' | '32k')
@@ -142,14 +166,24 @@ const XM_MOBILE_PLAY_PAGE_API = 'https://www.ximalaya.com/mobile-playpage/track/
 const fetchAudioUrlFromMobilePlaypage = async (trackId, quality = '128k') => {
   const ts = Date.now()
   const url = `${XM_MOBILE_PLAY_PAGE_API}/${ts}`
-  const qualityLevel = quality === '128k' ? '1' : quality === '64k' ? '2' : '3'
+  // trackQualityLevel: 2=128k, 1=64k, 0=32k/24k
+  const qualityLevel = quality === '128k' ? '2' : quality === '64k' ? '1' : '0'
 
   console.log(`[xm fetchAudioUrlFromMobilePlaypage] trackId:${trackId}, quality:${quality}, level:${qualityLevel}`)
 
+  // 获取服务器时间生成 xm-sign
+  const serverTime = await getXmServerTime()
+  if (!serverTime) {
+    console.warn('[xm fetchAudioUrlFromMobilePlaypage] failed to get server time')
+    return null
+  }
+  const xmSign = generateXmSign(serverTime)
+
   let body
   try {
-    body = await fetchJson(url + `?device=www2&trackId=${trackId}&trackQualityLevel=${qualityLevel}`, {
+    body = await fetchJson(url + `?device=web&trackId=${trackId}&trackQualityLevel=${qualityLevel}`, {
       ...pcHeaders,
+      'xm-sign': xmSign,
       'Referer': `https://www.ximalaya.com/sound/${trackId}`,
     })
   } catch (e) {
@@ -157,7 +191,6 @@ const fetchAudioUrlFromMobilePlaypage = async (trackId, quality = '128k') => {
     return null
   }
 
-  // 解析响应
   if (!body || body.ret !== 0) {
     console.warn('[xm fetchAudioUrlFromMobilePlaypage] API error:', body?.msg || 'ret=' + body?.ret)
     return null
@@ -165,7 +198,7 @@ const fetchAudioUrlFromMobilePlaypage = async (trackId, quality = '128k') => {
 
   const trackInfo = body.trackInfo
   if (!trackInfo) {
-    console.warn('[xm fetchAudioUrlFromMobilePlaypage] no trackInfo in response')
+    console.warn('[xm fetchAudioUrlFromMobilePlaypage] no trackInfo')
     return null
   }
 
@@ -175,15 +208,29 @@ const fetchAudioUrlFromMobilePlaypage = async (trackId, quality = '128k') => {
     return null
   }
 
-  // 遍历 playUrlList，找到对应音质的加密 URL
-  for (const item of playUrlList) {
-    if (item.url) {
-      console.log(`[xm fetchAudioUrlFromMobilePlaypage] decrypting url, qualityLevel:${item.qualityLevel || 'unknown'}`)
-      const decryptedUrl = getSoundCryptLink({ link: item.url, deviceType: 'www2' })
-      if (decryptedUrl && decryptedUrl.startsWith('http')) {
-        console.log('[xm fetchAudioUrlFromMobilePlaypage] success:', decryptedUrl.substring(0, 60))
-        return decryptedUrl
-      }
+  // 音质类型优先级
+  const qualityPrefs = {
+    '128k': ['M4A_128', 'MP3_128', 'M4A_64', 'MP3_64'],
+    '64k': ['M4A_64', 'MP3_64', 'M4A_128', 'MP3_128'],
+    '32k': ['MP3_32', 'AAC_24', 'M4A_24', 'M4A_64', 'MP3_64'],
+  }
+  const prefs = qualityPrefs[quality] || qualityPrefs['128k']
+
+  // 按音质优先级排序并解密
+  const sortedUrls = playUrlList
+    .filter(item => item.url)
+    .sort((a, b) => {
+      const aIdx = prefs.indexOf(a.type)
+      const bIdx = prefs.indexOf(b.type)
+      return (aIdx === -1 ? 999 : aIdx) - (bIdx === -1 ? 999 : bIdx)
+    })
+
+  for (const item of sortedUrls) {
+    console.log(`[xm fetchAudioUrlFromMobilePlaypage] decrypting type:${item.type}`)
+    const decryptedUrl = decryptXmUrl(item.url)
+    if (decryptedUrl && decryptedUrl.startsWith('http')) {
+      console.log('[xm fetchAudioUrlFromMobilePlaypage] success:', decryptedUrl.substring(0, 80))
+      return decryptedUrl
     }
   }
 
@@ -916,28 +963,43 @@ const builtInGetMusicUrl = async (songInfo, quality) => {
     return { url: cachedUrl, type: quality }
   }
 
-  // 4. 通过 mobile-playpage/track/v3/baseInfo API 获取音频 URL（新方案）
-  // 喜马拉雅已废弃 revision/play/v1/audio，改用此接口 + AES 加密
+  // 4. 通过 track 搜索 API 获取音频 URL（主要方案，无需签名）
+  // 喜马拉雅 revision/play/v1/audio 已废弃，mobile-playpage 需要新DWS签名
+  // track 搜索 API 直接返回 play_path_64/play_path_32 明文URL
   if (trackId) {
-    console.log('[xm builtInGetMusicUrl] fetching from mobile-playpage API, trackId:', trackId)
+    console.log('[xm builtInGetMusicUrl] fetching audio URL, trackId:', trackId)
 
-    // 优先尝试新 API（带解密）
-    const newUrl = await fetchAudioUrlFromMobilePlaypage(trackId, quality)
-    if (newUrl) {
-      // 写入缓存
+    // 方案1: track 搜索 API（主要方案，成功率最高）
+    const searchUrl = await fetchAudioUrlFromTrackSearch(trackId, quality)
+    if (searchUrl) {
       if (cacheKey) {
-        trackUrlCache.set(cacheKey, newUrl)
+        trackUrlCache.set(cacheKey, searchUrl)
         if (trackUrlCache.size > 200) {
           const firstKey = trackUrlCache.keys().next().value
           trackUrlCache.delete(firstKey)
         }
       }
-      return { url: newUrl, type: quality }
+      return { url: searchUrl, type: quality }
+    }
+
+    console.log('[xm builtInGetMusicUrl] track search failed, trying mobile-playpage fallback')
+
+    // 方案2: mobile-playpage API（降级方案，需要 xm-sign）
+    const playpageUrl = await fetchAudioUrlFromMobilePlaypage(trackId, quality)
+    if (playpageUrl) {
+      if (cacheKey) {
+        trackUrlCache.set(cacheKey, playpageUrl)
+        if (trackUrlCache.size > 200) {
+          const firstKey = trackUrlCache.keys().next().value
+          trackUrlCache.delete(firstKey)
+        }
+      }
+      return { url: playpageUrl, type: quality }
     }
 
     console.log('[xm builtInGetMusicUrl] mobile-playpage failed, trying revision fallback')
 
-    // 降级：尝试旧版 revision/play/v1/audio API
+    // 方案3: 旧版 revision/play/v1/audio API（最后降级，大概率404）
     const playUrl = await fetchAudioUrlFromRevision(trackId, cacheKey, 0)
     if (playUrl) {
       return { url: playUrl, type: '128k' }
