@@ -2,6 +2,72 @@ import { formatPlayTime } from '../../index'
 import { apis } from '../api-source'
 
 /**
+ * 通过 revision/play/v1/audio API 获取音频播放地址
+ * 这是所有开源项目一致使用的喜马拉雅音频播放地址获取方式
+ *
+ * 端点链（依次尝试）:
+ * 1. revision/play/v1/audio?ptype=1   — 主端点，返回 src 字段
+ * 2. revision/play/v1/audio?ptype=2   — 备用参数
+ *
+ * @param {string} trackId - 音频 track ID
+ * @param {string|null} cacheKey - 缓存键
+ * @param {number} attempt - 尝试次数
+ * @returns {Promise<string|null>} 音频播放 URL，失败返回 null
+ */
+const fetchAudioUrlFromRevision = async (trackId, cacheKey, attempt = 0) => {
+  // 端点列表
+  const endpoints = [
+    { url: `${XM_REVISION_API}/play/v1/audio?id=${trackId}&ptype=1`, name: 'play/v1/audio?ptype=1' },
+    { url: `${XM_REVISION_API}/play/v1/audio?id=${trackId}&ptype=2`, name: 'play/v1/audio?ptype=2' },
+  ]
+
+  // 如果超过当前尝试索引，返回 null
+  if (attempt >= endpoints.length) {
+    console.warn('[xm fetchAudioUrlFromRevision] all endpoints exhausted')
+    return null
+  }
+
+  const { url, name } = endpoints[attempt]
+  console.log(`[xm fetchAudioUrlFromRevision] attempt ${attempt + 1}/${endpoints.length}: ${name}`)
+
+  let body
+  try {
+    body = await fetchJson(url, pcHeaders)
+  } catch (e) {
+    console.warn(`[xm fetchAudioUrlFromRevision] ${name} fetch error:`, e.message)
+    // 尝试下一个端点
+    return fetchAudioUrlFromRevision(trackId, cacheKey, attempt + 1)
+  }
+
+  // 解析响应
+  if (body.ret === 200 && body.data?.src) {
+    const playUrl = body.data.src
+    console.log(`[xm fetchAudioUrlFromRevision] ${name} success:`, playUrl.substring(0, 60))
+
+    // 写入缓存
+    if (cacheKey) {
+      trackUrlCache.set(cacheKey, playUrl)
+      if (trackUrlCache.size > 200) {
+        const firstKey = trackUrlCache.keys().next().value
+        trackUrlCache.delete(firstKey)
+      }
+    }
+
+    return playUrl
+  }
+
+  // 检查是否需要降级
+  if (body.ret !== 200) {
+    console.warn(`[xm fetchAudioUrlFromRevision] ${name} ret=${body.ret}:`, body.msg || '')
+  } else if (!body.data?.src) {
+    console.warn(`[xm fetchAudioUrlFromRevision] ${name} no src in response:`, JSON.stringify(body.data).substring(0, 200))
+  }
+
+  // 尝试下一个端点
+  return fetchAudioUrlFromRevision(trackId, cacheKey, attempt + 1)
+}
+
+/**
  * 喜马拉雅FM 听书源
  *
  * 提供两个搜索端点，互相作为 fallback:
@@ -23,6 +89,7 @@ console.log('[xm sdk] 喜马拉雅听书 SDK 模块已加载')
 const XM_SEARCH_API = 'https://www.ximalaya.com/revision/search/seo'
 const XM_SEARCH_FALLBACK_API = 'https://www.ximalaya.com/revision/search'
 const XM_MOBILE_API = 'https://mobile.ximalaya.com'
+const XM_REVISION_API = 'https://www.ximalaya.com/revision'
 const XM_API_PROXY = 'https://apis.netstart.cn/ximalaya'
 
 const MAX_RETRY = 3
@@ -345,20 +412,103 @@ const search = async (keyword, page = 1, type = 'album', limit = 30) => {
 
 /**
  * 获取专辑章节列表（剧集/单集）
- * 使用 mobile API，失败时自动尝试备用 URL
+ * 使用 revision/play/album API 作为主端点（带音频src）
+ * 失败时降级到 mobile API 获取元数据
+ *
+ * 参考开源项目: https://github.com/leileiluoluo/ximalaya-downloader
+ * revision/play/album 返回的数据包含 src 字段（直接可播放的音频URL）
  */
-const getAlbumDetail = async (albumId, page = 1, limit = 200) => {
+const getAlbumDetail = async (albumId, page = 1, limit = 30) => {
+  console.log('[xm getAlbumDetail] albumId:', albumId, 'page:', page, 'limit:', limit)
+
+  // 主端点：revision/play/album — 直接返回带 src 的音频列表
+  const playAlbumUrl = `${XM_REVISION_API}/play/album?albumId=${albumId}&pageNum=${page}&sort=-1&pageSize=${limit}`
+
+  let body
+  try {
+    body = await fetchJson(playAlbumUrl, pcHeaders)
+  } catch (e) {
+    console.warn('[xm getAlbumDetail] revision/play/album failed, trying mobile fallback:', e.message)
+    return getAlbumDetailMobileFallback(albumId, page, limit)
+  }
+
+  // 解析 revision/play/album 响应
+  if (body.ret === 200 && body.data?.tracksAudioPlay?.length) {
+    const tracksAudioPlay = body.data.tracksAudioPlay
+    const albumInfo = body.data.albumInfo || body.data.album || {}
+    const total = body.data.trackTotalCount || tracksAudioPlay.length
+
+    console.log('[xm getAlbumDetail] revision API OK, got', tracksAudioPlay.length, 'tracks, total:', total)
+
+    const list = tracksAudioPlay.map((item) => ({
+      singer: item.anchorName || albumInfo.anchorName || item.nickname || '',
+      name: item.trackName || item.title || '',
+      albumName: albumInfo.albumTitle || albumInfo.title || '',
+      albumId: String(albumId),
+      songmid: String(item.trackId || item.id),
+      source: 'xm',
+      interval: formatPlayTime(parseInt(item.duration || '0')),
+      img: item.coverLarge || item.cover_url || albumInfo.coverLarge || albumInfo.cover || '',
+      lrc: null,
+      hash: String(item.trackId || item.id),
+      otherSource: null,
+      types: [
+        { type: '128k', size: null },
+        { type: '64k', size: null },
+        { type: '32k', size: null },
+      ],
+      _types: {
+        '128k': { size: null },
+        '64k': { size: null },
+        '32k': { size: null },
+      },
+      typeUrl: {
+        '128k': item.src || '',
+        '64k': '',
+        '32k': '',
+      },
+      isAudiobook: true,
+      trackId: item.trackId || item.id,
+      playUrl: item.src || '',
+      playSize: 0,
+    }))
+
+    return {
+      list,
+      total,
+      page,
+      limit,
+      allPage: Math.ceil(total / limit) || 1,
+      source: 'xm',
+      info: {
+        name: albumInfo.albumTitle || albumInfo.title || '',
+        img: albumInfo.coverLarge || albumInfo.cover || '',
+        desc: albumInfo.albumIntro || albumInfo.intro || '',
+        author: albumInfo.anchorName || albumInfo.nickname || '',
+      },
+    }
+  }
+
+  // 降级到 mobile API
+  console.warn('[xm getAlbumDetail] revision/play/album returned unexpected format, trying mobile fallback')
+  return getAlbumDetailMobileFallback(albumId, page, limit)
+}
+
+/**
+ * mobile API 降级获取专辑详情（仅获取元数据，不包含音频src）
+ */
+const getAlbumDetailMobileFallback = async (albumId, page = 1, limit = 200) => {
   const ts = Math.floor(Date.now() / 1000)
   const url = `${XM_MOBILE_API}/mobile/v1/album/track/ts-${ts}?albumId=${albumId}&device=android&isAsc=true&pageId=${page}&pageSize=${limit}`
   const altUrl = `${XM_MOBILE_API}/mobile/v1/album/track?albumId=${albumId}&device=android&isAsc=true&pageId=${page}&pageSize=${limit}`
 
-  console.log('[xm getAlbumDetail] albumId:', albumId, 'page:', page)
+  console.log('[xm getAlbumDetailMobileFallback] albumId:', albumId, 'page:', page)
 
   let body
   try {
     body = await fetchJson(url, mobileHeaders)
   } catch (e) {
-    console.warn('[xm getAlbumDetail] primary URL failed:', e.message, 'trying fallback')
+    console.warn('[xm getAlbumDetailMobileFallback] primary URL failed:', e.message, 'trying alt URL')
     try {
       body = await fetchJson(altUrl, mobileHeaders)
     } catch (e2) {
@@ -372,14 +522,8 @@ const getAlbumDetail = async (albumId, page = 1, limit = 200) => {
 
   const data = body.data
   if (!data) {
-    console.log('[xm getAlbumDetail] no data, returning empty list')
     return {
-      list: [],
-      total: 0,
-      page,
-      limit,
-      allPage: 0,
-      source: 'xm',
+      list: [], total: 0, page, limit, allPage: 0, source: 'xm',
       info: { name: '', img: '', desc: '', author: '' },
     }
   }
@@ -388,7 +532,7 @@ const getAlbumDetail = async (albumId, page = 1, limit = 200) => {
   const albumInfo = data.album || data.albumInfo || {}
   const total = data.tracks?.totalCount || data.totalCount || 0
 
-  console.log('[xm getAlbumDetail] got', tracks.length, 'tracks, total:', total)
+  console.log('[xm getAlbumDetailMobileFallback] got', tracks.length, 'tracks, total:', total)
 
   const list = tracks.map((item) => ({
     singer: item.nickname || item.anchorName || albumInfo.nickname || '',
@@ -587,46 +731,21 @@ const builtInGetMusicUrl = async (songInfo, quality) => {
     return { url: cachedUrl, type: quality }
   }
 
-  // 4. 最后手段：通过 track detail API 获取音频 URL
+  // 4. 最后手段：通过 revision/play/v1/audio API 获取音频 URL
+  // 这是所有开源项目（ximalaya-downloader、Mob等）一致使用的端点
+  // 替代已失效的 mobile.ximalaya.com/mobile/v1/track/trackInfo
+  // 参考: https://github.com/leileiluoluo/ximalaya-downloader
   if (trackId) {
-    console.log('[xm builtInGetMusicUrl] fetching from track API, trackId:', trackId)
-    const ts = Math.floor(Date.now() / 1000)
-    const url = `${XM_MOBILE_API}/mobile/v1/track/trackInfo/ts-${ts}?trackId=${trackId}&device=android`
+    console.log('[xm builtInGetMusicUrl] fetching from revision play API, trackId:', trackId)
 
-    let body
-    try {
-      body = await fetchJson(url, mobileHeaders)
-    } catch (e) {
-      throw new Error('喜马拉雅获取音频URL失败: ' + (e?.message || e))
+    // 尝试主端点
+    const playUrl = await fetchAudioUrlFromRevision(trackId, cacheKey, 0)
+    if (playUrl) {
+      return { url: playUrl, type: '128k' }
     }
 
-    if (body.ret !== 0) {
-      throw new Error('喜马拉雅获取音频URL失败: ' + (body?.msg || 'ret=' + body.ret))
-    }
-
-    const data = body.data
-    if (!data) {
-      throw new Error('喜马拉雅获取音频URL失败: 无数据')
-    }
-
-    // 按质量优先级获取 URL
-    const playUrl = data.playUrl64 || data.playUrl32 || data.playPath64 || data.playPath32
-    if (!playUrl) {
-      throw new Error('喜马拉雅获取音频URL失败: 无可用播放地址')
-    }
-
-    console.log('[xm builtInGetMusicUrl] got from API:', playUrl.substring(0, 60))
-
-    // 写入缓存
-    if (cacheKey) {
-      trackUrlCache.set(cacheKey, playUrl)
-      if (trackUrlCache.size > 200) {
-        const firstKey = trackUrlCache.keys().next().value
-        trackUrlCache.delete(firstKey)
-      }
-    }
-
-    return { url: playUrl, type: '128k' }
+    // 所有端点都失败
+    throw new Error('喜马拉雅获取音频URL失败: 所有播放接口均不可用')
   }
 
   throw new Error('喜马拉雅获取音频URL失败: 缺少trackId')
