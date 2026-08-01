@@ -427,89 +427,60 @@ const getAlbumDetail = async (albumId, page = 1, limit = 200) => {
 }
 
 /**
- * 获取主播的专辑列表
- * 使用官方 API: anchor/queryAnchorAlbumsByPage
- * 通过 apis.netstart.cn 代理绕过 CSRF 防护
- * 代理请求不带 Referer，避免被代理服务器拒绝
+ * 通过搜索API获取主播的专辑列表
+ * 替代已失效的 apis.netstart.cn 代理
+ * 使用搜索API: revision/search?core=album&kw=主播昵称
+ * 通过 uid 过滤确保只返回该主播的专辑
  */
-const getAnchorDetail = async (anchorId, page = 1, limit = 30) => {
-  const proxyUrl = `${XM_API_PROXY}/anchor/queryAnchorAlbumsByPage?anchorId=${anchorId}&page=${page}&pageSize=${limit}`
+const getAnchorAlbumBySearch = async (anchorId, anchorName, page = 1, limit = 30) => {
+  console.log('[xm getAnchorAlbumBySearch] anchorId:', anchorId, 'name:', anchorName, 'page:', page)
 
-  console.log('[xm getAnchorDetail] anchorId:', anchorId, 'page:', page)
-
-  // 代理请求用精简 headers，不传 Referer（代理不需要）
-  const proxyHeaders = {
-    'User-Agent': pcHeaders['User-Agent'],
-    'Accept': 'application/json, text/plain, */*',
-    'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
-  }
+  // 用主播昵称搜索专辑
+  const url = `${XM_SEARCH_FALLBACK_API}?core=album&kw=${encodeURIComponent(anchorName)}&page=${page}&rows=${limit}&spellchecker=true&device=iPhone&condition=relation&isGrayFilter=true`
 
   let body
-  let lastError
-
-  // 代理请求最多重试 2 次
-  for (let attempt = 0; attempt < 2; attempt++) {
-    try {
-      console.log(`[xm getAnchorDetail] proxy attempt ${attempt + 1}/2`)
-      body = await fetchJson(proxyUrl, proxyHeaders)
-      break
-    } catch (e) {
-      lastError = e
-      console.warn(`[xm getAnchorDetail] proxy attempt ${attempt + 1} failed:`, e.message)
-      // 短暂等待后重试
-      if (attempt < 1) {
-        await new Promise(resolve => setTimeout(resolve, 500))
-      }
-    }
+  try {
+    body = await fetchJson(url)
+  } catch (err) {
+    throw new Error('喜马拉雅获取主播专辑列表失败: ' + (err?.message || err))
   }
 
-  if (!body) {
-    throw new Error('喜马拉雅获取主播专辑列表失败: ' + (lastError?.message || 'unknown'))
-  }
-
-  if (body.ret !== 0) {
+  if (body.ret !== 200) {
     throw new Error('喜马拉雅获取主播专辑列表失败: ' + (body?.msg || 'ret=' + body.ret))
   }
 
   const data = body.data
   if (!data) {
-    console.log('[xm getAnchorDetail] no data, returning empty list')
-    return {
-      list: [],
-      total: 0,
-      page,
-      limit,
-      allPage: 0,
-      source: 'xm',
-      info: { name: '', img: '', desc: '', author: '' },
-    }
+    return { list: [], total: 0, page, limit, allPage: 0, source: 'xm', info: { name: anchorName, img: '', desc: '', author: '' } }
   }
 
-  const albums = data.albumBriefDetailInfos || data.albumList || data.albums || data.list || []
-  const total = data.totalCount || data.total || 0
+  // 从搜索结果中提取数据
+  const result = data.result?.response
+  if (!result) {
+    return { list: [], total: 0, page, limit, allPage: 0, source: 'xm', info: { name: anchorName, img: '', desc: '', author: '' } }
+  }
 
-  console.log('[xm getAnchorDetail] got', albums.length, 'albums, total:', total)
+  const docs = result.docs || []
+  const total = result.numFound || 0
 
-  const list = albums.map(item => {
-    const albumInfo = item.albumInfo || item
-    const statInfo = item.statCountInfo || item
-    const pageInfo = item.pageUriInfo || item
+  // 按 uid 过滤，只保留该主播的专辑
+  const anchorIdStr = String(anchorId)
+  const filteredDocs = docs.filter(d => String(d.uid) === anchorIdStr)
 
-    return {
-      id: String(item.id || albumInfo.id || ''),
-      name: albumInfo.title || albumInfo.customTitle || item.name || '',
-      author: '',
-      img: albumInfo.cover
-        ? ('https://imagev2.xmcdn.com/' + albumInfo.cover)
-        : (item.img || ''),
-      desc: albumInfo.shortIntro || albumInfo.salePoint || item.desc || '',
-      playCount: statInfo.playCount || item.playCount || 0,
-      trackCount: statInfo.trackCount || item.trackCount || 0,
-      source: 'xm',
-      categoryId: String(pageInfo.categoryId || albumInfo.categoryId || item.categoryId || ''),
-      categoryName: pageInfo.categoryName || item.categoryName || '',
-    }
-  })
+  console.log('[xm getAnchorAlbumBySearch] found', docs.length, 'total,', filteredDocs.length, 'matching uid')
+
+  const list = filteredDocs.map(item => ({
+    id: String(item.id || ''),
+    name: item.title || '',
+    author: item.nickname || '',
+    img: item.cover_path ? buildCoverUrl(item.cover_path) : '',
+    desc: item.intro || '',
+    playCount: item.play || 0,
+    trackCount: item.tracks || 0,
+    source: 'xm',
+    categoryId: String(item.category_id || ''),
+    categoryName: item.category_title || '',
+  }))
 
   return {
     list,
@@ -519,12 +490,47 @@ const getAnchorDetail = async (anchorId, page = 1, limit = 30) => {
     allPage: Math.ceil(total / limit) || 1,
     source: 'xm',
     info: {
-      name: data.anchorName || '',
+      name: anchorName || '',
       img: '',
       desc: '',
       author: '',
     },
   }
+}
+
+/**
+ * 获取主播的专辑列表
+ * 使用搜索API获取主播专辑，通过 uid 过滤
+ * 如果 anchorName 未提供，尝试通过搜索主播获取昵称
+ */
+const getAnchorDetail = async (anchorId, page = 1, limit = 30, anchorName = '') => {
+  console.log('[xm getAnchorDetail] anchorId:', anchorId, 'page:', page, 'anchorName:', anchorName)
+
+  if (anchorName) {
+    return getAnchorAlbumBySearch(anchorId, anchorName, page, limit)
+  }
+
+  // 如果没有 anchorName，先通过搜索API获取主播昵称
+  // 直接用主播ID作为搜索关键词，从搜索结果中匹配
+  console.log('[xm getAnchorDetail] no anchorName, trying to find by id')
+  const searchUrl = `${XM_SEARCH_FALLBACK_API}?core=user&kw=${encodeURIComponent(String(anchorId))}&page=1&rows=1&spellchecker=true&device=iPhone&condition=relation&isGrayFilter=true`
+
+  try {
+    const body = await fetchJson(searchUrl)
+    if (body.ret === 200) {
+      const docs = body.data?.result?.response?.docs || []
+      const anchor = docs.find(d => String(d.uid) === String(anchorId))
+      if (anchor) {
+        const name = anchor.nickname || ''
+        console.log('[xm getAnchorDetail] found anchor name:', name)
+        return getAnchorAlbumBySearch(anchorId, name, page, limit)
+      }
+    }
+  } catch (e) {
+    console.warn('[xm getAnchorDetail] failed to find anchor name:', e.message)
+  }
+
+  throw new Error('喜马拉雅获取主播专辑列表失败: 无法找到主播信息')
 }
 
 export default {

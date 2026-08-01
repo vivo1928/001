@@ -147,7 +147,7 @@ export const getAlbumDetail = async (albumId: string, sourceId: AudiobookSource,
 /**
  * 获取主播专辑列表
  */
-export const getAnchorDetail = async (anchorId: string, sourceId: AudiobookSource, page = 1, limit = 30) => {
+export const getAnchorDetail = async (anchorId: string, sourceId: AudiobookSource, page = 1, limit = 30, anchorName = '') => {
   const sdk = getSdk(sourceId)
-  return sdk.getAnchorDetail(anchorId, page, limit)
+  return sdk.getAnchorDetail(anchorId, page, limit, anchorName)
 }

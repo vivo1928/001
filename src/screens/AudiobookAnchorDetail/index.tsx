@@ -67,7 +67,7 @@ export default ({ componentId, info }: { componentId: string, info: AnchorDetail
     setErrorMsg('')
     try {
       console.log('[AudiobookAnchorDetail] loading anchor:', info.id, info.source)
-      const result = await getAnchorDetail(info.id, info.source as any)
+      const result = await getAnchorDetail(info.id, info.source as any, 1, 30, info.name)
       console.log('[AudiobookAnchorDetail] result:', result?.list?.length, 'albums')
       if (!isUnmountedRef.current) {
         setAlbums(result.list || [])
@@ -92,7 +92,7 @@ export default ({ componentId, info }: { componentId: string, info: AnchorDetail
   const handleRefresh = useCallback(async () => {
     setRefreshing(true)
     try {
-      const result = await getAnchorDetail(info.id, info.source as any)
+      const result = await getAnchorDetail(info.id, info.source as any, 1, 30, info.name)
       if (!isUnmountedRef.current) {
         setAlbums(result.list || [])
         setRefreshing(false)
