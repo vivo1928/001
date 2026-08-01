@@ -22,6 +22,7 @@ console.log('[xm sdk] 喜马拉雅听书 SDK 模块已加载')
 const XM_SEARCH_API = 'https://www.ximalaya.com/revision/search/seo'
 const XM_SEARCH_FALLBACK_API = 'https://www.ximalaya.com/revision/search'
 const XM_MOBILE_API = 'https://mobile.ximalaya.com'
+const XM_API_PROXY = 'https://apis.netstart.cn/ximalaya'
 
 const MAX_RETRY = 3
 const FETCH_TIMEOUT = 15000
@@ -426,107 +427,89 @@ const getAlbumDetail = async (albumId, page = 1, limit = 200) => {
 }
 
 /**
- * 解析播放量字符串（如 "625.6万" → 6256000）
- */
-const parsePlayCount = (str) => {
-  if (!str || typeof str !== 'string') return 0
-  const num = parseFloat(str.replace(/[^0-9.]/g, ''))
-  if (str.includes('亿')) return Math.round(num * 100000000)
-  if (str.includes('万')) return Math.round(num * 10000)
-  return Math.round(num) || 0
-}
-
-/**
  * 获取主播的专辑列表
- * mobile API (artist/albums) 已失效，改用网页端 HTML 解析
- * 从 https://www.ximalaya.com/zhubo/{anchorId}/ 页面提取专辑信息
+ * 使用官方 API: anchor/queryAnchorAlbumsByPage
+ * 通过 apis.netstart.cn 代理绕过 CSRF 防护
+ * 回退方案: 直接请求 ximalaya 官方 API
  */
 const getAnchorDetail = async (anchorId, page = 1, limit = 30) => {
-  const url = `https://www.ximalaya.com/zhubo/${anchorId}/`
+  // 方式1: 使用代理 API（最可靠）
+  const proxyUrl = `${XM_API_PROXY}/anchor/queryAnchorAlbumsByPage?anchorId=${anchorId}&page=${page}&pageSize=${limit}`
+  // 方式2: 直接请求官方 API（可能被 CSRF/403 拦截）
+  const directUrl = `https://mobile.ximalaya.com/revision/anchor/queryAnchorAlbumsByPage?anchorId=${anchorId}&page=${page}&pageSize=${limit}`
 
-  console.log('[xm getAnchorDetail] fetching web page:', url)
+  console.log('[xm getAnchorDetail] anchorId:', anchorId, 'page:', page)
 
-  // 获取网页 HTML
-  let html
+  let body
+  let usedFallback = false
+
+  // 先尝试代理
   try {
-    const controller = new global.AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT)
-    const resp = await global.fetch(url, {
-      method: 'GET',
-      headers: pcHeaders,
-      signal: controller.signal,
-    })
-    clearTimeout(timeoutId)
-    if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
-    html = await resp.text()
+    body = await fetchJson(proxyUrl, pcHeaders)
   } catch (e) {
-    console.error('[xm getAnchorDetail] fetch page failed:', e?.message || e)
-    throw new Error('喜马拉雅获取主播页面失败: ' + (e?.message || e))
-  }
-
-  console.log('[xm getAnchorDetail] html length:', html.length)
-
-  // 从 HTML 中提取主播信息
-  const nicknameMatch = html.match(/<h1[^>]*class="[^"]*nickname[^"]*"[^>]*>([^<]+)<\/h1>/i)
-    || html.match(/<h1[^>]*>([^<]+)<\/h1>/i)
-  const anchorName = nicknameMatch ? nicknameMatch[1].trim() : ''
-
-  const logoMatch = html.match(/<img[^>]*class="[^"]*avatar[^"]*"[^>]*src="([^"]+)"/i)
-    || html.match(/<img[^>]*src="([^"]*logo[^"]*)"[^>]*>/i)
-  const anchorImg = logoMatch ? logoMatch[1] : ''
-
-  // 提取专辑链接: <a href="/album/ID">文本</a>
-  // 一组专辑通常有两个 <a> 标签: 播放量 + 专辑名
-  const albumRegex = /<a[^>]*href="\/album\/(\d+)"[^>]*>([^<]+)<\/a>/g
-  const albumMap = {}
-  let match
-
-  while ((match = albumRegex.exec(html)) !== null) {
-    const id = match[1]
-    const text = match[2].trim()
-
-    if (!albumMap[id]) {
-      albumMap[id] = { id, name: '', playCount: '', playCountRaw: 0 }
-    }
-
-    // 判断是播放量还是专辑名: 播放量格式如 "625.6万"、"1.2亿"
-    if (/^[\d.]+(万|亿)?$/.test(text)) {
-      albumMap[id].playCount = text
-      albumMap[id].playCountRaw = parsePlayCount(text)
-    } else {
-      // 专辑名: 取较长的文本（播放量文本较短）
-      if (!albumMap[id].name || text.length > albumMap[id].name.length) {
-        albumMap[id].name = text
-      }
+    console.warn('[xm getAnchorDetail] proxy failed:', e.message, 'trying direct')
+    try {
+      body = await fetchJson(directUrl, mobileHeaders)
+      usedFallback = true
+    } catch (e2) {
+      throw new Error('喜马拉雅获取主播专辑列表失败: ' + (e2?.message || e2))
     }
   }
 
-  const albums = Object.values(albumMap)
-  console.log('[xm getAnchorDetail] parsed', albums.length, 'albums from HTML')
+  if (!body || body.ret !== 0) {
+    throw new Error('喜马拉雅获取主播专辑列表失败: ' + (body?.msg || 'unknown'))
+  }
 
-  const list = albums.map(item => ({
-    id: item.id,
-    name: item.name,
-    author: anchorName || '',
-    img: '',
-    desc: '',
-    playCount: item.playCountRaw,
-    trackCount: 0,
-    source: 'xm',
-    categoryId: '',
-    categoryName: '',
-  }))
+  const data = body.data
+  if (!data) {
+    console.log('[xm getAnchorDetail] no data, returning empty list')
+    return {
+      list: [],
+      total: 0,
+      page,
+      limit,
+      allPage: 0,
+      source: 'xm',
+      info: { name: '', img: '', desc: '', author: '' },
+    }
+  }
+
+  const albums = data.albumBriefDetailInfos || data.albumList || data.albums || data.list || []
+  const total = data.totalCount || data.total || 0
+
+  console.log('[xm getAnchorDetail] got', albums.length, 'albums, total:', total, 'usedFallback:', usedFallback)
+
+  const list = albums.map(item => {
+    const albumInfo = item.albumInfo || item
+    const statInfo = item.statCountInfo || item
+    const pageInfo = item.pageUriInfo || item
+
+    return {
+      id: String(item.id || albumInfo.id || ''),
+      name: albumInfo.title || albumInfo.customTitle || item.name || '',
+      author: '',
+      img: albumInfo.cover
+        ? ('https://imagev2.xmcdn.com/' + albumInfo.cover)
+        : (item.img || ''),
+      desc: albumInfo.shortIntro || albumInfo.salePoint || item.desc || '',
+      playCount: statInfo.playCount || item.playCount || 0,
+      trackCount: statInfo.trackCount || item.trackCount || 0,
+      source: 'xm',
+      categoryId: String(pageInfo.categoryId || albumInfo.categoryId || item.categoryId || ''),
+      categoryName: pageInfo.categoryName || item.categoryName || '',
+    }
+  })
 
   return {
     list,
-    total: list.length,
-    page: 1,
-    limit: list.length,
-    allPage: 1,
+    total,
+    page,
+    limit,
+    allPage: Math.ceil(total / limit) || 1,
     source: 'xm',
     info: {
-      name: anchorName || '',
-      img: anchorImg || '',
+      name: data.anchorName || '',
+      img: '',
       desc: '',
       author: '',
     },
