@@ -1,17 +1,14 @@
 import state, { type AudiobookSource, type AudiobookType } from '@/store/audiobook/state'
+import musicSdk from '@/utils/musicSdk'
 
 /**
  * 获取 SDK 实例
- * 使用 require() 而非 import，避免 TypeScript 的 esModuleInterop 把
- * export default 包装成 { default: { search, ... } } 导致 .search 丢失
  * 对齐歌曲搜索模块通过 musicSdk 主入口访问子模块的模式
+ * 所有音乐核心模块（搜索、歌单、排行榜等）都通过 musicSdk[sourceId] 访问
  */
 const getSdk = (sourceId: AudiobookSource) => {
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  const xm = require('@/utils/musicSdk/xm')
-  // 兼容两种导出格式：export default 返回 { default: {...} }，module.exports 直接返回 {...}
-  const sdk = xm.default || xm
-  if (sourceId === 'xm' && sdk.search) return sdk
+  const sdk = musicSdk[sourceId]
+  if (sdk && sdk.search) return sdk
   throw new Error('听书源不支持: ' + sourceId)
 }
 
