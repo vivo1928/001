@@ -139,6 +139,11 @@ export default ({ componentId, info }: { componentId: string, info: AlbumDetailI
         songId: episode.songmid,
         albumName: episode.albumName || '',
         picUrl: episodeImg,
+        qualitys: episode.types,
+        _qualitys: episode._types,
+        hash: episode.hash || episode.songmid,
+        xmPlayUrl: episode.playUrl || '',
+        xmTypeUrl: episode.typeUrl || {},
       },
     } as any
 

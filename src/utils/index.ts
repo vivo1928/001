@@ -73,6 +73,11 @@ export const toNewMusicInfo = (oldMusicInfo: any): LX.Music.MusicInfo => {
         meta.mrcUrl = oldMusicInfo.mrcUrl
         meta.trcUrl = oldMusicInfo.trcUrl
         break
+      case 'xm':
+        meta.hash = oldMusicInfo.hash
+        meta.xmPlayUrl = oldMusicInfo.playUrl || ''
+        meta.xmTypeUrl = oldMusicInfo.typeUrl || {}
+        break
     }
   }
 
@@ -116,6 +121,11 @@ export const toOldMusicInfo = (minfo: LX.Music.MusicInfo): any => {
         oInfo.lrcUrl = meta.lrcUrl
         oInfo.mrcUrl = meta.mrcUrl
         oInfo.trcUrl = meta.trcUrl
+        break
+      case 'xm':
+        oInfo.hash = meta.hash || ''
+        oInfo.playUrl = meta.xmPlayUrl || ''
+        oInfo.typeUrl = meta.xmTypeUrl || {}
         break
     }
   }

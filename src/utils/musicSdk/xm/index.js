@@ -403,11 +403,13 @@ const getAlbumDetail = async (albumId, page = 1, limit = 200) => {
     otherSource: null,
     types: [{ type: '128k', size: null }],
     _types: { '128k': { size: null } },
-    typeUrl: {},
+    typeUrl: {
+      '128k': item.playUrl64 || item.play_path_64 || item.playUrl32 || item.play_path_32 || '',
+    },
     isAudiobook: true,
     trackId: item.trackId || item.id,
-    playUrl: item.playUrl32 || item.playUrl64 || item.play_path_32 || item.play_path_64 || '',
-    playSize: item.playSize32 || item.playSize64 || 0,
+    playUrl: item.playUrl64 || item.playUrl32 || item.play_path_64 || item.play_path_32 || '',
+    playSize: item.playSize64 || item.playSize32 || 0,
   }))
 
   return {
@@ -533,8 +535,131 @@ const getAnchorDetail = async (anchorId, page = 1, limit = 30, anchorName = '') 
   throw new Error('喜马拉雅获取主播专辑列表失败: 无法找到主播信息')
 }
 
+// ==================== 音质解析（对齐音乐 SDK 的 getMusicUrl 接口） ====================
+
+/**
+ * 喜马拉雅单集音频 URL 内存缓存
+ * 避免重复调用 track detail API
+ */
+const trackUrlCache = new Map()
+
+/**
+ * 获取喜马拉雅单集音频 URL
+ * 对齐音乐 SDK 的 getMusicUrl 接口格式
+ * 调用链: player → getMusicUrl → handleGetOnlineMusicUrl → musicSdk['xm'].getMusicUrl(songInfo, quality).promise
+ *
+ * @param {Object} songInfo - 歌曲信息（旧格式，通过 toOldMusicInfo 转换）
+ * @param {string} quality - 请求的音质 ('128k' | '64k' | '32k')
+ * @returns {{ promise: Promise<{ url: string, type: string }> }}
+ */
+const getMusicUrl = (songInfo, quality) => {
+  const promise = (async () => {
+    console.log('[xm getMusicUrl] called:', { name: songInfo?.name, quality, hasTypeUrl: !!songInfo?.typeUrl, hasPlayUrl: !!songInfo?.playUrl })
+
+    // 1. 优先使用 typeUrl（已缓存的音质映射）
+    if (songInfo?.typeUrl?.[quality]) {
+      console.log('[xm getMusicUrl] found in typeUrl:', songInfo.typeUrl[quality].substring(0, 60))
+      return { url: songInfo.typeUrl[quality], type: quality }
+    }
+
+    // 2. 退而求其次，使用 playUrl
+    if (songInfo?.playUrl) {
+      console.log('[xm getMusicUrl] using playUrl:', songInfo.playUrl.substring(0, 60))
+      return { url: songInfo.playUrl, type: '128k' }
+    }
+
+    // 3. 检查缓存
+    const trackId = songInfo?.hash || songInfo?.songmid
+    const cacheKey = trackId ? `${trackId}_${quality}` : null
+    if (cacheKey && trackUrlCache.has(cacheKey)) {
+      const cachedUrl = trackUrlCache.get(cacheKey)
+      console.log('[xm getMusicUrl] cache hit:', cachedUrl.substring(0, 60))
+      return { url: cachedUrl, type: quality }
+    }
+
+    // 4. 最后手段：通过 track detail API 获取音频 URL
+    if (trackId) {
+      console.log('[xm getMusicUrl] fetching from track API, trackId:', trackId)
+      const ts = Math.floor(Date.now() / 1000)
+      const url = `${XM_MOBILE_API}/mobile/v1/track/trackInfo/ts-${ts}?trackId=${trackId}&device=android`
+
+      let body
+      try {
+        body = await fetchJson(url, mobileHeaders)
+      } catch (e) {
+        throw new Error('喜马拉雅获取音频URL失败: ' + (e?.message || e))
+      }
+
+      if (body.ret !== 0) {
+        throw new Error('喜马拉雅获取音频URL失败: ' + (body?.msg || 'ret=' + body.ret))
+      }
+
+      const data = body.data
+      if (!data) {
+        throw new Error('喜马拉雅获取音频URL失败: 无数据')
+      }
+
+      // 按质量优先级获取 URL
+      const playUrl = data.playUrl64 || data.playUrl32 || data.playPath64 || data.playPath32
+      if (!playUrl) {
+        throw new Error('喜马拉雅获取音频URL失败: 无可用播放地址')
+      }
+
+      console.log('[xm getMusicUrl] got from API:', playUrl.substring(0, 60))
+
+      // 写入缓存
+      if (cacheKey) {
+        trackUrlCache.set(cacheKey, playUrl)
+        if (trackUrlCache.size > 200) {
+          const firstKey = trackUrlCache.keys().next().value
+          trackUrlCache.delete(firstKey)
+        }
+      }
+
+      return { url: playUrl, type: '128k' }
+    }
+
+    throw new Error('喜马拉雅获取音频URL失败: 缺少trackId')
+  })()
+
+  return { promise }
+}
+
+/**
+ * 获取喜马拉雅单集封面图
+ * 对齐音乐 SDK 的 getPic 接口格式
+ *
+ * @param {Object} songInfo - 歌曲信息（旧格式）
+ * @returns {Promise<string>} 封面图 URL
+ */
+const getPic = (songInfo) => {
+  console.log('[xm getPic] called:', { name: songInfo?.name, hasImg: !!songInfo?.img })
+  if (songInfo?.img) return Promise.resolve(songInfo.img)
+  return Promise.resolve('')
+}
+
+/**
+ * 获取喜马拉雅单集歌词（听书一般无歌词，返回空）
+ * 对齐音乐 SDK 的 getLyric 接口格式
+ *
+ * @param {Object} songInfo - 歌曲信息（旧格式）
+ * @returns {{ promise: Promise<{ lyric: string, tlyric: string, rlyric: string, lxlyric: string }> }}
+ */
+const getLyric = (songInfo) => {
+  const promise = Promise.resolve({
+    lyric: '',
+    tlyric: '',
+    rlyric: '',
+    lxlyric: '',
+  })
+  return { promise }
+}
+
 export default {
   search,
   getAlbumDetail,
   getAnchorDetail,
+  getMusicUrl,
+  getPic,
+  getLyric,
 }
