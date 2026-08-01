@@ -1,4 +1,5 @@
 import { formatPlayTime } from '../../index'
+import { apis } from '../api-source'
 
 /**
  * 喜马拉雅FM 听书源
@@ -401,10 +402,20 @@ const getAlbumDetail = async (albumId, page = 1, limit = 200) => {
     lrc: null,
     hash: String(item.trackId || item.id),
     otherSource: null,
-    types: [{ type: '128k', size: null }],
-    _types: { '128k': { size: null } },
+    types: [
+      { type: '128k', size: item.playSize64 || null },
+      { type: '64k', size: item.playSize32 || null },
+      { type: '32k', size: null },
+    ],
+    _types: {
+      '128k': { size: item.playSize64 || null },
+      '64k': { size: item.playSize32 || null },
+      '32k': { size: null },
+    },
     typeUrl: {
       '128k': item.playUrl64 || item.play_path_64 || item.playUrl32 || item.play_path_32 || '',
+      '64k': item.playUrl32 || item.play_path_32 || '',
+      '32k': item.playPath32 || '',
     },
     isAudiobook: true,
     trackId: item.trackId || item.id,
@@ -536,6 +547,11 @@ const getAnchorDetail = async (anchorId, page = 1, limit = 30, anchorName = '') 
 }
 
 // ==================== 音质解析（对齐音乐 SDK 的 getMusicUrl 接口） ====================
+// 现在使用 apis() 路由，与歌曲模块（kg/kw/tx/wy/mg）完全一致
+// 调用链: player → getMusicUrl → handleGetOnlineMusicUrl → musicSdk['xm'].getMusicUrl(songInfo, quality).promise
+//                                        → apis('xm').getMusicUrl(songInfo, quality).promise
+//                                        → global.lx.apis['xm'].getMusicUrl(songInfo, quality)（自定义音源）
+//                                        → 内置降级实现（无自定义音源时）
 
 /**
  * 喜马拉雅单集音频 URL 内存缓存
@@ -544,84 +560,104 @@ const getAnchorDetail = async (anchorId, page = 1, limit = 30, anchorName = '') 
 const trackUrlCache = new Map()
 
 /**
+ * 内置降级实现：直接通过喜马拉雅 track detail API 获取音频 URL
+ * 当用户未启用自定义音源时使用
+ */
+const builtInGetMusicUrl = async (songInfo, quality) => {
+  console.log('[xm builtInGetMusicUrl] called:', { name: songInfo?.name, quality, hasTypeUrl: !!songInfo?.typeUrl, hasPlayUrl: !!songInfo?.playUrl })
+
+  // 1. 优先使用 typeUrl（已缓存的音质映射）
+  if (songInfo?.typeUrl?.[quality]) {
+    console.log('[xm builtInGetMusicUrl] found in typeUrl:', songInfo.typeUrl[quality].substring(0, 60))
+    return { url: songInfo.typeUrl[quality], type: quality }
+  }
+
+  // 2. 退而求其次，使用 playUrl
+  if (songInfo?.playUrl) {
+    console.log('[xm builtInGetMusicUrl] using playUrl:', songInfo.playUrl.substring(0, 60))
+    return { url: songInfo.playUrl, type: '128k' }
+  }
+
+  // 3. 检查缓存
+  const trackId = songInfo?.hash || songInfo?.songmid
+  const cacheKey = trackId ? `${trackId}_${quality}` : null
+  if (cacheKey && trackUrlCache.has(cacheKey)) {
+    const cachedUrl = trackUrlCache.get(cacheKey)
+    console.log('[xm builtInGetMusicUrl] cache hit:', cachedUrl.substring(0, 60))
+    return { url: cachedUrl, type: quality }
+  }
+
+  // 4. 最后手段：通过 track detail API 获取音频 URL
+  if (trackId) {
+    console.log('[xm builtInGetMusicUrl] fetching from track API, trackId:', trackId)
+    const ts = Math.floor(Date.now() / 1000)
+    const url = `${XM_MOBILE_API}/mobile/v1/track/trackInfo/ts-${ts}?trackId=${trackId}&device=android`
+
+    let body
+    try {
+      body = await fetchJson(url, mobileHeaders)
+    } catch (e) {
+      throw new Error('喜马拉雅获取音频URL失败: ' + (e?.message || e))
+    }
+
+    if (body.ret !== 0) {
+      throw new Error('喜马拉雅获取音频URL失败: ' + (body?.msg || 'ret=' + body.ret))
+    }
+
+    const data = body.data
+    if (!data) {
+      throw new Error('喜马拉雅获取音频URL失败: 无数据')
+    }
+
+    // 按质量优先级获取 URL
+    const playUrl = data.playUrl64 || data.playUrl32 || data.playPath64 || data.playPath32
+    if (!playUrl) {
+      throw new Error('喜马拉雅获取音频URL失败: 无可用播放地址')
+    }
+
+    console.log('[xm builtInGetMusicUrl] got from API:', playUrl.substring(0, 60))
+
+    // 写入缓存
+    if (cacheKey) {
+      trackUrlCache.set(cacheKey, playUrl)
+      if (trackUrlCache.size > 200) {
+        const firstKey = trackUrlCache.keys().next().value
+        trackUrlCache.delete(firstKey)
+      }
+    }
+
+    return { url: playUrl, type: '128k' }
+  }
+
+  throw new Error('喜马拉雅获取音频URL失败: 缺少trackId')
+}
+
+/**
  * 获取喜马拉雅单集音频 URL
- * 对齐音乐 SDK 的 getMusicUrl 接口格式
- * 调用链: player → getMusicUrl → handleGetOnlineMusicUrl → musicSdk['xm'].getMusicUrl(songInfo, quality).promise
+ * 使用 apis() 路由，与歌曲模块完全一致
+ * 当自定义音源激活时 → 走自定义音源脚本
+ * 当自定义音源未激活时 → 走内置降级实现
  *
  * @param {Object} songInfo - 歌曲信息（旧格式，通过 toOldMusicInfo 转换）
  * @param {string} quality - 请求的音质 ('128k' | '64k' | '32k')
  * @returns {{ promise: Promise<{ url: string, type: string }> }}
  */
 const getMusicUrl = (songInfo, quality) => {
-  const promise = (async () => {
-    console.log('[xm getMusicUrl] called:', { name: songInfo?.name, quality, hasTypeUrl: !!songInfo?.typeUrl, hasPlayUrl: !!songInfo?.playUrl })
-
-    // 1. 优先使用 typeUrl（已缓存的音质映射）
-    if (songInfo?.typeUrl?.[quality]) {
-      console.log('[xm getMusicUrl] found in typeUrl:', songInfo.typeUrl[quality].substring(0, 60))
-      return { url: songInfo.typeUrl[quality], type: quality }
+  // 优先使用 apis() 路由（与 kg/kw/tx/wy/mg 完全一致）
+  try {
+    console.log('[xm getMusicUrl] trying apis(xm) route...')
+    const apiResult = apis('xm').getMusicUrl(songInfo, quality)
+    if (apiResult && apiResult.promise) {
+      console.log('[xm getMusicUrl] using apis(xm) route')
+      return apiResult
     }
+  } catch (err) {
+    console.log('[xm getMusicUrl] apis(xm) not available, using built-in fallback:', err.message)
+  }
 
-    // 2. 退而求其次，使用 playUrl
-    if (songInfo?.playUrl) {
-      console.log('[xm getMusicUrl] using playUrl:', songInfo.playUrl.substring(0, 60))
-      return { url: songInfo.playUrl, type: '128k' }
-    }
-
-    // 3. 检查缓存
-    const trackId = songInfo?.hash || songInfo?.songmid
-    const cacheKey = trackId ? `${trackId}_${quality}` : null
-    if (cacheKey && trackUrlCache.has(cacheKey)) {
-      const cachedUrl = trackUrlCache.get(cacheKey)
-      console.log('[xm getMusicUrl] cache hit:', cachedUrl.substring(0, 60))
-      return { url: cachedUrl, type: quality }
-    }
-
-    // 4. 最后手段：通过 track detail API 获取音频 URL
-    if (trackId) {
-      console.log('[xm getMusicUrl] fetching from track API, trackId:', trackId)
-      const ts = Math.floor(Date.now() / 1000)
-      const url = `${XM_MOBILE_API}/mobile/v1/track/trackInfo/ts-${ts}?trackId=${trackId}&device=android`
-
-      let body
-      try {
-        body = await fetchJson(url, mobileHeaders)
-      } catch (e) {
-        throw new Error('喜马拉雅获取音频URL失败: ' + (e?.message || e))
-      }
-
-      if (body.ret !== 0) {
-        throw new Error('喜马拉雅获取音频URL失败: ' + (body?.msg || 'ret=' + body.ret))
-      }
-
-      const data = body.data
-      if (!data) {
-        throw new Error('喜马拉雅获取音频URL失败: 无数据')
-      }
-
-      // 按质量优先级获取 URL
-      const playUrl = data.playUrl64 || data.playUrl32 || data.playPath64 || data.playPath32
-      if (!playUrl) {
-        throw new Error('喜马拉雅获取音频URL失败: 无可用播放地址')
-      }
-
-      console.log('[xm getMusicUrl] got from API:', playUrl.substring(0, 60))
-
-      // 写入缓存
-      if (cacheKey) {
-        trackUrlCache.set(cacheKey, playUrl)
-        if (trackUrlCache.size > 200) {
-          const firstKey = trackUrlCache.keys().next().value
-          trackUrlCache.delete(firstKey)
-        }
-      }
-
-      return { url: playUrl, type: '128k' }
-    }
-
-    throw new Error('喜马拉雅获取音频URL失败: 缺少trackId')
-  })()
-
+  // 降级：使用内置实现
+  console.log('[xm getMusicUrl] using built-in fallback')
+  const promise = builtInGetMusicUrl(songInfo, quality)
   return { promise }
 }
 
