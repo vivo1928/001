@@ -9,6 +9,8 @@ import {
   SingerDetail,
   AlbumDetail,
   Comment,
+  AudiobookAlbumDetail,
+  AudiobookAnchorDetail,
   // Setting,
 } from '@/screens'
 import { Provider } from '@/store/Provider'
@@ -20,6 +22,8 @@ import {
   SINGER_DETAIL_SCREEN,
   ALBUM_DETAIL_SCREEN,
   COMMENT_SCREEN,
+  AUDIOBOOK_ALBUM_DETAIL_SCREEN,
+  AUDIOBOOK_ANCHOR_DETAIL_SCREEN,
   VERSION_MODAL,
   PACT_MODAL,
   SYNC_MODE_MODAL,
@@ -46,6 +50,8 @@ export default () => {
   Navigation.registerComponent(SINGER_DETAIL_SCREEN, () => WrappedComponent(SingerDetail))
   Navigation.registerComponent(ALBUM_DETAIL_SCREEN, () => WrappedComponent(AlbumDetail))
   Navigation.registerComponent(COMMENT_SCREEN, () => WrappedComponent(Comment))
+  Navigation.registerComponent(AUDIOBOOK_ALBUM_DETAIL_SCREEN, () => WrappedComponent(AudiobookAlbumDetail))
+  Navigation.registerComponent(AUDIOBOOK_ANCHOR_DETAIL_SCREEN, () => WrappedComponent(AudiobookAnchorDetail))
   Navigation.registerComponent(VERSION_MODAL, () => WrappedComponent(VersionModal))
   Navigation.registerComponent(PACT_MODAL, () => WrappedComponent(PactModal))
   Navigation.registerComponent(SYNC_MODE_MODAL, () => WrappedComponent(SyncModeModal))

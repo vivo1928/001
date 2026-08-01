@@ -7,6 +7,8 @@ import AudiobookList, { type AudioListType } from './AudiobookList'
 import { search, setSearchText } from '@/core/audiobook/search'
 import audiobookState, { type AudiobookSource, type AudiobookType, type SearchListItem } from '@/store/audiobook/state'
 import { createStyle } from '@/utils/tools'
+import { pushAudiobookAlbumDetailScreen, pushAudiobookAnchorDetailScreen } from '@/navigation/navigation'
+import commonState from '@/store/common/state'
 
 export default () => {
   const headerBarRef = useRef<HeaderBarType>(null)
@@ -93,7 +95,30 @@ export default () => {
   }, [performSearch])
 
   const handleOpenDetail = useCallback((item: SearchListItem, index: number) => {
-    console.log('Open detail:', item.name, item.id)
+    console.log('[Audiobook] Open detail:', item.name, item.id)
+    const homeComponentId = commonState.componentIds.home!
+    const isAnchor = 'isAnchor' in item && item.isAnchor
+
+    if (isAnchor) {
+      // 点击主播 → 进入主播详情页，展示该主播的专辑列表
+      pushAudiobookAnchorDetailScreen(homeComponentId, {
+        id: item.id,
+        name: item.name,
+        img: item.img,
+        source: item.source,
+        followerCount: 'followerCount' in item ? item.followerCount : undefined,
+        albumCount: 'albumCount' in item ? item.albumCount : undefined,
+      })
+    } else {
+      // 点击专辑 → 进入专辑详情页，展示该专辑的剧集列表
+      pushAudiobookAlbumDetailScreen(homeComponentId, {
+        id: item.id,
+        name: item.name,
+        author: item.author,
+        img: item.img,
+        source: item.source,
+      })
+    }
   }, [])
 
   return (
