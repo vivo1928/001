@@ -16,6 +16,8 @@ import { formatPlayTime } from '../../index'
  * - 网络错误 / API 错误 / 风控 都触发重试
  */
 
+console.log('[xm sdk] 喜马拉雅听书 SDK 模块已加载')
+
 const XM_SEARCH_API = 'https://www.ximalaya.com/revision/search/seo'
 const XM_SEARCH_FALLBACK_API = 'https://www.ximalaya.com/revision/search'
 const XM_MOBILE_API = 'https://mobile.ximalaya.com'
@@ -322,6 +324,7 @@ const searchAnchor = async (keyword, page = 1, limit = 30, retryCount = 0) => {
  * 搜索: type = 'album' | 'anchor'
  */
 const search = async (keyword, page = 1, type = 'album', limit = 30) => {
+  console.log('[xm sdk search] 被调用:', { keyword, page, type, limit })
   if (type === 'album') {
     return searchAlbum(keyword, page, limit)
   } else {
