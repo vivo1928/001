@@ -1,4 +1,3 @@
-import { httpFetch } from '../../request'
 import { formatPlayTime } from '../../index'
 
 /**
@@ -7,8 +6,10 @@ import { formatPlayTime } from '../../index'
  * 提供两个搜索端点，互相作为 fallback:
  * 1. SEO 端点: /revision/search/seo — 无需 xm-sign 签名，为搜索引擎爬虫设计
  * 2. 普通端点: /revision/search — 同样无需签名，响应结构不同
+ * 3. Mobile 端点: mobile.ximalaya.com — 用于专辑详情和主播详情
  *
- * 两个端点都无需 xm-sign（对比 /revision/search/main 需要 dws.2.0.0.js 签名）
+ * 全部使用原生 global.fetch，避免 request.js 管道中 cache:'no-store' 等
+ * 选项在 React Native 上的兼容性问题
  *
  * 重试策略（对齐歌曲搜索 SDK 的实现）:
  * - 最多重试 3 次
@@ -23,6 +24,7 @@ const XM_SEARCH_FALLBACK_API = 'https://www.ximalaya.com/revision/search'
 const XM_MOBILE_API = 'https://mobile.ximalaya.com'
 
 const MAX_RETRY = 3
+const FETCH_TIMEOUT = 15000
 
 // 桌面浏览器请求头
 const pcHeaders = {
@@ -35,6 +37,7 @@ const pcHeaders = {
 const mobileHeaders = {
   'User-Agent': 'Mozilla/5.0 (Linux; Android 12; Pixel 6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36',
   'Referer': 'https://m.ximalaya.com/',
+  'Accept': 'application/json, text/plain, */*',
   'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
 }
 
@@ -117,22 +120,26 @@ const extractDocs = (body, core) => {
 }
 
 /**
- * 执行一次 HTTP 请求，返回解析后的 body
- * 绕过 request.js 封装，直接使用 global.fetch
- * 避免 request.js 中 cache:'no-store' 等选项在 React Native 上的兼容性问题
+ * 执行一次 HTTP 请求，返回解析后的 JSON body
+ * 使用原生 global.fetch + AbortController 超时控制
+ * 避免 request.js 封装中 cache:'no-store' 等选项在 React Native 上的兼容性问题
+ *
+ * @param {string} url 请求 URL
+ * @param {object} [headers=pcHeaders] 自定义请求头
+ * @returns {Promise<object>} 解析后的 JSON 响应体
  */
-const fetchJson = async (url) => {
+const fetchJson = async (url, headers = pcHeaders) => {
   console.log('[xm fetch]', url.substring(0, 120))
   const controller = new global.AbortController()
   const timeoutId = setTimeout(() => {
     console.warn('[xm fetch] timeout, aborting')
     controller.abort()
-  }, 15000)
+  }, FETCH_TIMEOUT)
 
   try {
     const resp = await global.fetch(url, {
       method: 'GET',
-      headers: pcHeaders,
+      headers,
       signal: controller.signal,
     })
     clearTimeout(timeoutId)
@@ -335,21 +342,26 @@ const search = async (keyword, page = 1, type = 'album', limit = 30) => {
 // ==================== 专辑详情 ====================
 
 /**
- * 获取专辑章节列表
- * 使用 mobile API，失败时尝试备用 URL
+ * 获取专辑章节列表（剧集/单集）
+ * 使用 mobile API，失败时自动尝试备用 URL
  */
 const getAlbumDetail = async (albumId, page = 1, limit = 200) => {
-  const url = `${XM_MOBILE_API}/mobile/v1/album/track/ts-${Math.floor(Date.now() / 1000)}?albumId=${albumId}&device=android&isAsc=true&pageId=${page}&pageSize=${limit}`
+  const ts = Math.floor(Date.now() / 1000)
+  const url = `${XM_MOBILE_API}/mobile/v1/album/track/ts-${ts}?albumId=${albumId}&device=android&isAsc=true&pageId=${page}&pageSize=${limit}`
+  const altUrl = `${XM_MOBILE_API}/mobile/v1/album/track?albumId=${albumId}&device=android&isAsc=true&pageId=${page}&pageSize=${limit}`
+
+  console.log('[xm getAlbumDetail] albumId:', albumId, 'page:', page)
 
   let body
   try {
-    const resp = await httpFetch(url, { headers: mobileHeaders }).promise
-    body = resp.body
+    body = await fetchJson(url, mobileHeaders)
   } catch (e) {
-    // 尝试备用 URL
-    const altUrl = `${XM_MOBILE_API}/mobile/v1/album/track?albumId=${albumId}&device=android&isAsc=true&pageId=${page}&pageSize=${limit}`
-    const altResp = await httpFetch(altUrl, { headers: mobileHeaders }).promise
-    body = altResp.body
+    console.warn('[xm getAlbumDetail] primary URL failed:', e.message, 'trying fallback')
+    try {
+      body = await fetchJson(altUrl, mobileHeaders)
+    } catch (e2) {
+      throw new Error('喜马拉雅获取专辑详情失败: ' + (e2?.message || e2))
+    }
   }
 
   if (!body || body.ret !== 0) {
@@ -357,11 +369,24 @@ const getAlbumDetail = async (albumId, page = 1, limit = 200) => {
   }
 
   const data = body.data
-  if (!data) return { list: [], total: 0, page, limit }
+  if (!data) {
+    console.log('[xm getAlbumDetail] no data, returning empty list')
+    return {
+      list: [],
+      total: 0,
+      page,
+      limit,
+      allPage: 0,
+      source: 'xm',
+      info: { name: '', img: '', desc: '', author: '' },
+    }
+  }
 
   const tracks = data.tracks?.list || data.list || []
   const albumInfo = data.album || data.albumInfo || {}
   const total = data.tracks?.totalCount || data.totalCount || 0
+
+  console.log('[xm getAlbumDetail] got', tracks.length, 'tracks, total:', total)
 
   const list = tracks.map((item) => ({
     singer: item.nickname || item.anchorName || albumInfo.nickname || '',
@@ -402,20 +427,24 @@ const getAlbumDetail = async (albumId, page = 1, limit = 200) => {
 
 /**
  * 获取主播的专辑列表
- * 使用 mobile API，失败时尝试备用 URL
+ * 使用 mobile API，失败时自动尝试备用 URL
  */
 const getAnchorDetail = async (anchorId, page = 1, limit = 30) => {
   const url = `${XM_MOBILE_API}/mobile/v1/artist/albums?anchorId=${anchorId}&device=android&pageId=${page}&pageSize=${limit}`
+  const altUrl = `${XM_MOBILE_API}/mobile/v1/anchor/album?anchorId=${anchorId}&device=android&pageId=${page}&pageSize=${limit}`
+
+  console.log('[xm getAnchorDetail] anchorId:', anchorId, 'page:', page)
 
   let body
   try {
-    const resp = await httpFetch(url, { headers: mobileHeaders }).promise
-    body = resp.body
+    body = await fetchJson(url, mobileHeaders)
   } catch (e) {
-    // 备用 URL
-    const altUrl = `${XM_MOBILE_API}/mobile/v1/anchor/album?anchorId=${anchorId}&device=android&pageId=${page}&pageSize=${limit}`
-    const altResp = await httpFetch(altUrl, { headers: mobileHeaders }).promise
-    body = altResp.body
+    console.warn('[xm getAnchorDetail] primary URL failed:', e.message, 'trying fallback')
+    try {
+      body = await fetchJson(altUrl, mobileHeaders)
+    } catch (e2) {
+      throw new Error('喜马拉雅获取主播详情失败: ' + (e2?.message || e2))
+    }
   }
 
   if (!body || body.ret !== 0) {
@@ -423,11 +452,24 @@ const getAnchorDetail = async (anchorId, page = 1, limit = 30) => {
   }
 
   const data = body.data
-  if (!data) return { list: [], total: 0, page, limit }
+  if (!data) {
+    console.log('[xm getAnchorDetail] no data, returning empty list')
+    return {
+      list: [],
+      total: 0,
+      page,
+      limit,
+      allPage: 0,
+      source: 'xm',
+      info: { name: '', img: '', desc: '', author: '' },
+    }
+  }
 
   const albums = data.albumList || data.albums || data.list || []
   const anchorInfo = data.anchorInfo || data.anchor || data.userInfo || {}
   const total = data.totalCount || data.total || 0
+
+  console.log('[xm getAnchorDetail] got', albums.length, 'albums, total:', total)
 
   const list = albums.map(item => ({
     id: String(item.albumId || item.id),
