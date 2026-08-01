@@ -117,6 +117,7 @@ export default ({ componentId, info }: { componentId: string, info: AlbumDetailI
 
   const handlePlayEpisode = useCallback((episode: EpisodeItem) => {
     console.log('[AudiobookAlbumDetail] play episode:', episode.name)
+    const episodeImg = episode.img || albumInfo.img || ''
     const musicInfo = {
       id: episode.songmid,
       name: episode.name,
@@ -125,7 +126,7 @@ export default ({ componentId, info }: { componentId: string, info: AlbumDetailI
       albumId: episode.albumId,
       interval: episode.interval || '00:00',
       source: episode.source || 'xm',
-      img: episode.img || albumInfo.img || '',
+      img: episodeImg,
       hash: episode.hash || episode.songmid,
       songmid: episode.songmid,
       types: episode.types,
@@ -134,6 +135,11 @@ export default ({ componentId, info }: { componentId: string, info: AlbumDetailI
       isAudiobook: true,
       lrc: null,
       otherSource: null,
+      meta: {
+        songId: episode.songmid,
+        albumName: episode.albumName || '',
+        picUrl: episodeImg,
+      },
     } as any
 
     void addListMusics(LIST_IDS.DEFAULT, [musicInfo], settingState.setting['list.addMusicLocationType']).then(() => {
