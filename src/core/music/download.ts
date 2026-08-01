@@ -36,7 +36,7 @@ export const getPicUrl = async({ musicInfo, isRefresh, listId, onToggleSource = 
     // }
 
     const onlineMusicInfo = musicInfo.metadata.musicInfo
-    if (onlineMusicInfo.meta.picUrl) return onlineMusicInfo.meta.picUrl
+    if (onlineMusicInfo.meta?.picUrl) return onlineMusicInfo.meta.picUrl
   }
 
   return getOnlinePicUrl({ musicInfo: musicInfo.metadata.musicInfo, isRefresh, onToggleSource }).then((url) => {

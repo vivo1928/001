@@ -113,7 +113,7 @@ export const getPicUrl = async({ musicInfo, listId, isRefresh, skipFilePic, onTo
       return pic
     }
 
-    if (musicInfo.meta.picUrl) return musicInfo.meta.picUrl
+    if (musicInfo.meta?.picUrl) return musicInfo.meta.picUrl
   }
 
   try {
@@ -125,7 +125,7 @@ export const getPicUrl = async({ musicInfo, listId, isRefresh, skipFilePic, onTo
   onToggleSource()
   return getOtherSourceByLocal(musicInfo, async(otherSource) => {
     return getOnlineOtherSourcePicUrl({ musicInfos: [...otherSource], onToggleSource, isRefresh }).then(({ url, musicInfo: targetMusicInfo, isFromCache }) => {
-      if (listId) {
+      if (listId && musicInfo.meta) {
         musicInfo.meta.picUrl = url
         void updateListMusics([{ id: listId, musicInfo }])
       }

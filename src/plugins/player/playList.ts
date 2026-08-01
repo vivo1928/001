@@ -19,16 +19,16 @@ export const state = {
 const formatMusicInfo = (musicInfo: LX.Player.PlayMusic) => {
   return 'progress' in musicInfo ? {
     id: musicInfo.id,
-    pic: musicInfo.metadata.musicInfo.meta.picUrl,
+    pic: musicInfo.metadata?.musicInfo?.meta?.picUrl,
     name: musicInfo.metadata.musicInfo.name,
     singer: musicInfo.metadata.musicInfo.singer,
-    album: musicInfo.metadata.musicInfo.meta.albumName,
+    album: musicInfo.metadata.musicInfo.meta?.albumName,
   } : {
     id: musicInfo.id,
-    pic: musicInfo.meta.picUrl,
+    pic: musicInfo.meta?.picUrl,
     name: musicInfo.name,
     singer: musicInfo.singer,
-    album: musicInfo.meta.albumName,
+    album: musicInfo.meta?.albumName,
   }
 }
 

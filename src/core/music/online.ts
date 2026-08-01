@@ -70,10 +70,10 @@ export const getPicUrl = async({ musicInfo, listId, isRefresh, allowToggleSource
   allowToggleSource?: boolean
   onToggleSource?: (musicInfo?: LX.Music.MusicInfoOnline) => void
 }): Promise<string> => {
-  if (musicInfo.meta.picUrl && !isRefresh) return musicInfo.meta.picUrl
+  if (musicInfo.meta?.picUrl && !isRefresh) return musicInfo.meta.picUrl
   return handleGetOnlinePicUrl({ musicInfo, onToggleSource, isRefresh, allowToggleSource }).then(({ url, musicInfo: targetMusicInfo, isFromCache }) => {
     // picRequest = null
-    if (listId) {
+    if (listId && musicInfo.meta) {
       musicInfo.meta.picUrl = url
       void updateListMusics([{ id: listId, musicInfo }])
     }

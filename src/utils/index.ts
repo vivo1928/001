@@ -80,41 +80,42 @@ export const toNewMusicInfo = (oldMusicInfo: any): LX.Music.MusicInfo => {
 }
 
 export const toOldMusicInfo = (minfo: LX.Music.MusicInfo): any => {
+  const meta = minfo.meta || ({} as any)
   const oInfo: Record<string, any> = {
     name: minfo.name,
     singer: minfo.singer,
     source: minfo.source,
-    songmid: minfo.meta.songId,
+    songmid: meta.songId || '',
     interval: minfo.interval,
-    albumName: minfo.meta.albumName,
-    img: minfo.meta.picUrl ?? '',
+    albumName: meta.albumName || '',
+    img: meta.picUrl ?? '',
     typeUrl: {},
   }
   if (minfo.source == 'local') {
-    oInfo.filePath = minfo.meta.filePath
-    oInfo.ext = minfo.meta.ext
+    oInfo.filePath = meta.filePath || ''
+    oInfo.ext = meta.ext || ''
     oInfo.albumId = ''
     oInfo.types = []
     oInfo._types = {}
   } else {
-    oInfo.albumId = minfo.meta.albumId
-    oInfo.types = minfo.meta.qualitys
-    oInfo._types = minfo.meta._qualitys
+    oInfo.albumId = meta.albumId || ''
+    oInfo.types = meta.qualitys || []
+    oInfo._types = meta._qualitys || {}
 
     switch (minfo.source) {
       case 'kg':
-        oInfo.hash = minfo.meta.hash
+        oInfo.hash = meta.hash
         break
       case 'tx':
-        oInfo.strMediaMid = minfo.meta.strMediaMid
-        oInfo.albumMid = minfo.meta.albumMid
-        oInfo.songId = minfo.meta.id
+        oInfo.strMediaMid = meta.strMediaMid
+        oInfo.albumMid = meta.albumMid
+        oInfo.songId = meta.id
         break
       case 'mg':
-        oInfo.copyrightId = minfo.meta.copyrightId
-        oInfo.lrcUrl = minfo.meta.lrcUrl
-        oInfo.mrcUrl = minfo.meta.mrcUrl
-        oInfo.trcUrl = minfo.meta.trcUrl
+        oInfo.copyrightId = meta.copyrightId
+        oInfo.lrcUrl = meta.lrcUrl
+        oInfo.mrcUrl = meta.mrcUrl
+        oInfo.trcUrl = meta.trcUrl
         break
     }
   }

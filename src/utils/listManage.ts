@@ -19,7 +19,27 @@ export const setUserLists = (lists: LX.List.UserListInfo[]) => {
   return userLists
 }
 
+/**
+ * 确保音乐信息对象有合法的 meta 字段
+ * 防止旧数据/听书数据缺少 meta 导致初始化崩溃
+ */
+const sanitizeMusicInfo = (item: LX.Music.MusicInfo): LX.Music.MusicInfo => {
+  if (!item.meta) {
+    const old = item as any
+    item.meta = {
+      songId: old.songmid ?? '',
+      albumName: old.albumName ?? '',
+      picUrl: old.img ?? '',
+      qualitys: old.types ?? [],
+      _qualitys: old._types ?? {},
+      albumId: old.albumId ?? '',
+    }
+  }
+  return item
+}
+
 export const setMusicList = (listId: string, musicList: LX.Music.MusicInfo[]): LX.Music.MusicInfo[] => {
+  for (const item of musicList) sanitizeMusicInfo(item)
   allMusicList.set(listId, musicList)
   return musicList
 }

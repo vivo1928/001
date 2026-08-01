@@ -37,7 +37,7 @@ export const getOtherSource = async(musicInfo: LX.Music.MusicInfo | LX.Download.
       name: musicInfo.metadata.musicInfo.name,
       singer: musicInfo.metadata.musicInfo.singer,
       source: musicInfo.metadata.musicInfo.source,
-      albumName: musicInfo.metadata.musicInfo.meta.albumName,
+      albumName: musicInfo.metadata.musicInfo.meta?.albumName ?? '',
       interval: musicInfo.metadata.musicInfo.interval ?? '',
     }
   } else {
@@ -46,7 +46,7 @@ export const getOtherSource = async(musicInfo: LX.Music.MusicInfo | LX.Download.
       name: musicInfo.name,
       singer: musicInfo.singer,
       source: musicInfo.source,
-      albumName: musicInfo.meta.albumName,
+      albumName: musicInfo.meta?.albumName ?? '',
       interval: musicInfo.interval ?? '',
     }
   }
@@ -351,7 +351,7 @@ export const getOnlineOtherSourcePicUrl = async({ musicInfos, onToggleSource, is
   }
   if (!musicInfo) throw new Error(global.i18n.t('toggle_source_failed'))
 
-  if (musicInfo.meta.picUrl && !isRefresh) return { musicInfo, url: musicInfo.meta.picUrl, isFromCache: true }
+  if (musicInfo.meta?.picUrl && !isRefresh) return { musicInfo, url: musicInfo.meta.picUrl, isFromCache: true }
 
   let reqPromise
   try {
