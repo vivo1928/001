@@ -128,7 +128,7 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId }, ref) 
     }
     void handlePlay(list[index])
   }
-  const handlePlayAll = () => {
+  const handlePlayAllSongs = () => {
     const list = listRef.current?.getList()
     if (!list?.length) return
     void handlePlayAll(info.id, info.source, list)
@@ -186,7 +186,7 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId }, ref) 
   }
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  const header = useMemo(() => <Header ref={headerRef} componentId={componentId} onPlayAll={handlePlayAll} />, [componentId])
+  const header = useMemo(() => <Header ref={headerRef} componentId={componentId} onPlayAll={handlePlayAllSongs} />, [componentId])
 
   return <OnlineList
     ref={listRef}
