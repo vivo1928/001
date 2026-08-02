@@ -11,17 +11,8 @@ import { setPlaybackRate } from './utils'
 
 let isInitialized = false
 
-// 防止快速连续 seek 导致静音
-let jumpDebounceTimer: ReturnType<typeof setTimeout> | null = null
-const debouncedJump = (callback: () => void) => {
-  if (jumpDebounceTimer) {
-    clearTimeout(jumpDebounceTimer)
-  }
-  jumpDebounceTimer = setTimeout(() => {
-    jumpDebounceTimer = null
-    callback()
-  }, 300)
-}
+// 防止快速连续 seek 导致静音（用锁代替延迟，确保立即响应）
+let isJumping = false
 
 // let retryTrack: LX.Player.Track | null = null
 // let retryGetUrlId: string | null = null
@@ -90,34 +81,30 @@ const registerPlaybackService = async() => {
   })
 
   TrackPlayer.addEventListener(TPEvent.RemoteJumpForward, async({ interval }) => {
-    debouncedJump(async () => {
+    if (isJumping) return
+    isJumping = true
+    try {
       const currentTime = await TrackPlayer.getPosition()
       const duration = await TrackPlayer.getDuration()
       const newTime = Math.min(duration, currentTime + (interval as number || 10))
+      await TrackPlayer.seekTo(newTime)
       global.app_event.setProgress(newTime)
-      // 确保 seek 后播放器继续播放，防止静音
-      setTimeout(async () => {
-        const state = await TrackPlayer.getState()
-        if (state !== TPState.Playing) {
-          await TrackPlayer.play()
-        }
-      }, 200)
-    })
+    } finally {
+      isJumping = false
+    }
   })
 
   TrackPlayer.addEventListener(TPEvent.RemoteJumpBackward, async({ interval }) => {
-    debouncedJump(async () => {
+    if (isJumping) return
+    isJumping = true
+    try {
       const currentTime = await TrackPlayer.getPosition()
       const newTime = Math.max(0, currentTime - (interval as number || 10))
+      await TrackPlayer.seekTo(newTime)
       global.app_event.setProgress(newTime)
-      // 确保 seek 后播放器继续播放，防止静音
-      setTimeout(async () => {
-        const state = await TrackPlayer.getState()
-        if (state !== TPState.Playing) {
-          await TrackPlayer.play()
-        }
-      }, 200)
-    })
+    } finally {
+      isJumping = false
+    }
   })
 
   TrackPlayer.addEventListener('remote-set-speed' as any, async({ speed }) => {

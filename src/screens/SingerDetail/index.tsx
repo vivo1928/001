@@ -49,7 +49,7 @@ export default ({ componentId, info }: { componentId: string, info: SingerDetail
       <SingerInfoContext.Provider value={safeInfo}>
         {activeTab === 'song'
           ? <MusicList ref={musicListRef} componentId={componentId} activeTab={activeTab} onTabChange={handleTabChange} />
-          : <AlbumList ref={albumListRef} />
+          : <AlbumList ref={albumListRef} componentId={componentId} activeTab={activeTab} onTabChange={handleTabChange} />
         }
       </SingerInfoContext.Provider>
       <PlayerBar />

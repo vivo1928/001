@@ -21,6 +21,7 @@ export interface ListProps {
   onRefresh: () => void
   onLoadMore: () => void
   onOpenDetail: (item: ListInfoItem, index: number) => void
+  ListHeaderComponent?: React.ReactElement
 }
 export type Status = 'loading' | 'refreshing' | 'end' | 'error' | 'idle'
 
@@ -29,7 +30,7 @@ export interface ListType {
   setStatus: (val: Status) => void
 }
 
-export default forwardRef<ListType, ListProps>(({ onRefresh, onLoadMore, onOpenDetail }, ref) => {
+export default forwardRef<ListType, ListProps>(({ onRefresh, onLoadMore, onOpenDetail, ListHeaderComponent }, ref) => {
   const flatListRef = useRef<FlatList>(null)
   const [currentList, setList] = useState<ListInfoItem[]>([])
   const [showSource, setShowSource] = useState(false)
@@ -156,11 +157,11 @@ export default forwardRef<ListType, ListProps>(({ onRefresh, onLoadMore, onOpenD
                 columnWrapperStyle={{ justifyContent: 'space-evenly' }}
                 numColumns={rowInfo.num}
                 data={list}
-                maxToRenderPerBatch={4}
+                maxToRenderPerBatch={10}
                 // updateCellsBatchingPeriod={80}
-                windowSize={5}
-                removeClippedSubviews={false}
-                // initialNumToRender={12}
+                windowSize={7}
+                removeClippedSubviews={true}
+                initialNumToRender={12}
                 renderItem={renderItem}
                 keyExtractor={getkey}
                 // getItemLayout={getItemLayout}
@@ -170,6 +171,7 @@ export default forwardRef<ListType, ListProps>(({ onRefresh, onLoadMore, onOpenD
                 onEndReached={handleLoadMore}
                 maintainVisibleContentPosition={{ minIndexForVisible: 0, autoscrollToTopThreshold: 10 }}
                 refreshControl={refreshControl}
+                ListHeaderComponent={ListHeaderComponent}
                 ListFooterComponent={footerComponent}
               />
             )

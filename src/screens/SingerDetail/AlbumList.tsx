@@ -1,11 +1,18 @@
-import { forwardRef, useImperativeHandle, useRef } from 'react'
+import { forwardRef, useImperativeHandle, useRef, useMemo } from 'react'
 
 import Songlist, { type SonglistProps, type SonglistType } from '@/screens/Home/Views/SongList/components/Songlist'
 import { navigations } from '@/navigation'
 import commonState from '@/store/common/state'
 import { type ListInfoItem } from '@/store/songlist/state'
-import { useSingerInfo } from './state'
+import { useSingerInfo, type SingerTabType } from './state'
+import Header from './Header'
 import musicSdk from '@/utils/musicSdk'
+
+export interface AlbumListProps {
+  componentId: string
+  activeTab: SingerTabType
+  onTabChange: (tab: SingerTabType) => void
+}
 
 export interface AlbumListType {
   loadList: (source: LX.OnlineSource, id: string) => void
@@ -23,7 +30,7 @@ const mapToAlbumItem = (item: any): ListInfoItem => ({
   desc: item.publish_date || '',
 })
 
-export default forwardRef<AlbumListType, {}>((props, ref) => {
+export default forwardRef<AlbumListType, AlbumListProps>(({ componentId, activeTab, onTabChange }, ref) => {
   const listRef = useRef<SonglistType>(null)
   const info = useSingerInfo()
   const isUnmountedRef = useRef(false)
@@ -112,10 +119,15 @@ export default forwardRef<AlbumListType, {}>((props, ref) => {
     })
   }
 
+  const header = useMemo(() => (
+    <Header componentId={componentId} activeTab={activeTab} onTabChange={onTabChange} />
+  ), [componentId, activeTab, onTabChange])
+
   return <Songlist
     ref={listRef}
     onRefresh={handleRefresh}
     onLoadMore={handleLoadMore}
     onOpenDetail={handleOpenDetail}
+    ListHeaderComponent={header}
   />
 })
