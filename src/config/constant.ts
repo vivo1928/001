@@ -27,8 +27,6 @@ export enum COMPONENT_IDS {
   singerDetail = 'singerDetail',
   albumDetail = 'albumDetail',
   comment = 'comment',
-  audiobookAlbumDetail = 'audiobookAlbumDetail',
-  audiobookAnchorDetail = 'audiobookAnchorDetail',
 }
 
 export enum NAV_SHEAR_NATIVE_IDS {
@@ -107,7 +105,6 @@ export const NAV_MENUS = [
   { id: 'nav_songlist', icon: 'album' },
   { id: 'nav_top', icon: 'leaderboard' },
   { id: 'nav_love', icon: 'love' },
-  { id: 'nav_audiobook', icon: 'volume-medium' },
   // { id: 'download', icon: 'download-2' },
   { id: 'nav_setting', icon: 'setting' },
 ] as const

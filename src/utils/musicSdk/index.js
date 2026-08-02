@@ -4,7 +4,6 @@ import tx from './tx'
 import wy from './wy'
 import mg from './mg'
 // import bd from './bd'
-import xm from './xm'
 import { supportQuality } from './api-source'
 
 
@@ -41,7 +40,6 @@ const sources = {
   wy,
   mg,
   // bd,
-  xm,
 }
 export default {
   ...sources,

@@ -188,7 +188,7 @@
   "music_toggle__duplicate_tip": "列表中已存在相同的歌曲，是否將其移除並繼續？",
   "name": "標題：{name}",
   "nav_exit": "退出應用",
-  "nav_audiobook": "聽書",
+  
   "nav_love": "我的清單",
   "nav_search": "搜尋",
   "nav_setting": "設定",
@@ -257,8 +257,7 @@
   "search_type_songlist": "歌單",
   "search_type_album": "專輯",
   "search_type_singer": "歌手",
-  "audiobook_type_album": "專輯",
-  "audiobook_type_anchor": "主播",
+  
   "setting__other_dislike_list": "「不喜歡的歌曲」規則",
   "setting__other_dislike_list_label": "規則數量：{num}",
   "setting__other_dislike_list_saved_tip": "已儲存",
