@@ -3,6 +3,7 @@ import tipSearch from './tipSearch'
 import musicSearch from './musicSearch'
 import albumSearch from './albumSearch'
 import singerSearch from './singerSearch'
+import singer from './singer'
 
 import { formatSinger } from './util'
 import leaderboard from './leaderboard'
@@ -40,6 +41,7 @@ const kw = {
   musicSearch,
   albumSearch,
   singerSearch,
+  singer,
   leaderboard,
   songList,
   album,

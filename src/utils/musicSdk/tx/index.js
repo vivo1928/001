@@ -5,6 +5,7 @@ import musicSearch from './musicSearch'
 import albumSearch from './albumSearch'
 import album from './album'
 import singerSearch from './singerSearch'
+import singer from './singer'
 import lyric from './lyric'
 import hotSearch from './hotSearch'
 import comment from './comment'
@@ -18,6 +19,7 @@ const tx = {
   albumSearch,
   album,
   singerSearch,
+  singer,
   hotSearch,
   comment,
 

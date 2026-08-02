@@ -65,13 +65,14 @@ export default forwardRef<AlbumListType, AlbumListProps>(({ componentId, activeT
 
     // 优先使用 singer.getSingerAlbumList API（按歌手ID获取专辑）
     const hasSingerAlbumApi = !!(sdk.singer?.getSingerAlbumList)
+
     if (hasSingerAlbumApi) {
       try {
         const result = await sdk.singer.getSingerAlbumList(info.id, page, LIMIT)
-        if (result && result.albums && result.albums.length > 0) {
+        if (result) {
           return {
-            list: result.albums,
-            allPage: result.allPage || Math.ceil((result.total || 0) / LIMIT) || 99,
+            list: result.albums || [],
+            allPage: result.allPage || Math.ceil((result.total || 0) / LIMIT) || 1,
           }
         }
       } catch (err: any) {
