@@ -24,7 +24,7 @@ export default memo(() => {
 
   return (
     <>
-      <Btn icon={enabledLyric ? 'lyric-on' : 'lyric-off'} onPress={update} onLongPress={updateLock} accessibilityLabel={t('desktop_lyric_btn')} />
+      <Btn icon={enabledLyric ? 'lyric-on' : 'lyric-off'} onPress={update} onLongPress={updateLock} accessibilityLabel={t('desktop_lyric_btn')} accessibilityState={{ checked: enabledLyric }} />
       <DesktopLyricEnable ref={desktopLyricEnableRef} />
     </>
   )

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { View } from 'react-native'
 
 import MusicList, { type MusicListType } from './MusicList'
 import AlbumList, { type AlbumListType } from './AlbumList'
@@ -35,10 +36,12 @@ export default ({ componentId, info }: { componentId: string, info: SingerDetail
     : { id: '', name: '', source: 'kw' }
 
   const handleTabChange = (tab: SingerTabType) => {
+    const prevTab = activeTab
     setActiveTab(tab)
-    if (tab === 'album' && info?.source && info?.id) {
+    // 仅在首次切换到该选项卡时加载数据
+    if (tab === 'album' && prevTab !== 'album' && info?.source && info?.id) {
       albumListRef.current?.loadList(info.source, info.id)
-    } else if (tab === 'song' && info?.source && info?.id) {
+    } else if (tab === 'song' && prevTab !== 'song' && info?.source && info?.id) {
       musicListRef.current?.loadList(info.source, info.id)
     }
   }
@@ -47,10 +50,14 @@ export default ({ componentId, info }: { componentId: string, info: SingerDetail
     <PageContent>
       <StatusBar />
       <SingerInfoContext.Provider value={safeInfo}>
-        {activeTab === 'song'
-          ? <MusicList ref={musicListRef} componentId={componentId} activeTab={activeTab} onTabChange={handleTabChange} />
-          : <AlbumList ref={albumListRef} componentId={componentId} activeTab={activeTab} onTabChange={handleTabChange} />
-        }
+        <View style={{ flex: 1 }}>
+          <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, opacity: activeTab === 'song' ? 1 : 0 }} pointerEvents={activeTab === 'song' ? 'auto' : 'none'}>
+            <MusicList ref={musicListRef} componentId={componentId} activeTab={activeTab} onTabChange={handleTabChange} />
+          </View>
+          <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, opacity: activeTab === 'album' ? 1 : 0 }} pointerEvents={activeTab === 'album' ? 'auto' : 'none'}>
+            <AlbumList ref={albumListRef} componentId={componentId} activeTab={activeTab} onTabChange={handleTabChange} />
+          </View>
+        </View>
       </SingerInfoContext.Provider>
       <PlayerBar />
     </PageContent>
