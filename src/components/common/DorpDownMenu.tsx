@@ -8,6 +8,8 @@ import Button, { type BtnType, type BtnProps } from './Button'
 export interface DorpDownMenuProps<T extends Menus> extends Omit<MenuProps<T>, 'width'> {
   children: React.ReactNode
   btnStyle?: BtnProps['style']
+  accessibilityLabel?: string
+  accessibilityHint?: string
 }
 
 export default <T extends Menus>({
@@ -19,6 +21,8 @@ export default <T extends Menus>({
   children,
   activeId,
   btnStyle,
+  accessibilityLabel,
+  accessibilityHint,
 }: DorpDownMenuProps<T>) => {
   const buttonRef = useRef<BtnType>(null)
   const menuRef = useRef<MenuType>(null)
@@ -34,7 +38,7 @@ export default <T extends Menus>({
   }
 
   return (
-    <Button style={btnStyle} ref={buttonRef} onPress={showMenu}>
+    <Button style={btnStyle} ref={buttonRef} onPress={showMenu} accessibilityLabel={accessibilityLabel} accessibilityHint={accessibilityHint} accessibilityRole="button">
       {children}
       <Menu
         ref={menuRef}

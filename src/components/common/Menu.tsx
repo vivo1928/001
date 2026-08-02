@@ -155,6 +155,8 @@ const Menu = ({
                       style={{ ...styles.menuItem, width: menuItemStyle.width, height: menuItemStyle.height }}
                       underlayColor={theme['c-primary-background-active']}
                       onPress={() => { menuPress(menu) }}
+                      accessibilityLabel={menu.label}
+                      accessibilityRole="button"
                     >
                       <Text style={{ textAlign: center ? 'center' : 'left' }} size={fontSize} numberOfLines={1}>{menu.label}</Text>
                     </TouchableHighlight>

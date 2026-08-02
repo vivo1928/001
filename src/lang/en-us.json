@@ -456,6 +456,7 @@
   "source_real_mg": "Migu",
   "source_real_tx": "Tencent",
   "source_real_wy": "NetEase",
+  "source_selector_hint": "Tap to select a different music source",
   "stop": "Stop",
   "stopped": "Stopped",
   "storage_file_no_match": "The selected file does not meet the requirements!",

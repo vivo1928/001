@@ -58,6 +58,8 @@ const Component = <S extends Sources>({ fontSize = 15, center, onSourceChange }:
       onPress={handleChangeSource}
       fontSize={fontSize}
       activeId={source}
+      accessibilityLabel={t(`source_${sourceNameType}_${source}`)}
+      accessibilityHint={t('source_selector_hint')}
     >
       <View style={styles.sourceMenu}>
         <Text style={{ textAlign: center ? 'center' : 'left' }} numberOfLines={1} size={fontSize}>{t(`source_${sourceNameType}_${source}`)}</Text>

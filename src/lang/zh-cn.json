@@ -456,6 +456,7 @@
   "source_real_mg": "咪咕音乐",
   "source_real_tx": "企鹅音乐",
   "source_real_wy": "网易音乐",
+  "source_selector_hint": "点击选择其他音源，当前仅显示一个按钮",
   "stop": "停止",
   "stopped": "已停止",
   "storage_file_no_match": "选择的文件不符合要求！",

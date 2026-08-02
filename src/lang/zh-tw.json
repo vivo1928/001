@@ -456,6 +456,7 @@
   "source_real_mg": "咪咕音樂",
   "source_real_tx": "企鵝音樂",
   "source_real_wy": "網易音樂",
+  "source_selector_hint": "點擊選擇其他音源，當前僅顯示一個按鈕",
   "stop": "停止",
   "stopped": "已停止",
   "storage_file_no_match": "選取的檔案不符合要求！",
