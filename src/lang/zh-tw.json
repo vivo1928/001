@@ -46,6 +46,8 @@
   "deep_link_file_lxmc_confirm_tip": "確認要匯入清單檔案「{name}」嗎？",
   "delete": "移除",
   "desktop_lyric_btn": "桌面歌詞",
+  "desktop_lyric_enabled": "桌面歌詞已開啟",
+  "desktop_lyric_disabled": "桌面歌詞已關閉",
   "dialog_cancel": "我不",
   "dialog_confirm": "好的",
   "disagree": "我就不",

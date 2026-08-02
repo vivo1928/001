@@ -12,7 +12,7 @@ export interface SonglistProps {
   ListHeaderComponent?: ListProps['ListHeaderComponent']
 }
 export interface SonglistType {
-  setList: (list: ListInfoItem[], showSource?: boolean) => void
+  setList: (list: ListInfoItem[], isAppend?: boolean, showSource?: boolean) => void
   setStatus: (val: Status) => void
 }
 
@@ -26,8 +26,8 @@ export default forwardRef<SonglistType, SonglistProps>(({
   // const loadingMaskRef = useRef<LoadingMaskType>(null)
 
   useImperativeHandle(ref, () => ({
-    setList(list, showSource) {
-      listRef.current?.setList(list, showSource)
+    setList(list, isAppend, showSource) {
+      listRef.current?.setList(list, isAppend, showSource)
     },
     setStatus(val) {
       listRef.current?.setStatus(val)

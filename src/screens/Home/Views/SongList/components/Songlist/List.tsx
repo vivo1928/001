@@ -26,7 +26,7 @@ export interface ListProps {
 export type Status = 'loading' | 'refreshing' | 'end' | 'error' | 'idle'
 
 export interface ListType {
-  setList: (list: ListInfoItem[], showSource?: boolean) => void
+  setList: (list: ListInfoItem[], isAppend?: boolean, showSource?: boolean) => void
   setStatus: (val: Status) => void
 }
 
@@ -40,9 +40,8 @@ export default forwardRef<ListType, ListProps>(({ onRefresh, onLoadMore, onOpenD
   // console.log('render songlist')
 
   useImperativeHandle(ref, () => ({
-    setList(list, showSource = false) {
-      // rawListRef.current = list
-      setList(list)
+    setList(list, isAppend = false, showSource = false) {
+      setList(prev => isAppend ? [...prev, ...list] : list)
       setShowSource(showSource)
     },
     setStatus(val) {

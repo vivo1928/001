@@ -46,6 +46,8 @@
   "deep_link_file_lxmc_confirm_tip": "确认要导入列表文件「{name}」吗？",
   "delete": "移除",
   "desktop_lyric_btn": "桌面歌词",
+  "desktop_lyric_enabled": "桌面歌词已开启",
+  "desktop_lyric_disabled": "桌面歌词已关闭",
   "dialog_cancel": "我不",
   "dialog_confirm": "好的",
   "disagree": "我就不",

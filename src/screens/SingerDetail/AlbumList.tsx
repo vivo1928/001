@@ -61,8 +61,26 @@ export default forwardRef<AlbumListType, AlbumListProps>(({ componentId, activeT
 
   const fetchAlbumList = async (singerName: string, source: LX.OnlineSource, page: number): Promise<{ list: any[], allPage: number }> => {
     const sdk = musicSdk[source]
-    if (!sdk?.albumSearch) throw new Error('Source not support album search')
+    if (!sdk) throw new Error('Source not found: ' + source)
 
+    // 优先使用 singer.getSingerAlbumList API（按歌手ID获取专辑）
+    const hasSingerAlbumApi = !!(sdk.singer?.getSingerAlbumList)
+    if (hasSingerAlbumApi) {
+      try {
+        const result = await sdk.singer.getSingerAlbumList(info.id, page, LIMIT)
+        if (result && result.albums && result.albums.length > 0) {
+          return {
+            list: result.albums,
+            allPage: result.allPage || Math.ceil((result.total || 0) / LIMIT) || 99,
+          }
+        }
+      } catch (err: any) {
+        console.log(`[SingerDetail] singer album API failed, falling back to albumSearch: ${err?.message || err}`)
+      }
+    }
+
+    // 降级：使用 albumSearch 按歌手名称搜索专辑
+    if (!sdk?.albumSearch) throw new Error('albumSearch not supported for source: ' + source)
     const result = await sdk.albumSearch.search(singerName, page, LIMIT)
     // 过滤出与歌手名匹配的专辑
     const filteredList = (result.list || []).filter((item: any) => {

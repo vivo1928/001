@@ -46,6 +46,8 @@
   "deep_link_file_lxmc_confirm_tip": "Are you sure you want to import the \"{name}\" list file?",
   "delete": "Remove",
   "desktop_lyric_btn": "Desktop Lyrics",
+  "desktop_lyric_enabled": "Desktop Lyrics, enabled",
+  "desktop_lyric_disabled": "Desktop Lyrics, disabled",
   "dialog_cancel": "No",
   "dialog_confirm": "OK",
   "disagree": "Deny",

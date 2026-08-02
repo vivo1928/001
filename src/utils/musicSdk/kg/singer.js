@@ -14,6 +14,7 @@ export default {
         album_id: albumInfo.albumid,
       })
     })
+    return returnList
   },
   async getSingerInfo(singerid) {
     if (singerid == 0) throw new Error('歌手不存在') // kg源某些歌曲在歌手没被kg收录时返回的歌手id为0
@@ -61,10 +62,13 @@ export default {
     const requestObj = httpFetch(`http://mobiles.kugou.com/api/v5/singer/song?singerid=${singerid}&page=${page}&pagesize=${limit}`)
     let { body, statusCode } = await requestObj.promise
     if (statusCode !== 200) throw new Error('获取歌手专辑列表失败')
+    if (body.error || !body.data) throw new Error('获取歌手专辑列表失败: ' + (body.error || '无数据'))
     return {
       source: 'kg',
       albums: this.filterAlbum(body.data.info),
       singerid,
+      total: body.data.total || 0,
+      allPage: Math.ceil((body.data.total || 0) / limit),
     }
   },
 }
