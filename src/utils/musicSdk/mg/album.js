@@ -9,7 +9,7 @@ export default {
    * @param {*} page
    */
   async getAlbumDetail(id, page = 1) {
-    const list = await createHttpFetch(`http://app.c.nf.migu.cn/MIGUM2.0/v1.0/content/queryAlbumSong?albumId=${id}&pageNo=${page}`)
+    const list = await createHttpFetch(`https://app.c.nf.migu.cn/MIGUM2.0/v1.0/content/queryAlbumSong?albumId=${id}&pageNo=${page}`)
     if (!list.songList) return Promise.reject(new Error('Get album list error.'))
 
     const songList = filterMusicInfoList(list.songList)

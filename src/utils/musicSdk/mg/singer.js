@@ -21,7 +21,7 @@ export default {
   },
   async getSingerSongList(singerid, page, limit) {
     try {
-      const list = await createHttpFetch(`http://app.c.nf.migu.cn/MIGUM2.0/v1.0/content/querySingerSong?singerId=${singerid}&pageNo=${page}&pageSize=${limit}`)
+      const list = await createHttpFetch(`https://app.c.nf.migu.cn/MIGUM2.0/v1.0/content/querySingerSong?singerId=${singerid}&pageNo=${page}&pageSize=${limit}`)
       if (!list || !list.songList) return Promise.reject(new Error('Get singer song list error.'))
 
       const songList = filterMusicInfoList(list.songList)
@@ -45,7 +45,7 @@ export default {
   },
   async getSingerAlbumList(singerid, page, limit) {
     try {
-      const list = await createHttpFetch(`http://app.c.nf.migu.cn/MIGUM2.0/v1.0/content/queryArtistAlbum?singerId=${singerid}&pageNo=${page}&pageSize=${limit}`)
+      const list = await createHttpFetch(`https://app.c.nf.migu.cn/MIGUM2.0/v1.0/content/queryArtistAlbum?singerId=${singerid}&pageNo=${page}&pageSize=${limit}`)
       if (!list || !list.albumList) return Promise.reject(new Error('Get singer album list error.'))
 
       const albums = list.albumList.map(item => {

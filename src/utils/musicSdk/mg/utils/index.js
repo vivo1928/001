@@ -13,6 +13,8 @@ export const createHttpFetch = async(url, options, retryNum = 0) => {
     result = await httpFetch(url, options).promise
   } catch (err) {
     console.log(err)
+    // 添加延迟再重试，避免立即重试仍失败
+    await new Promise(r => setTimeout(r, 200 * (retryNum + 1)))
     return createHttpFetch(url, options, ++retryNum)
   }
   if (result.statusCode !== 200 ||
@@ -23,7 +25,10 @@ export const createHttpFetch = async(url, options, retryNum = 0) => {
           ? result.body.returnCode
           : result.body.code
       ) !== '000000')
-  ) return createHttpFetch(url, options, ++retryNum)
+  ) {
+    await new Promise(r => setTimeout(r, 200 * (retryNum + 1)))
+    return createHttpFetch(url, options, ++retryNum)
+  }
   if (result.body.data) return result.body.data
   return result.body
 }

@@ -2,38 +2,57 @@ import { httpFetch } from '../../request'
 import { formatPlayTime, sizeFormate } from '../../index'
 import { formatSingerName } from '../utils'
 
+/**
+ * 带重试的 QQ Music 专辑 API 请求
+ */
+async function fetchWithRetry(body, retryCount = 2) {
+  for (let attempt = 0; attempt <= retryCount; attempt++) {
+    try {
+      const res = await httpFetch('https://u.y.qq.com/cgi-bin/musicu.fcg', {
+        method: 'post',
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (compatible; MSIE 9.0; Windows NT 6.1; WOW64; Trident/5.0)',
+          'Referer': 'https://y.qq.com',
+        },
+        body,
+      }).promise
+
+      const bodyRes = res.body
+      if (bodyRes.code === 0 && bodyRes.albumSongList && bodyRes.albumSongList.code === 0) return bodyRes
+      if (attempt < retryCount) {
+        await new Promise(r => setTimeout(r, 300 * (attempt + 1)))
+      }
+    } catch (err) {
+      if (attempt < retryCount) {
+        await new Promise(r => setTimeout(r, 500 * (attempt + 1)))
+      } else {
+        throw err
+      }
+    }
+  }
+  throw new Error('Get album detail failed: retry exhausted')
+}
+
 export default {
   limit: 200,
 
   async getAlbumDetail(id, page = 1) {
-    const res = await httpFetch('https://u.y.qq.com/cgi-bin/musicu.fcg', {
-      method: 'post',
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; MSIE 9.0; Windows NT 6.1; WOW64; Trident/5.0)',
-        'Referer': 'https://y.qq.com',
+    const body = await fetchWithRetry({
+      comm: {
+        ct: 24,
+        cv: 10000,
       },
-      body: {
-        comm: {
-          ct: 24,
-          cv: 10000,
-        },
-        albumSongList: {
-          method: 'GetAlbumSongList',
-          module: 'music.musichallAlbum.AlbumSongList',
-          param: {
-            albumMid: id,
-            begin: (page - 1) * this.limit,
-            num: this.limit,
-            order: 2,
-          },
+      albumSongList: {
+        method: 'GetAlbumSongList',
+        module: 'music.musichallAlbum.AlbumSongList',
+        param: {
+          albumMid: id,
+          begin: (page - 1) * this.limit,
+          num: this.limit,
+          order: 2,
         },
       },
-    }).promise
-
-    const body = res.body
-    if (body.code !== 0 || !body.albumSongList || body.albumSongList.code !== 0) {
-      throw new Error('Get album detail failed: ' + (body.albumSongList?.code || body.code))
-    }
+    })
 
     const data = body.albumSongList.data
     const list = (data.songList || []).map(item => {
