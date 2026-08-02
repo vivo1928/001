@@ -7,6 +7,7 @@ import { isTempId, isEmpty } from './utils'
 import { exitApp } from '@/core/common'
 import { getCurrentTrackId } from './playList'
 import { pause, play, playNext, playPrev } from '@/core/player/player'
+import { setPlaybackRate } from './utils'
 
 let isInitialized = false
 
@@ -117,6 +118,14 @@ const registerPlaybackService = async() => {
         }
       }, 200)
     })
+  })
+
+  TrackPlayer.addEventListener('remote-set-speed' as any, async({ speed }) => {
+    const rate = speed as number
+    if (rate > 0) {
+      await setPlaybackRate(rate)
+      global.app_event.setPlaybackRate(rate)
+    }
   })
 
   TrackPlayer.addEventListener(TPEvent.PlaybackState, async info => {

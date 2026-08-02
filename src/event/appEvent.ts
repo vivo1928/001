@@ -68,6 +68,14 @@ export class AppEvent extends Event {
     this.emit('setVolumeIsMute', isMute)
   }
 
+  /**
+   * 设置播放倍速（来自外部手势控制）
+   * @param rate 倍速
+   */
+  setPlaybackRate(rate: number) {
+    this.emit('setPlaybackRate', rate)
+  }
+
   // 播放器事件
   play() {
     this.emit('play')

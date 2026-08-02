@@ -7,6 +7,7 @@ import { throttleBackgroundTimer } from '@/utils/tools'
 import BackgroundTimer from 'react-native-background-timer'
 import playerState from '@/store/player/state'
 import settingState from '@/store/setting/state'
+import { updateSetting } from '@/core/common'
 import { onScreenStateChange } from '@/utils/nativeModules/utils'
 import { AppState } from 'react-native'
 
@@ -156,6 +157,14 @@ export default () => {
     }
   }
 
+  const handleSetPlaybackRate = (rate: number) => {
+    if (rate > 0) {
+      void setPlaybackRate(rate)
+      updateSetting({ 'player.playbackRate': rate })
+      startUpdateTimeout()
+    }
+  }
+
   const handleScreenStateChanged: Parameters<typeof onScreenStateChange>[0] = (state) => {
     isScreenOn = state == 'ON'
     if (isScreenOn) {
@@ -180,6 +189,7 @@ export default () => {
   // global.app_event.on('playerEmptied', handleEmpied)
   global.app_event.on('musicToggled', handleSetPlayInfo)
   global.state_event.on('configUpdated', handleConfigUpdated)
+  global.app_event.on('setPlaybackRate', handleSetPlaybackRate)
 
   onScreenStateChange(handleScreenStateChanged)
 }

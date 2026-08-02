@@ -91,6 +91,12 @@ const rootPath = path.join(__dirname, './')
 
     public static void restoreOriginalAudioOffload() {
         setAudioOffloadEnabled(originalOffloadEnabled);
+    }
+
+    public static void setCurrentPlaybackSpeed(float speed) {
+        if (currentPlayer != null) {
+            currentPlayer.setPlaybackSpeed(speed);
+        }
     }`,
     ],
     [
@@ -113,6 +119,47 @@ const rootPath = path.join(__dirname, './')
     await fs.promises.writeFile(musicManagerPath, file)
   } catch (err) {
     console.error('Patch MusicManager failed:', err.message)
+  }
+
+  const buttonEventsPath = path.join(rootPath, 'node_modules/react-native-track-player/android/src/main/java/com/guichaguri/trackplayer/service/metadata/ButtonEvents.java')
+
+  try {
+    let file = (await fs.promises.readFile(buttonEventsPath)).toString()
+    // 添加 onSetPlaybackSpeed 方法（在 onSetRating 方法之后）
+    const searchStr = 'service.emit(MusicEvents.BUTTON_SET_RATING, bundle);\n    }'
+    const insertStr = 'service.emit(MusicEvents.BUTTON_SET_RATING, bundle);\n    }\n\n    @Override\n    public void onSetPlaybackSpeed(float speed) {\n        Bundle bundle = new Bundle();\n        bundle.putFloat("speed", speed);\n        service.emit(MusicEvents.BUTTON_SET_PLAYBACK_SPEED, bundle);\n        com.guichaguri.trackplayer.service.MusicManager.setCurrentPlaybackSpeed(speed);\n    }'
+    if (file.includes(searchStr) && !file.includes('onSetPlaybackSpeed')) {
+      file = file.replace(searchStr, insertStr)
+      console.log('  Patched ButtonEvents: added onSetPlaybackSpeed')
+    } else if (file.includes('onSetPlaybackSpeed') && !file.includes('MusicManager.setCurrentPlaybackSpeed')) {
+      const oldMethod = 'service.emit(MusicEvents.BUTTON_SET_PLAYBACK_SPEED, bundle);\n    }'
+      const newMethod = 'service.emit(MusicEvents.BUTTON_SET_PLAYBACK_SPEED, bundle);\n        com.guichaguri.trackplayer.service.MusicManager.setCurrentPlaybackSpeed(speed);\n    }'
+      file = file.replace(oldMethod, newMethod)
+      console.log('  Patched ButtonEvents: added direct ExoPlayer speed set')
+    } else {
+      console.log('  ButtonEvents: already patched or pattern not found')
+    }
+    await fs.promises.writeFile(buttonEventsPath, file)
+  } catch (err) {
+    console.error('Patch ButtonEvents failed:', err.message)
+  }
+
+  const musicEventsPath = path.join(rootPath, 'node_modules/react-native-track-player/android/src/main/java/com/guichaguri/trackplayer/module/MusicEvents.java')
+
+  try {
+    let file = (await fs.promises.readFile(musicEventsPath)).toString()
+    // 添加 BUTTON_SET_PLAYBACK_SPEED 常量
+    const searchStr2 = 'public static final String BUTTON_DUCK = "remote-duck";'
+    const insertStr2 = 'public static final String BUTTON_DUCK = "remote-duck";\n    public static final String BUTTON_SET_PLAYBACK_SPEED = "remote-set-speed";'
+    if (file.includes(searchStr2) && !file.includes('BUTTON_SET_PLAYBACK_SPEED')) {
+      file = file.replace(searchStr2, insertStr2)
+      console.log('  Patched MusicEvents: added BUTTON_SET_PLAYBACK_SPEED')
+    } else {
+      console.log('  MusicEvents: already patched or pattern not found')
+    }
+    await fs.promises.writeFile(musicEventsPath, file)
+  } catch (err) {
+    console.error('Patch MusicEvents failed:', err.message)
   }
 
   console.log('\nDependencies patch finished.\n')
