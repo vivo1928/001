@@ -88,6 +88,125 @@ const getXmServerTime = async () => {
   return null
 }
 
+// ============================================================
+// 喜马拉雅音频URL解密（getSoundCryptLink 算法 — 用于 www2/mweb2 设备）
+// 逆向自 ximalaya.com 前端 webpack 模块 D.getSoundCryptLink
+// 参考: https://github.com/844704781/ximalaya_downloader
+// ============================================================
+
+// 替换表 o — 用于 www2 / mweb2 设备（当前主流）
+const XM_SUBST_O = new Uint8Array([183, 174, 108, 16, 131, 159, 250, 5, 239, 110, 193, 202, 153, 137, 251, 176, 119, 150, 47, 204, 97, 237, 1, 71, 177, 42, 88, 218, 166, 82, 87, 94, 14, 195, 69, 127, 215, 240, 225, 197, 238, 142, 123, 44, 219, 50, 190, 29, 181, 186, 169, 98, 139, 185, 152, 13, 141, 76, 6, 157, 200, 132, 182, 49, 20, 116, 136, 43, 155, 194, 101, 231, 162, 242, 151, 213, 53, 60, 26, 134, 211, 56, 28, 223, 107, 161, 199, 15, 229, 61, 96, 41, 66, 158, 254, 21, 165, 253, 103, 89, 3, 168, 40, 246, 81, 95, 58, 31, 172, 78, 99, 45, 148, 187, 222, 124, 55, 203, 235, 64, 68, 149, 180, 35, 113, 207, 118, 111, 91, 38, 247, 214, 7, 212, 209, 189, 241, 18, 115, 173, 25, 236, 121, 249, 75, 57, 216, 10, 175, 112, 234, 164, 70, 206, 198, 255, 140, 230, 12, 32, 83, 46, 245, 0, 62, 227, 72, 191, 156, 138, 248, 114, 220, 90, 84, 170, 128, 19, 24, 122, 146, 80, 39, 37, 8, 34, 22, 11, 93, 130, 63, 154, 244, 160, 144, 79, 23, 133, 92, 54, 102, 210, 65, 67, 27, 196, 201, 106, 143, 52, 74, 100, 217, 179, 48, 233, 126, 117, 184, 226, 85, 171, 167, 86, 2, 147, 17, 135, 228, 252, 105, 30, 192, 129, 178, 120, 36, 145, 51, 163, 77, 205, 73, 4, 188, 125, 232, 33, 243, 109, 224, 104, 208, 221, 59, 9])
+
+// 第二层 XOR key a — 用于 www2 / mweb2 设备
+const XM_KEY_A = new Uint8Array([204, 53, 135, 197, 39, 73, 58, 160, 79, 24, 12, 83, 180, 250, 101, 60, 206, 30, 10, 227, 36, 95, 161, 16, 135, 150, 235, 116, 242, 116, 165, 171])
+
+// 替换表 r — 用于非 www2 设备（旧版桌面/移动端）
+const XM_SUBST_R = new Uint8Array([188, 174, 178, 234, 171, 147, 70, 82, 76, 72, 192, 132, 60, 17, 30, 127, 184, 233, 48, 105, 38, 232, 240, 21, 47, 252, 41, 229, 209, 213, 71, 40, 63, 152, 156, 88, 51, 141, 139, 145, 133, 2, 160, 191, 11, 100, 10, 78, 253, 151, 42, 166, 92, 22, 185, 140, 164, 91, 194, 175, 239, 217, 177, 75, 19, 225, 94, 107, 125, 138, 242, 31, 182, 150, 15, 24, 226, 29, 80, 116, 168, 118, 28, 1, 186, 220, 158, 79, 59, 244, 119, 9, 189, 161, 74, 130, 221, 56, 216, 241, 212, 26, 218, 170, 85, 165, 153, 69, 238, 93, 255, 142, 3, 159, 215, 67, 33, 249, 53, 176, 77, 254, 222, 25, 115, 101, 148, 16, 13, 237, 197, 5, 58, 157, 135, 248, 223, 61, 198, 211, 110, 44, 54, 111, 52, 227, 4, 46, 205, 7, 219, 136, 14, 87, 114, 64, 104, 50, 39, 203, 81, 196, 43, 163, 173, 109, 108, 187, 102, 195, 37, 235, 65, 190, 113, 149, 143, 8, 27, 155, 207, 134, 123, 224, 129, 245, 62, 66, 172, 122, 126, 12, 162, 214, 90, 247, 251, 124, 201, 236, 117, 183, 73, 95, 89, 246, 181, 179, 83, 228, 193, 99, 6, 45, 112, 32, 154, 128, 230, 131, 206, 243, 57, 84, 146, 0, 35, 96, 250, 137, 36, 208, 103, 34, 68, 204, 231, 144, 120, 98, 202, 49, 210, 23, 200, 18, 86, 55, 121, 20, 199, 97, 167, 180, 169, 106])
+
+// 第二层 XOR key n — 用于非 www2 设备
+const XM_KEY_N = new Uint8Array([20, 234, 159, 167, 230, 233, 58, 255, 158, 36, 210, 254, 133, 166, 59, 63, 209, 177, 184, 155, 85, 235, 94, 1, 242, 87, 228, 232, 191, 3, 69, 178])
+
+// Base64 解码表
+const XM_B64_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/='
+const XM_B64_LOOKUP = {}
+for (let i = 0; i < XM_B64_CHARS.length; i++) XM_B64_LOOKUP[XM_B64_CHARS[i]] = i
+
+/**
+ * 自定义 Base64 解码（用于 getSoundCryptLink）
+ */
+const xmBase64Decode = (str) => {
+  str = str.replace(/\s+/g, '')
+  str += '=='.slice(2 - (3 & str.length))
+  let result = ''
+  for (let i = 0; i < str.length;) {
+    const a = XM_B64_LOOKUP[str.charAt(i++)] << 18 | XM_B64_LOOKUP[str.charAt(i++)] << 12 | (XM_B64_LOOKUP[str.charAt(i++)] || 0) << 6 | (XM_B64_LOOKUP[str.charAt(i++)] || 0)
+    result += String.fromCharCode((a >> 16) & 255, (a >> 8) & 255, a & 255)
+  }
+  return result
+}
+
+/**
+ * XOR 操作（用于 getSoundCryptLink）
+ */
+const xmXorBlock = (data, offset, key) => {
+  const len = Math.min(data.length - offset, key.length)
+  for (let i = 0; i < len; i++) data[offset + i] ^= key[i]
+}
+
+/**
+ * 字节数组解码为 UTF-8 字符串（用于 getSoundCryptLink）
+ */
+const xmBytesToUtf8 = (bytes) => {
+  let result = ''
+  let i = 0
+  while (i < bytes.length) {
+    const byte = bytes[i++]
+    if (byte < 0x80) {
+      result += String.fromCharCode(byte)
+    } else if (byte < 0xE0 && i < bytes.length) {
+      result += String.fromCharCode((31 & byte) << 6 | 63 & bytes[i++])
+    } else if (byte < 0xF0 && i + 1 < bytes.length) {
+      result += String.fromCharCode((15 & byte) << 12 | (63 & bytes[i++]) << 6 | 63 & bytes[i++])
+    }
+  }
+  return result
+}
+
+/**
+ * 喜马拉雅音频 URL 解密算法（替换表 + XOR + Base64）
+ * 逆向自 ximalaya.com 前端 D.getSoundCryptLink
+ * 用于 device=www2/mweb2 的 mobile-playpage API 返回的加密URL
+ *
+ * @param {Object} param - { link: 加密URL, deviceType: 设备类型 }
+ * @returns {string} 解密后的音频 URL
+ */
+const getSoundCryptLink = ({ link, deviceType = 'www2' }) => {
+  const isWww2 = ['www2', 'mweb2'].includes(deviceType)
+  const subst = isWww2 ? XM_SUBST_O : XM_SUBST_R
+  const key2 = isWww2 ? XM_KEY_A : XM_KEY_N
+
+  try {
+    const b64 = link.replace(/_/g, '/').replace(/-/g, '+')
+    const decoded = xmBase64Decode(b64)
+    if (decoded.length < 16) return link
+
+    const data = new Uint8Array(decoded.length - 16)
+    for (let i = 0; i < decoded.length - 16; i++) data[i] = decoded.charCodeAt(i)
+
+    const iv = new Uint8Array(16)
+    for (let i = 0; i < 16; i++) iv[i] = decoded.charCodeAt(decoded.length - 16 + i)
+
+    for (let i = 0; i < data.length; i++) data[i] = subst[data[i]]
+    for (let i = 0; i < data.length; i += 16) xmXorBlock(data, i, iv)
+    for (let i = 0; i < data.length; i += 32) xmXorBlock(data, i, key2)
+
+    return xmBytesToUtf8(data)
+  } catch (e) {
+    console.warn('[xm getSoundCryptLink] failed:', e.message)
+    return link
+  }
+}
+
+// ============================================================
+// 喜马拉雅 Cookie 配置（VIP内容必需）
+// ============================================================
+// 用户在此填入喜马拉雅登录Cookie以解锁VIP/付费内容
+// 获取方式: 浏览器登录喜马拉雅 → F12 → Console → document.cookie
+// 关键字段: 1&_token=xxx
+const XM_COOKIE = '' // 例: '1&_token=38899111&C817857...; wfp=ACM5MG...; ...'
+
+/**
+ * 构建喜马拉雅请求头（含可选Cookie）
+ */
+const buildXmHeaders = (extra = {}) => {
+  const headers = {
+    ...pcHeaders,
+    ...extra,
+  }
+  if (XM_COOKIE) headers['Cookie'] = XM_COOKIE
+  return headers
+}
+
 /**
  * 通过 track 搜索 API 获取音频播放地址（主要方案，无需签名）
  * 使用 revision/search?core=track&kw={trackId} 搜索
@@ -107,7 +226,7 @@ const fetchAudioUrlFromTrackSearch = async (trackId, quality = '128k') => {
 
   let body
   try {
-    body = await fetchJson(url, pcHeaders)
+    body = await fetchJson(url, buildXmHeaders())
   } catch (e) {
     console.warn('[xm fetchAudioUrlFromTrackSearch] fetch error:', e.message)
     return null
@@ -181,11 +300,10 @@ const fetchAudioUrlFromMobilePlaypage = async (trackId, quality = '128k') => {
 
   let body
   try {
-    body = await fetchJson(url + `?device=web&trackId=${trackId}&trackQualityLevel=${qualityLevel}`, {
-      ...pcHeaders,
+    body = await fetchJson(url + `?device=web&trackId=${trackId}&trackQualityLevel=${qualityLevel}`, buildXmHeaders({
       'xm-sign': xmSign,
       'Referer': `https://www.ximalaya.com/sound/${trackId}`,
-    })
+    }))
   } catch (e) {
     console.warn('[xm fetchAudioUrlFromMobilePlaypage] fetch error:', e.message)
     return null
@@ -239,6 +357,172 @@ const fetchAudioUrlFromMobilePlaypage = async (trackId, quality = '128k') => {
 }
 
 /**
+ * 通过 mobile-playpage/track/v3/baseInfo API 获取音频播放地址（www2/mweb2 方案）
+ * 使用 device=www2 或 device=mweb2，配合 getSoundCryptLink 替换表解密
+ * VIP内容需要配置 XM_COOKIE
+ *
+ * @param {string} trackId - 音频 track ID
+ * @param {string} quality - 音质 ('128k' | '64k' | '32k')
+ * @param {string} device - 设备类型 ('www2' | 'mweb2')
+ * @returns {Promise<string|null>} 解密后的音频播放 URL，失败返回 null
+ */
+const fetchAudioUrlFromMobilePlaypageWww2 = async (trackId, quality = '128k', device = 'www2') => {
+  const ts = Date.now()
+  const url = `${XM_MOBILE_PLAY_PAGE_API}/${ts}?device=${device}&trackId=${trackId}&trackQualityLevel=2`
+
+  console.log(`[xm fetchAudioUrlFromMobilePlaypageWww2] trackId:${trackId}, quality:${quality}, device:${device}`)
+
+  let body
+  try {
+    body = await fetchJson(url, buildXmHeaders({
+      'Referer': `https://www.ximalaya.com/sound/${trackId}`,
+    }))
+  } catch (e) {
+    console.warn('[xm fetchAudioUrlFromMobilePlaypageWww2] fetch error:', e.message)
+    return null
+  }
+
+  if (!body) {
+    console.warn('[xm fetchAudioUrlFromMobilePlaypageWww2] no response body')
+    return null
+  }
+
+  // 速率限制检测
+  if (body.ret === 999 || body.ret === 1001) {
+    console.warn(`[xm fetchAudioUrlFromMobilePlaypageWww2] rate limited (ret:${body.ret})`)
+    return null
+  }
+
+  if (body.ret !== 0) {
+    console.warn('[xm fetchAudioUrlFromMobilePlaypageWww2] API error:', body.msg || 'ret=' + body.ret)
+    return null
+  }
+
+  const playUrlList = body.trackInfo?.playUrlList
+  if (!playUrlList || playUrlList.length === 0) {
+    console.warn('[xm fetchAudioUrlFromMobilePlaypageWww2] empty playUrlList (VIP content needs Cookie)')
+    return null
+  }
+
+  // 音质类型优先级
+  const qualityPrefs = {
+    '128k': ['M4A_128', 'MP3_128', 'M4A_64', 'MP3_64'],
+    '64k': ['M4A_64', 'MP3_64', 'M4A_128', 'MP3_128'],
+    '32k': ['MP3_32', 'AAC_24', 'M4A_24', 'M4A_64', 'MP3_64'],
+  }
+  const prefs = qualityPrefs[quality] || qualityPrefs['128k']
+
+  // 按音质优先级排序并解密
+  const sortedUrls = playUrlList
+    .filter(item => item.url)
+    .sort((a, b) => {
+      const aIdx = prefs.indexOf(a.type)
+      const bIdx = prefs.indexOf(b.type)
+      return (aIdx === -1 ? 999 : aIdx) - (bIdx === -1 ? 999 : bIdx)
+    })
+
+  for (const item of sortedUrls) {
+    console.log(`[xm fetchAudioUrlFromMobilePlaypageWww2] decrypting type:${item.type} with getSoundCryptLink`)
+    const decryptedUrl = getSoundCryptLink({ link: item.url, deviceType: device })
+    if (decryptedUrl && decryptedUrl.startsWith('http')) {
+      console.log('[xm fetchAudioUrlFromMobilePlaypageWww2] success:', decryptedUrl.substring(0, 80))
+      return decryptedUrl
+    }
+  }
+
+  console.warn('[xm fetchAudioUrlFromMobilePlaypageWww2] no valid URL after decryption')
+  return null
+}
+
+/**
+ * 通过 mpay API 获取付费内容音频URL（需要Cookie）
+ * URL: https://mpay.ximalaya.com/mobile/track/pay/{trackId}/?device=pc
+ *
+ * @param {string} trackId - 音频 track ID
+ * @returns {Promise<string|null>} 音频播放 URL，失败返回 null
+ */
+const fetchAudioUrlFromMpay = async (trackId) => {
+  if (!XM_COOKIE) {
+    console.warn('[xm fetchAudioUrlFromMpay] no cookie configured')
+    return null
+  }
+
+  const url = `https://mpay.ximalaya.com/mobile/track/pay/${trackId}/?device=pc`
+  console.log(`[xm fetchAudioUrlFromMpay] trackId:${trackId}`)
+
+  let body
+  try {
+    body = await fetchJson(url, buildXmHeaders({
+      'Referer': `https://www.ximalaya.com/sound/${trackId}`,
+    }))
+  } catch (e) {
+    console.warn('[xm fetchAudioUrlFromMpay] fetch error:', e.message)
+    return null
+  }
+
+  if (!body) return null
+
+  if (body.ret === 401) {
+    console.warn('[xm fetchAudioUrlFromMpay] cookie expired (ret:401)')
+    return null
+  }
+
+  if (body.ret !== 0) {
+    console.warn('[xm fetchAudioUrlFromMpay] API error:', body.msg || 'ret=' + body.ret)
+    return null
+  }
+
+  const d = body.data || body
+  // 尝试多种响应格式
+  if (d.downloadUrl && d.downloadUrl.startsWith('http')) {
+    console.log('[xm fetchAudioUrlFromMpay] success via downloadUrl')
+    return d.downloadUrl
+  }
+  if (d.domain && d.fileId) {
+    const audioUrl = `${d.domain}/download/${d.apiVersion || 'v1'}/${d.fileId}`
+    if (audioUrl.startsWith('http')) {
+      console.log('[xm fetchAudioUrlFromMpay] success via domain+fileId')
+      return audioUrl
+    }
+  }
+  // 遍历可能的URL字段
+  for (const key of ['url', 'playUrl', 'src', 'play_url', 'downloadURL']) {
+    if (d[key] && typeof d[key] === 'string' && d[key].startsWith('http')) {
+      console.log(`[xm fetchAudioUrlFromMpay] success via ${key}`)
+      return d[key]
+    }
+  }
+
+  console.warn('[xm fetchAudioUrlFromMpay] no valid URL in response')
+  return null
+}
+
+/**
+ * 检查Cookie有效性（通过 getCurrentUser API）
+ * @returns {Promise<{valid: boolean, isVip: boolean, nickname: string, reason: string}>}
+ */
+const checkXmCookieStatus = async () => {
+  if (!XM_COOKIE) return { valid: false, isVip: false, nickname: '', reason: '未配置Cookie' }
+  try {
+    const body = await fetchJson('https://www.ximalaya.com/revision/main/getCurrentUser', buildXmHeaders({
+      'Referer': 'https://www.ximalaya.com/',
+    }))
+    if (!body) return { valid: false, isVip: false, nickname: '', reason: '无响应' }
+    if (body.ret === 401) return { valid: false, isVip: false, nickname: '', reason: 'Cookie已过期' }
+    if (body.ret !== 200) return { valid: false, isVip: false, nickname: '', reason: `ret:${body.ret}` }
+    const user = body.data
+    return {
+      valid: true,
+      isVip: !!user?.isVip,
+      nickname: user?.nickname || '',
+      reason: user?.isVip ? 'VIP会员' : '普通用户(非VIP)',
+    }
+  } catch (e) {
+    return { valid: false, isVip: false, nickname: '', reason: e.message }
+  }
+}
+
+/**
  * 通过 revision/play/v1/audio API 获取音频播放地址（旧方案，降级使用）
  *
  * @param {string} trackId - 音频 track ID
@@ -264,7 +548,7 @@ const fetchAudioUrlFromRevision = async (trackId, cacheKey, attempt = 0) => {
 
   let body
   try {
-    body = await fetchJson(url, pcHeaders)
+    body = await fetchJson(url, buildXmHeaders())
   } catch (e) {
     console.warn(`[xm fetchAudioUrlFromRevision] ${name} fetch error:`, e.message)
     // 尝试下一个端点
@@ -936,8 +1220,16 @@ const getAnchorDetail = async (anchorId, page = 1, limit = 30, anchorName = '') 
 const trackUrlCache = new Map()
 
 /**
- * 内置降级实现：直接通过喜马拉雅 track detail API 获取音频 URL
+ * 内置降级实现：直接通过喜马拉雅 API 获取音频 URL
  * 当用户未启用自定义音源时使用
+ *
+ * 六级降级策略（VIP内容支持）：
+ * 1. track搜索API — 免费内容直接返回明文URL
+ * 2. mobile-playpage device=web — AES-ECB解密（免费内容）
+ * 3. mobile-playpage device=www2 — getSoundCryptLink解密（VIP内容需Cookie）
+ * 4. mobile-playpage device=mweb2 — 同上，备用设备类型
+ * 5. mpay API — 付费内容专用接口（需要Cookie）
+ * 6. revision/play/v1/audio — 旧版API（大概率404）
  */
 const builtInGetMusicUrl = async (songInfo, quality) => {
   console.log('[xm builtInGetMusicUrl] called:', { name: songInfo?.name, quality, hasTypeUrl: !!songInfo?.typeUrl, hasPlayUrl: !!songInfo?.playUrl })
@@ -963,50 +1255,78 @@ const builtInGetMusicUrl = async (songInfo, quality) => {
     return { url: cachedUrl, type: quality }
   }
 
-  // 4. 通过 track 搜索 API 获取音频 URL（主要方案，无需签名）
-  // 喜马拉雅 revision/play/v1/audio 已废弃，mobile-playpage 需要新DWS签名
-  // track 搜索 API 直接返回 play_path_64/play_path_32 明文URL
+  // 缓存写入辅助函数
+  const cacheUrl = (url) => {
+    if (cacheKey) {
+      trackUrlCache.set(cacheKey, url)
+      if (trackUrlCache.size > 200) {
+        const firstKey = trackUrlCache.keys().next().value
+        trackUrlCache.delete(firstKey)
+      }
+    }
+  }
+
   if (trackId) {
     console.log('[xm builtInGetMusicUrl] fetching audio URL, trackId:', trackId)
 
-    // 方案1: track 搜索 API（主要方案，成功率最高）
+    // 方案1: track 搜索 API（免费内容，直接返回明文URL）
     const searchUrl = await fetchAudioUrlFromTrackSearch(trackId, quality)
     if (searchUrl) {
-      if (cacheKey) {
-        trackUrlCache.set(cacheKey, searchUrl)
-        if (trackUrlCache.size > 200) {
-          const firstKey = trackUrlCache.keys().next().value
-          trackUrlCache.delete(firstKey)
-        }
-      }
+      cacheUrl(searchUrl)
       return { url: searchUrl, type: quality }
     }
+    console.log('[xm builtInGetMusicUrl] track search failed, trying mobile-playpage web')
 
-    console.log('[xm builtInGetMusicUrl] track search failed, trying mobile-playpage fallback')
-
-    // 方案2: mobile-playpage API（降级方案，需要 xm-sign）
-    const playpageUrl = await fetchAudioUrlFromMobilePlaypage(trackId, quality)
-    if (playpageUrl) {
-      if (cacheKey) {
-        trackUrlCache.set(cacheKey, playpageUrl)
-        if (trackUrlCache.size > 200) {
-          const firstKey = trackUrlCache.keys().next().value
-          trackUrlCache.delete(firstKey)
-        }
-      }
-      return { url: playpageUrl, type: quality }
+    // 方案2: mobile-playpage device=web（AES-ECB解密，免费内容）
+    const playpageWebUrl = await fetchAudioUrlFromMobilePlaypage(trackId, quality)
+    if (playpageWebUrl) {
+      cacheUrl(playpageWebUrl)
+      return { url: playpageWebUrl, type: quality }
     }
+    console.log('[xm builtInGetMusicUrl] mobile-playpage web failed, trying www2')
 
-    console.log('[xm builtInGetMusicUrl] mobile-playpage failed, trying revision fallback')
+    // 方案3: mobile-playpage device=www2（getSoundCryptLink解密，VIP内容需Cookie）
+    const playpageWww2Url = await fetchAudioUrlFromMobilePlaypageWww2(trackId, quality, 'www2')
+    if (playpageWww2Url) {
+      cacheUrl(playpageWww2Url)
+      return { url: playpageWww2Url, type: quality }
+    }
+    console.log('[xm builtInGetMusicUrl] mobile-playpage www2 failed, trying mweb2')
 
-    // 方案3: 旧版 revision/play/v1/audio API（最后降级，大概率404）
+    // 方案4: mobile-playpage device=mweb2（备用设备类型）
+    const playpageMweb2Url = await fetchAudioUrlFromMobilePlaypageWww2(trackId, quality, 'mweb2')
+    if (playpageMweb2Url) {
+      cacheUrl(playpageMweb2Url)
+      return { url: playpageMweb2Url, type: quality }
+    }
+    console.log('[xm builtInGetMusicUrl] mobile-playpage mweb2 failed, trying mpay')
+
+    // 方案5: mpay API（付费内容专用，需要Cookie）
+    const mpayUrl = await fetchAudioUrlFromMpay(trackId)
+    if (mpayUrl) {
+      cacheUrl(mpayUrl)
+      return { url: mpayUrl, type: quality }
+    }
+    console.log('[xm builtInGetMusicUrl] mpay failed, trying revision fallback')
+
+    // 方案6: 旧版 revision/play/v1/audio API（最后降级）
     const playUrl = await fetchAudioUrlFromRevision(trackId, cacheKey, 0)
     if (playUrl) {
       return { url: playUrl, type: '128k' }
     }
 
-    // 所有端点都失败
-    throw new Error('喜马拉雅获取音频URL失败: 所有播放接口均不可用')
+    // 所有端点都失败 — 提供精确的错误诊断
+    if (XM_COOKIE) {
+      const cookieStatus = await checkXmCookieStatus()
+      if (!cookieStatus.valid) {
+        throw new Error(`喜马拉雅VIP内容获取失败: ${cookieStatus.reason}`)
+      }
+      if (!cookieStatus.isVip) {
+        throw new Error(`喜马拉雅VIP内容获取失败: 账号${cookieStatus.nickname}非VIP会员，无法播放付费内容`)
+      }
+      throw new Error(`喜马拉雅VIP内容获取失败: 所有接口均不可用（账号: ${cookieStatus.nickname}，可能被速率限制，请稍后重试）`)
+    }
+    throw new Error('喜马拉雅获取音频URL失败: 所有播放接口均不可用（VIP内容需配置Cookie，见 xm/index.js 顶部 XM_COOKIE）')
   }
 
   throw new Error('喜马拉雅获取音频URL失败: 缺少trackId')
