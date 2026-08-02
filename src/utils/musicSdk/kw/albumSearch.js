@@ -43,12 +43,11 @@ export default {
     }).then(result => {
       if (!result || (result.TOTAL !== '0' && result.SHOW === '0')) return this.delayRetry(str, page, limit, retryNum)
       const rawList = result.albumlist || []
-      if (!rawList.length) return this.delayRetry(str, page, limit, retryNum)
       // Add BASEPICPATH to each item for filterData
       const basePicPath = result.BASEPICPATH || ''
       const enrichedList = rawList.map(item => ({ ...item, BASEPICPATH: basePicPath }))
       let list = this.filterData(enrichedList)
-      if (list == null || !list.length) return this.delayRetry(str, page, limit, retryNum)
+      if (list == null) return this.delayRetry(str, page, limit, retryNum)
       this.total = parseInt(result.TOTAL) || 0
       this.page = page
       this.allPage = Math.ceil(this.total / limit)

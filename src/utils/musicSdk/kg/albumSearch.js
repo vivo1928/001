@@ -54,9 +54,10 @@ export default {
       // 网络错误（超时/连接失败等），通过延迟重试机制重试
       return this.delayRetry(str, page, limit, retryNum)
     }).then(result => {
-      if (!result || result.errcode !== 0) return this.delayRetry(str, page, limit, retryNum)
+      // 兼容多种错误码字段名：error_code / errcode / err_code
+      if (!result || (result.error_code ?? result.errcode ?? result.err_code ?? 0) !== 0) return this.delayRetry(str, page, limit, retryNum)
       let list = this.handleResult(result.data.info || result.data.lists || [])
-      if (list == null || !list.length) return this.delayRetry(str, page, limit, retryNum)
+      if (list == null) return this.delayRetry(str, page, limit, retryNum)
       this.total = result.data.total
       this.page = page
       this.allPage = Math.ceil(this.total / limit)

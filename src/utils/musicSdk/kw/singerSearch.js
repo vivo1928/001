@@ -40,9 +40,8 @@ export default {
     }).then(result => {
       if (!result || (result.TOTAL !== '0' && result.SHOW === '0')) return this.delayRetry(str, page, limit, retryNum)
       const rawList = result.abslist || []
-      if (!rawList.length) return this.delayRetry(str, page, limit, retryNum)
       let list = this.filterData(rawList)
-      if (list == null || !list.length) return this.delayRetry(str, page, limit, retryNum)
+      if (list == null) return this.delayRetry(str, page, limit, retryNum)
       this.total = parseInt(result.TOTAL) || 0
       this.page = page
       this.allPage = Math.ceil(this.total / limit)

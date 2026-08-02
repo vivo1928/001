@@ -62,11 +62,8 @@ export default {
       }
       const albumResultData = result.albumResultData || { result: [], totalCount: 0 }
       const rawList = albumResultData.result || []
-      if (!rawList.length) {
-        return this.delayRetry(str, page, limit, retryNum)
-      }
       let list = this.filterData(rawList)
-      if (list == null || !list.length) return this.delayRetry(str, page, limit, retryNum)
+      if (list == null) return this.delayRetry(str, page, limit, retryNum)
       this.total = parseInt(albumResultData.totalCount) || 0
       this.page = page
       this.allPage = Math.ceil(this.total / limit)
