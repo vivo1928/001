@@ -40,7 +40,10 @@ export default {
   search(str, page = 1, limit, retryNum = 0) {
     if (++retryNum > 3) return Promise.reject(new Error('try max num'))
     if (limit == null) limit = this.limit
-    return this.singerSearch(str, page, limit).then(result => {
+    return this.singerSearch(str, page, limit).catch(() => {
+      // 网络错误（超时/连接失败等），通过延迟重试机制重试
+      return this.delayRetry(str, page, limit, retryNum)
+    }).then(result => {
       if (!result || result.errcode !== 0) return this.delayRetry(str, page, limit, retryNum)
       let list = this.handleResult(Array.isArray(result.data) ? result.data : (result.data.lists || []))
       if (list == null || !list.length) return this.delayRetry(str, page, limit, retryNum)

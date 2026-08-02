@@ -15,7 +15,7 @@ export default {
   allPage: 1,
   // cancelFn: null,
   musicSearch(str, page, limit) {
-    const musicSearchRequestObj = httpFetch(`http://search.kuwo.cn/r.s?client=kt&all=${encodeURIComponent(str)}&pn=${page - 1}&rn=${limit}&uid=794762570&ver=kwplayer_ar_9.2.2.1&vipver=1&show_copyright_off=1&newver=1&ft=music&cluster=0&strategy=2012&encoding=utf8&rformat=json&vermerge=1&mobi=1&issubtitle=1`)
+    const musicSearchRequestObj = httpFetch(`https://search.kuwo.cn/r.s?client=kt&all=${encodeURIComponent(str)}&pn=${page - 1}&rn=${limit}&uid=794762570&ver=kwplayer_ar_9.2.2.1&vipver=1&show_copyright_off=1&newver=1&ft=music&cluster=0&strategy=2012&encoding=utf8&rformat=json&vermerge=1&mobi=1&issubtitle=1`)
     return musicSearchRequestObj.promise
   },
   // getImg(songId) {
@@ -104,12 +104,15 @@ export default {
     if (retryNum > 2) return Promise.reject(new Error('try max num'))
     if (limit == null) limit = this.limit
     // http://newlyric.kuwo.cn/newlyric.lrc?62355680
-    return this.musicSearch(str, page, limit).then(({ body: result }) => {
+    return this.musicSearch(str, page, limit).catch(() => {
+      // 网络错误（超时/连接失败等），通过延迟重试机制重试
+      return this.delayRetry(str, page, limit, retryNum)
+    }).then(({ body: result }) => {
       // console.log(result)
-      if (!result || (result.TOTAL !== '0' && result.SHOW === '0')) return this.search(str, page, limit, ++retryNum)
+      if (!result || (result.TOTAL !== '0' && result.SHOW === '0')) return this.delayRetry(str, page, limit, retryNum)
       let list = this.handleResult(result.abslist)
 
-      if (list == null) return this.search(str, page, limit, ++retryNum)
+      if (list == null) return this.delayRetry(str, page, limit, retryNum)
 
       this.total = parseInt(result.TOTAL)
       this.page = page
@@ -123,5 +126,10 @@ export default {
         source: 'kw',
       })
     })
+  },
+
+  /** 带延迟的重试，避免立即重试仍失败 */
+  delayRetry(str, page, limit, retryNum) {
+    return new Promise(resolve => setTimeout(resolve, 300 * retryNum)).then(() => this.search(str, page, limit, retryNum))
   },
 }

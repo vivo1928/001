@@ -52,23 +52,29 @@ export default {
   search(str, page = 1, limit, retryNum = 0) {
     if (++retryNum > 3) return Promise.reject(new Error('try max num'))
     if (limit == null) limit = this.limit
-    return this.singerSearch(str, page, limit).then(result => {
+    return this.singerSearch(str, page, limit).catch(() => {
+      // 网络错误（超时/连接失败等），通过延迟重试机制重试
+      return this.delayRetry(str, page, limit, retryNum)
+    }).then(result => {
       if (!result || result.code !== '000000') {
-        if (retryNum < 3) return this.search(str, page, limit, retryNum)
-        return Promise.resolve({ list: [], allPage: 0, limit, total: 0, source: 'mg' })
+        return this.delayRetry(str, page, limit, retryNum)
       }
       const singerResultData = result.singerResultData || { result: [], totalCount: 0 }
       const rawList = singerResultData.result || []
       if (!rawList.length) {
-        if (retryNum < 3) return this.search(str, page, limit, retryNum)
-        return Promise.resolve({ list: [], allPage: 0, limit, total: 0, source: 'mg' })
+        return this.delayRetry(str, page, limit, retryNum)
       }
       let list = this.filterData(rawList)
-      if (list == null || !list.length) return this.search(str, page, limit, retryNum)
+      if (list == null || !list.length) return this.delayRetry(str, page, limit, retryNum)
       this.total = parseInt(singerResultData.totalCount) || 0
       this.page = page
       this.allPage = Math.ceil(this.total / limit)
       return Promise.resolve({ list, allPage: this.allPage, limit, total: this.total, source: 'mg' })
     })
+  },
+
+  /** 带延迟的重试，避免立即重试仍失败 */
+  delayRetry(str, page, limit, retryNum) {
+    return new Promise(resolve => setTimeout(resolve, 300 * retryNum)).then(() => this.search(str, page, limit, retryNum))
   },
 }

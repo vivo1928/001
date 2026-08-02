@@ -62,9 +62,9 @@ export default {
   async getAlbumListDetailNew(id, page, retryNum = 0) {
     if (retryNum > 2) return Promise.reject(new Error('try max num'))
     try {
-      const requestObj = httpFetch(`http://www.kuwo.cn/api/www/album/albumInfo?albumId=${id}&pn=${page}&rn=${this.limit_song}&httpsStatus=1`, {
+      const requestObj = httpFetch(`https://www.kuwo.cn/api/www/album/albumInfo?albumId=${id}&pn=${page}&rn=${this.limit_song}&httpsStatus=1`, {
         headers: {
-          'Referer': 'http://www.kuwo.cn/',
+          'Referer': 'https://www.kuwo.cn/',
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
           'csrf': '1',
           'Cookie': 'kw_token=1',
@@ -107,7 +107,7 @@ export default {
   },
   _getAlbumListDetailOld(id, page, retryNum = 0) {
     if (retryNum > 2) return Promise.reject(new Error('try max num'))
-    const requestObj_listDetail = httpFetch(`http://search.kuwo.cn/r.s?pn=${page - 1}&rn=${this.limit_song}&stype=albuminfo&albumid=${id}&show_copyright_off=0&encoding=utf&vipver=MUSIC_9.1.0`)
+    const requestObj_listDetail = httpFetch(`https://search.kuwo.cn/r.s?pn=${page - 1}&rn=${this.limit_song}&stype=albuminfo&albumid=${id}&show_copyright_off=0&encoding=utf&vipver=MUSIC_9.1.0`)
     return requestObj_listDetail.promise.then(({ statusCode, body }) => {
       if (statusCode !== 200) return this._getAlbumListDetailOld(id, page, ++retryNum)
       body = objStr2JSON(body)

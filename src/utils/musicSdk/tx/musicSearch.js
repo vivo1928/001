@@ -147,10 +147,13 @@ export default {
     // console.log(list)
     return list
   },
-  search(str, page = 1, limit) {
+  search(str, page = 1, limit, retryNum = 0) {
     if (limit == null) limit = this.limit
     // http://newlyric.kuwo.cn/newlyric.lrc?62355680
-    return this.musicSearch(str, page, limit).then(({ body, meta }) => {
+    return this.musicSearch(str, page, limit).catch(() => {
+      // 网络错误（超时/连接失败等），通过延迟重试机制重试
+      return this.delayRetry(str, page, limit, retryNum)
+    }).then(({ body, meta }) => {
       let list = this.handleResult(body.item_song)
 
       this.total = meta.estimate_sum
@@ -165,5 +168,10 @@ export default {
         source: 'tx',
       })
     })
+  },
+
+  /** 带延迟的重试，避免立即重试仍失败 */
+  delayRetry(str, page, limit, retryNum) {
+    return new Promise(resolve => setTimeout(resolve, 300 * retryNum)).then(() => this.search(str, page, limit, ++retryNum))
   },
 }

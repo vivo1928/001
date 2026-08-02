@@ -200,13 +200,16 @@ export default {
     if (++retryNum > 3) return Promise.reject(new Error('try max num'))
     if (limit == null) limit = this.limit
     // http://newlyric.kuwo.cn/newlyric.lrc?62355680
-    return this.musicSearch(str, page, limit).then(result => {
+    return this.musicSearch(str, page, limit).catch(() => {
+      // 网络错误（超时/连接失败等），通过延迟重试机制重试
+      return this.delayRetry(str, page, limit, retryNum)
+    }).then(result => {
       // console.log(result)
-      if (!result || result.code !== '000000') return Promise.reject(new Error(result ? result.info : '搜索失败'))
+      if (!result || result.code !== '000000') return this.delayRetry(str, page, limit, retryNum)
       const songResultData = result.songResultData || { resultList: [], totalCount: 0 }
 
       let list = this.filterData(songResultData.resultList)
-      if (list == null) return this.search(str, page, limit, retryNum)
+      if (list == null) return this.delayRetry(str, page, limit, retryNum)
 
       this.total = parseInt(songResultData.totalCount)
       this.page = page
@@ -220,5 +223,10 @@ export default {
         source: 'mg',
       }
     })
+  },
+
+  /** 带延迟的重试，避免立即重试仍失败 */
+  delayRetry(str, page, limit, retryNum) {
+    return new Promise(resolve => setTimeout(resolve, 300 * retryNum)).then(() => this.search(str, page, limit, retryNum))
   },
 }
