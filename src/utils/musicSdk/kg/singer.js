@@ -12,41 +12,79 @@ const SINGER_HOSTS = [
 const ALL_HOSTS = SINGER_HOSTS.flatMap(h => [`https://${h}`, `http://${h}`])
 
 /**
- * 向多个主机依次请求，第一个成功即返回；支持重试整个循环
+ * 竞速模式：所有主机并行请求，第一个成功即返回，整体超时控制
+ * 优化：串行→并行，超时6s→4s，总超时限制12s以内，确保UI 15s超时前返回
  */
-async function fetchWithFallback(hosts, buildUrl, timeoutMs = 6000, retryCount = 2) {
-  for (let attempt = 0; attempt <= retryCount; attempt++) {
-    const errors = []
-    for (const host of hosts) {
-      try {
+async function fetchWithFallback(hosts, buildUrl, timeoutMs = 4000, retryCount = 1) {
+  const TOTAL_TIMEOUT = 12000
+
+  const tryFetch = async (): Promise<any> => {
+    const errors: string[] = []
+
+    // 并行发射所有主机，Promise.race 竞速取优
+    const results = await Promise.allSettled(
+      hosts.map(async (host) => {
         const url = buildUrl(host)
         const controller = new AbortController()
         const timer = setTimeout(() => controller.abort(), timeoutMs)
-        const requestObj = httpFetch(url, { timeout: timeoutMs, signal: controller.signal })
-        let { body, statusCode } = await requestObj.promise
-        clearTimeout(timer)
-        if (statusCode !== 200) {
-          errors.push(`${host}: status ${statusCode}`)
-          continue
+        try {
+          const requestObj = httpFetch(url, { timeout: timeoutMs, signal: controller.signal })
+          let { body, statusCode } = await requestObj.promise
+          clearTimeout(timer)
+          if (statusCode !== 200) {
+            throw new Error(`${host}: status ${statusCode}`)
+          }
+          // KG API 可能返回 HTML 注释包裹的 JSON
+          if (typeof body === 'string') {
+            body = body.replace(/<!--KG_TAG_RES_START-->/, '').replace(/<!--KG_TAG_RES_END-->/, '')
+            try { body = JSON.parse(body) } catch (e) {}
+          }
+          if (body && body.errcode === 0) return body
+          throw new Error(`${host}: errcode=${body?.errcode}`)
+        } catch (err) {
+          clearTimeout(timer)
+          throw err
         }
-        // KG API 可能返回 HTML 注释包裹的 JSON
-        if (typeof body === 'string') {
-          body = body.replace(/<!--KG_TAG_RES_START-->/, '').replace(/<!--KG_TAG_RES_END-->/, '')
-          try { body = JSON.parse(body) } catch (e) {}
-        }
-        // 检查业务状态码
-        if (body && body.errcode === 0) return body
-        errors.push(`${host}: errcode=${body?.errcode}`)
-      } catch (err) {
-        errors.push(`${host}: ${err.message || err}`)
+      })
+    )
+
+    // 取第一个成功的结果
+    for (const result of results) {
+      if (result.status === 'fulfilled' && result.value) {
+        return result.value
       }
+      errors.push(result.reason?.message || 'unknown')
     }
-    if (attempt < retryCount) {
-      // 重试前等待一小段时间，避免立即重试仍失败
-      await new Promise(r => setTimeout(r, 500 * (attempt + 1)))
-    }
+    throw new Error(errors.join('; '))
   }
-  throw new Error('KG API all hosts failed: ' + SINGER_HOSTS.join(', '))
+
+  // 总超时包装
+  const totalController = new AbortController()
+  const totalTimer = setTimeout(() => totalController.abort(), TOTAL_TIMEOUT)
+
+  try {
+    // 第一次尝试
+    try {
+      const result = await tryFetch()
+      clearTimeout(totalTimer)
+      return result
+    } catch (firstErr) {
+      // 如果还有重试次数，快速重试
+      if (retryCount > 0) {
+        for (let attempt = 1; attempt <= retryCount; attempt++) {
+          if (totalController.signal.aborted) break
+          try {
+            const result = await tryFetch()
+            clearTimeout(totalTimer)
+            return result
+          } catch (e) { /* continue */ }
+        }
+      }
+      throw firstErr
+    }
+  } finally {
+    clearTimeout(totalTimer)
+  }
 }
 
 const stripHtml = (str) => (str || '').replace(/<[^>]+>/g, '')

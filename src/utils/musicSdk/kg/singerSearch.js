@@ -33,7 +33,7 @@ export default {
   },
 
   singerSearch(str, page, limit) {
-    const url = `http://msearch.kugou.com/api/v3/search/singer?version=9108&iscorrection=1&highlight=em&plat=0&keyword=${encodeURIComponent(str)}&pagesize=${limit}&page=${page}`
+    const url = `https://msearch.kugou.com/api/v3/search/singer?version=9108&iscorrection=1&highlight=em&plat=0&keyword=${encodeURIComponent(str)}&pagesize=${limit}&page=${page}`
     return httpFetch(url).promise.then(res => res.body)
   },
 
@@ -41,13 +41,18 @@ export default {
     if (++retryNum > 3) return Promise.reject(new Error('try max num'))
     if (limit == null) limit = this.limit
     return this.singerSearch(str, page, limit).then(result => {
-      if (!result || result.errcode !== 0) return this.search(str, page, limit, retryNum)
+      if (!result || result.errcode !== 0) return this.delayRetry(str, page, limit, retryNum)
       let list = this.handleResult(Array.isArray(result.data) ? result.data : (result.data.lists || []))
-      if (list == null || !list.length) return this.search(str, page, limit, retryNum)
+      if (list == null || !list.length) return this.delayRetry(str, page, limit, retryNum)
       this.total = result.data.total || list.length
       this.page = page
       this.allPage = Math.ceil(this.total / limit)
       return Promise.resolve({ list, allPage: this.allPage, limit, total: this.total, source: 'kg' })
     })
+  },
+
+  /** 带延迟的重试，避免立即重试仍失败 */
+  delayRetry(str, page, limit, retryNum) {
+    return new Promise(resolve => setTimeout(resolve, 300 * retryNum)).then(() => this.search(str, page, limit, retryNum))
   },
 }

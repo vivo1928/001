@@ -174,29 +174,40 @@ export default {
 
   /**
    * 尝试从指定域名获取专辑歌曲列表（带超时）
+   * 优化：超时从8s降至5s，同时尝试HTTPS和HTTP
    */
-  async _fetchAlbumList(host, id, page, limit, timeoutMs = 8000) {
-    const url = `http://${host}/api/v3/album/song?version=9108&albumid=${id}&plat=0&pagesize=${limit}&area_code=0&page=${page}&with_res_tag=0`
+  async _fetchAlbumList(host, id, page, limit, timeoutMs = 5000) {
+    // 同时尝试 HTTPS 和 HTTP
+    const urls = [
+      `https://${host}/api/v3/album/song?version=9108&albumid=${id}&plat=0&pagesize=${limit}&area_code=0&page=${page}&with_res_tag=0`,
+      `http://${host}/api/v3/album/song?version=9108&albumid=${id}&plat=0&pagesize=${limit}&area_code=0&page=${page}&with_res_tag=0`,
+    ]
     console.log(`[kg album] trying ${host} for albumId=${id}`)
 
-    // 使用 Promise.race 加超时，避免单个主机卡住太久
-    const timeoutPromise = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error(`timeout ${host}`)), timeoutMs)
-    )
-
-    const result = await Promise.race([
-      createHttpFetch(url),
-      timeoutPromise,
-    ])
-
-    if (!result || !result.info || !Array.isArray(result.info)) {
-      throw new Error(`Empty response from ${host}`)
+    const errors = []
+    for (const url of urls) {
+      try {
+        const timeoutPromise = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error(`timeout ${host}`)), timeoutMs)
+        )
+        const result = await Promise.race([
+          createHttpFetch(url),
+          timeoutPromise,
+        ])
+        if (result && result.info && Array.isArray(result.info)) {
+          return result
+        }
+        errors.push(`empty from ${url}`)
+      } catch (e) {
+        errors.push(`${url}: ${e?.message}`)
+      }
     }
-    return result
+    throw new Error(`All protocols failed for ${host}: ${errors.join('; ')}`)
   },
 
   /**
    * 并发请求所有主机，返回第一个有效结果
+   * 优化：简化竞速逻辑，降低超时
    */
   async _fetchAlbumListRace(id, page, limit) {
     const hosts = [
@@ -205,40 +216,30 @@ export default {
       'mobcdn.kugou.com',
     ]
 
-    // 并发请求所有主机，返回第一个有效结果
-    // 用 Promise 包装实现竞速，兼容 React Native 环境
-    let winner = null
-    let pending = hosts.length
+    // 用 Promise.race + allSettled 实现竞速
+    const results = await Promise.allSettled(
+      hosts.map(host => this._fetchAlbumList(host, id, page, limit))
+    )
 
-    const raceResult = await new Promise((resolve) => {
-      for (const host of hosts) {
-        this._fetchAlbumList(host, id, page, limit)
-          .then(result => {
-            if (result && result.info && result.info.length > 0) {
-              if (!winner) {
-                winner = result
-                console.log(`[kg album] success with ${host}, got ${result.info.length} songs`)
-                resolve(result)
-              }
-            }
-          })
-          .catch(err => {
-            console.log(`[kg album] ${host} failed:`, err?.message)
-          })
-          .finally(() => {
-            pending--
-            if (pending === 0 && !winner) resolve(null)
-          })
+    // 取第一个成功结果
+    for (const result of results) {
+      if (result.status === 'fulfilled' && result.value && result.value.info && result.value.info.length > 0) {
+        console.log(`[kg album] race success, got ${result.value.info.length} songs`)
+        return result.value
       }
-    })
+    }
 
-    if (raceResult) return raceResult
+    // 收集所有失败原因
+    const errors = results
+      .filter(r => r.status === 'rejected')
+      .map(r => r.reason?.message || 'unknown')
+    console.log(`[kg album] all hosts failed: ${errors.join('; ')}`)
 
-    // 所有主机并发都失败，尝试串行回退（某些网络环境可能并发受限）
+    // 尝试串行回退（某些网络环境可能并发受限）
     console.log('[kg album] concurrent failed, trying sequential fallback')
     for (const host of hosts) {
       try {
-        const result = await this._fetchAlbumList(host, id, page, limit, 12000)
+        const result = await this._fetchAlbumList(host, id, page, limit, 8000)
         if (result && result.info && result.info.length > 0) {
           console.log(`[kg album] sequential success with ${host}, got ${result.info.length} songs`)
           return result

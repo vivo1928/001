@@ -46,18 +46,23 @@ export const signatureParams = (params, platform = 'android', body = '') => {
 export const createHttpFetch = async(url, options, retryNum = 0) => {
   if (retryNum > 2) throw new Error('try max num')
   let result
-  options.cache = 'default'
+  options = { ...options, cache: 'default' }
   try {
     result = await httpFetch(url, options).promise
   } catch (err) {
     console.log(err)
+    // 添加延迟再重试，避免立即重试仍失败
+    if (retryNum < 2) await new Promise(r => setTimeout(r, 200 * (retryNum + 1)))
     return createHttpFetch(url, options, ++retryNum)
   }
   // console.log(result.statusCode, result.body)
   // 修复：当 error_code/errcode/err_code 都不存在时，默认为 0（表示无错误），避免误判重试
   if (result.statusCode !== 200 ||
     (result.body.error_code ?? result.body.errcode ?? result.body.err_code ?? 0) != 0
-  ) return createHttpFetch(url, options, ++retryNum)
+  ) {
+    if (retryNum < 2) await new Promise(r => setTimeout(r, 200 * (retryNum + 1)))
+    return createHttpFetch(url, options, ++retryNum)
+  }
   if (result.body.data) return result.body.data
   if (Array.isArray(result.body.info)) return result.body
   return result.body.info
