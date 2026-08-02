@@ -140,7 +140,7 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId, activeT
     console.log(`[SingerDetail] handlePlayList called: index=${index} list.length=${list.length}`)
     void handlePlay(list[index])
   }
-  const handlePlayAll = () => {
+  const handlePlayAllSongs = () => {
     const list = listRef.current?.getList()
     if (!list?.length) return
     void handlePlayAll(info.id, info.source, list)
@@ -191,7 +191,7 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId, activeT
   }
 
   const header = useMemo(() => (
-    <Header ref={headerRef} componentId={componentId} onPlayAll={handlePlayAll} activeTab={activeTab} onTabChange={onTabChange} />
+    <Header ref={headerRef} componentId={componentId} onPlayAll={handlePlayAllSongs} activeTab={activeTab} onTabChange={onTabChange} />
   ), [componentId, activeTab, onTabChange])
 
   return <OnlineList
