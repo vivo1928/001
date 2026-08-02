@@ -257,7 +257,7 @@
   "search_type_songlist": "歌單",
   "search_type_album": "專輯",
   "search_type_singer": "歌手",
-  "search_type_program": "節目",
+  
   
   "setting__other_dislike_list": "「不喜歡的歌曲」規則",
   "setting__other_dislike_list_label": "規則數量：{num}",

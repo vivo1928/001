@@ -3,7 +3,6 @@ import { apis } from '../api-source'
 import songList from './songList'
 import musicSearch from './musicSearch'
 import albumSearch from './albumSearch'
-import programSearch from './programSearch'
 import album from './album'
 import singerSearch from './singerSearch'
 import lyric from './lyric'
@@ -17,7 +16,6 @@ const tx = {
   songList,
   musicSearch,
   albumSearch,
-  programSearch,
   album,
   singerSearch,
   hotSearch,

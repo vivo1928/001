@@ -257,7 +257,7 @@
   "search_type_songlist": "Playlist",
   "search_type_album": "Album",
   "search_type_singer": "Singer",
-  "search_type_program": "Program",
+  
   
   "setting__other_dislike_list": "Dislike Song Rule",
   "setting__other_dislike_list_label": "Number of rules: {num}",
