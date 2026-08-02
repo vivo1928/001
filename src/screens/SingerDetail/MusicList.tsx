@@ -17,6 +17,14 @@ export interface MusicListType {
 }
 
 const LIMIT = 30
+const FETCH_TIMEOUT = 15000
+
+const withTimeout = <T,>(promise: Promise<T>, ms: number, msg: string): Promise<T> => {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) => setTimeout(() => reject(new Error(msg)), ms)),
+  ])
+}
 
 export default forwardRef<MusicListType, MusicListProps>(({ componentId, activeTab, onTabChange }, ref) => {
   const listRef = useRef<OnlineListType>(null)
@@ -45,7 +53,11 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId, activeT
 
     if (hasSingerApi) {
       try {
-        const result = await sdk.singer.getSingerSongList(singerIdRef.current, page, LIMIT)
+        const result = await withTimeout(
+          sdk.singer.getSingerSongList(singerIdRef.current, page, LIMIT),
+          FETCH_TIMEOUT,
+          `Singer API timeout for source: ${info.source}`
+        )
         console.log(`[SingerDetail] singer API result: list=${result?.list?.length} total=${result?.total}`)
         if (result && result.list && result.list.length > 0) {
           return {
@@ -67,7 +79,11 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId, activeT
     console.log(`[SingerDetail] using musicSearch for name="${searchName}" source=${info.source} page=${page}`)
     if (!sdk?.musicSearch) throw new Error('musicSearch not supported for source: ' + info.source)
 
-    const result = await sdk.musicSearch.search(searchName, page, LIMIT)
+    const result = await withTimeout(
+      sdk.musicSearch.search(searchName, page, LIMIT),
+      FETCH_TIMEOUT,
+      `musicSearch timeout for source: ${info.source}`
+    )
     console.log(`[SingerDetail] musicSearch result: list=${result?.list?.length} total=${result?.total}`)
     return {
       list: (result.list || []).map(s => toNewMusicInfo(s) as LX.Music.MusicInfoOnline),

@@ -63,12 +63,24 @@ export default forwardRef<AlbumListType, AlbumListProps>(({ componentId, activeT
     const sdk = musicSdk[source]
     if (!sdk) throw new Error('Source not found: ' + source)
 
+    const FETCH_TIMEOUT = 15000
+    const withTimeout = <T,>(promise: Promise<T>, ms: number, msg: string): Promise<T> => {
+      return Promise.race([
+        promise,
+        new Promise<T>((_, reject) => setTimeout(() => reject(new Error(msg)), ms)),
+      ])
+    }
+
     // 优先使用 singer.getSingerAlbumList API（按歌手ID获取专辑）
     const hasSingerAlbumApi = !!(sdk.singer?.getSingerAlbumList)
 
     if (hasSingerAlbumApi) {
       try {
-        const result = await sdk.singer.getSingerAlbumList(info.id, page, LIMIT)
+        const result = await withTimeout(
+          sdk.singer.getSingerAlbumList(info.id, page, LIMIT),
+          FETCH_TIMEOUT,
+          `Singer album API timeout for source: ${source}`
+        )
         if (result) {
           return {
             list: result.albums || [],
@@ -82,7 +94,11 @@ export default forwardRef<AlbumListType, AlbumListProps>(({ componentId, activeT
 
     // 降级：使用 albumSearch 按歌手名称搜索专辑
     if (!sdk?.albumSearch) throw new Error('albumSearch not supported for source: ' + source)
-    const result = await sdk.albumSearch.search(singerName, page, LIMIT)
+    const result = await withTimeout(
+      sdk.albumSearch.search(singerName, page, LIMIT),
+      FETCH_TIMEOUT,
+      `albumSearch timeout for source: ${source}`
+    )
     // 过滤出与歌手名匹配的专辑
     const filteredList = (result.list || []).filter((item: any) => {
       const singer = (item.singer || item.author || '').toLowerCase()

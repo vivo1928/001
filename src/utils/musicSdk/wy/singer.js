@@ -100,7 +100,30 @@ module.exports = {
     if (!body || body.code !== 200) {
       throw new Error('获取歌手专辑列表失败: ' + (body?.msg || '无数据'))
     }
-    const albums = filterAlbumList(body.hotAlbums || body.albums || [])
+
+    // 注意：网易云 API 返回两个字段：
+    //   hotAlbums - 热门专辑（最多约12-15张，不受分页影响）
+    //   albums    - 全部专辑（支持分页），但仅在 offset=0 时返回
+    // 对于后续分页，只能通过 albums 分页来获取
+    const hotAlbums = filterAlbumList(body.hotAlbums || [])
+    const paginatedAlbums = filterAlbumList(body.albums || [])
+
+    let albums
+    if (page === 1) {
+      // 第一页：合并热门专辑和分页专辑，按 id 去重
+      const seenIds = new Set()
+      albums = []
+      for (const item of [...hotAlbums, ...paginatedAlbums]) {
+        if (!seenIds.has(item.id)) {
+          seenIds.add(item.id)
+          albums.push(item)
+        }
+      }
+    } else {
+      // 后续页：直接用分页专辑
+      albums = paginatedAlbums
+    }
+
     return {
       source: 'wy',
       albums,
