@@ -1,16 +1,19 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 import MusicList, { type MusicListType } from './MusicList'
+import AlbumList, { type AlbumListType } from './AlbumList'
 import PageContent from '@/components/PageContent'
 import StatusBar from '@/components/common/StatusBar'
 import { setComponentId } from '@/core/common'
 import { COMPONENT_IDS } from '@/config/constant'
 import PlayerBar from '@/components/player/PlayerBar'
-import { SingerInfoContext, type SingerDetailInfo } from './state'
+import { SingerInfoContext, type SingerDetailInfo, type SingerTabType } from './state'
 
 export default ({ componentId, info }: { componentId: string, info: SingerDetailInfo }) => {
   const musicListRef = useRef<MusicListType>(null)
+  const albumListRef = useRef<AlbumListType>(null)
   const isUnmountedRef = useRef(false)
+  const [activeTab, setActiveTab] = useState<SingerTabType>('song')
 
   useEffect(() => {
     setComponentId(COMPONENT_IDS.singerDetail, componentId)
@@ -31,11 +34,23 @@ export default ({ componentId, info }: { componentId: string, info: SingerDetail
     ? info
     : { id: '', name: '', source: 'kw' }
 
+  const handleTabChange = (tab: SingerTabType) => {
+    setActiveTab(tab)
+    if (tab === 'album' && info?.source && info?.id) {
+      albumListRef.current?.loadList(info.source, info.id)
+    } else if (tab === 'song' && info?.source && info?.id) {
+      musicListRef.current?.loadList(info.source, info.id)
+    }
+  }
+
   return (
     <PageContent>
       <StatusBar />
       <SingerInfoContext.Provider value={safeInfo}>
-        <MusicList ref={musicListRef} componentId={componentId} />
+        {activeTab === 'song'
+          ? <MusicList ref={musicListRef} componentId={componentId} activeTab={activeTab} onTabChange={handleTabChange} />
+          : <AlbumList ref={albumListRef} />
+        }
       </SingerInfoContext.Provider>
       <PlayerBar />
     </PageContent>

@@ -1,11 +1,11 @@
 import { forwardRef, useImperativeHandle, useState } from 'react'
-import { View } from 'react-native'
+import { View, TouchableOpacity } from 'react-native'
 import { BorderWidths } from '@/theme'
 import { useTheme } from '@/store/theme/hook'
 import Text from '@/components/common/Text'
 import { createStyle } from '@/utils/tools'
 import Image from '@/components/common/Image'
-import { useSingerInfo } from './state'
+import { useSingerInfo, type SingerTabType } from './state'
 import { useStatusbarHeight } from '@/store/common/hook'
 import ActionBar from './ActionBar'
 
@@ -24,9 +24,16 @@ export interface HeaderType {
 export interface HeaderProps {
   componentId: string
   onPlayAll?: () => void
+  activeTab: SingerTabType
+  onTabChange: (tab: SingerTabType) => void
 }
 
-export default forwardRef<HeaderType, HeaderProps>(({ componentId, onPlayAll }, ref) => {
+const TAB_LIST: { label: string; key: SingerTabType }[] = [
+  { label: '单曲', key: 'song' },
+  { label: '专辑', key: 'album' },
+]
+
+export default forwardRef<HeaderType, HeaderProps>(({ componentId, onPlayAll, activeTab, onTabChange }, ref) => {
   const statusBarHeight = useStatusbarHeight()
   const theme = useTheme()
   const info = useSingerInfo()
@@ -52,6 +59,29 @@ export default forwardRef<HeaderType, HeaderProps>(({ componentId, onPlayAll }, 
         </View>
       </View>
       <ActionBar onPlayAll={onPlayAll} />
+      {/* 选项卡 */}
+      <View style={styles.tabBar}>
+        {TAB_LIST.map(tab => (
+          <TouchableOpacity
+            key={tab.key}
+            style={styles.tabButton}
+            onPress={() => onTabChange(tab.key)}
+            accessibilityLabel={tab.label}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: activeTab === tab.key }}
+          >
+            <Text
+              style={{
+                ...styles.tabText,
+                borderBottomColor: activeTab === tab.key ? theme['c-primary-background-active'] : 'transparent',
+              }}
+              color={activeTab === tab.key ? theme['c-primary-font-active'] : theme['c-font']}
+            >
+              {tab.label}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
     </View>
   )
 })
@@ -66,5 +96,25 @@ const styles = createStyle({
     flexGrow: 0,
     flexShrink: 0,
     overflow: 'hidden',
+  },
+  tabBar: {
+    flexDirection: 'row',
+    height: 38,
+    alignItems: 'center',
+    paddingLeft: 5,
+  },
+  tabButton: {
+    justifyContent: 'center',
+    paddingLeft: 8,
+    paddingRight: 8,
+    height: '100%',
+  },
+  tabText: {
+    textAlign: 'center',
+    paddingLeft: 2,
+    paddingRight: 2,
+    paddingTop: 3,
+    paddingBottom: 3,
+    borderBottomWidth: BorderWidths.normal3,
   },
 })

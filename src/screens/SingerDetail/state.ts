@@ -18,3 +18,5 @@ export const SingerInfoContext = createContext<SingerDetailInfo>({
 export const useSingerInfo = () => {
   return useContext(SingerInfoContext)
 }
+
+export type SingerTabType = 'song' | 'album'

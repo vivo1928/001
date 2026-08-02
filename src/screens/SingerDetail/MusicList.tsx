@@ -1,13 +1,15 @@
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef } from 'react'
 import OnlineList, { type OnlineListType, type OnlineListProps } from '@/components/OnlineList'
 import Header, { type HeaderType } from './Header'
-import { useSingerInfo } from './state'
+import { useSingerInfo, type SingerTabType } from './state'
 import musicSdk from '@/utils/musicSdk'
 import { toNewMusicInfo } from '@/utils'
 import { handlePlay, handlePlayAll } from './listAction'
 
 export interface MusicListProps {
   componentId: string
+  activeTab: SingerTabType
+  onTabChange: (tab: SingerTabType) => void
 }
 
 export interface MusicListType {
@@ -16,7 +18,7 @@ export interface MusicListType {
 
 const LIMIT = 30
 
-export default forwardRef<MusicListType, MusicListProps>(({ componentId }, ref) => {
+export default forwardRef<MusicListType, MusicListProps>(({ componentId, activeTab, onTabChange }, ref) => {
   const listRef = useRef<OnlineListType>(null)
   const headerRef = useRef<HeaderType>(null)
   const isUnmountedRef = useRef(false)
@@ -188,8 +190,9 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId }, ref) 
     })
   }
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const header = useMemo(() => <Header ref={headerRef} componentId={componentId} onPlayAll={handlePlayAll} />, [componentId])
+  const header = useMemo(() => (
+    <Header ref={headerRef} componentId={componentId} onPlayAll={handlePlayAll} activeTab={activeTab} onTabChange={onTabChange} />
+  ), [componentId, activeTab, onTabChange])
 
   return <OnlineList
     ref={listRef}
