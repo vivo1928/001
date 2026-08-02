@@ -1,5 +1,5 @@
-import searchSingerState, { type Source } from '@/store/search/singer/state'
-import searchSingerActions, { type SearchResult } from '@/store/search/singer/action'
+import searchProgramState, { type Source } from '@/store/search/program/state'
+import searchProgramActions, { type SearchResult } from '@/store/search/program/action'
 import musicSdk from '@/utils/musicSdk'
 
 const SEARCH_TIMEOUT = 15000
@@ -8,43 +8,43 @@ const withTimeout = <T>(promise: Promise<T>, timeoutMs: number, source: string):
   return Promise.race([
     promise,
     new Promise<T>((_, reject) => {
-      setTimeout(() => reject(new Error(`Singer search timeout for source: ${source}`)), timeoutMs)
+      setTimeout(() => reject(new Error(`Program search timeout for source: ${source}`)), timeoutMs)
     }),
   ])
 }
 
-export const setSource: typeof searchSingerActions['setSource'] = (source) => {
-  searchSingerActions.setSource(source)
+export const setSource: typeof searchProgramActions['setSource'] = (source) => {
+  searchProgramActions.setSource(source)
 }
-export const setSearchText: typeof searchSingerActions['setSearchText'] = (text) => {
-  searchSingerActions.setSearchText(text)
+export const setSearchText: typeof searchProgramActions['setSearchText'] = (text) => {
+  searchProgramActions.setSearchText(text)
 }
-const setListInfo: typeof searchSingerActions.setListInfo = (result, page, text) => {
-  return searchSingerActions.setListInfo(result, page, text)
+const setListInfo: typeof searchProgramActions.setListInfo = (result, page, text) => {
+  return searchProgramActions.setListInfo(result, page, text)
 }
 
-export const clearListInfo: typeof searchSingerActions.clearListInfo = (source) => {
-  searchSingerActions.clearListInfo(source)
+export const clearListInfo: typeof searchProgramActions.clearListInfo = (source) => {
+  searchProgramActions.clearListInfo(source)
 }
 
 export const search = async(text: string, page: number, sourceId: Source) => {
-  const listInfo = searchSingerState.listInfos[sourceId]!
+  const listInfo = searchProgramState.listInfos[sourceId]!
   const key = `${page}__${sourceId}__${text}`
   if (listInfo.key == key && listInfo.list.length) return listInfo.list
   if (sourceId == 'all') {
     listInfo.key = key
     let task = []
-    for (const source of searchSingerState.sources) {
-      if (source == 'all' || (page > 1 && page > (searchSingerState.maxPages[source]!))) continue
-      const searchPromise = (musicSdk[source]?.singerSearch.search(text, page, searchSingerState.listInfos.all.limit) as Promise<SearchResult>)
+    for (const source of searchProgramState.sources) {
+      if (source == 'all' || (page > 1 && page > (searchProgramState.maxPages[source]!))) continue
+      const searchPromise = (musicSdk[source]?.programSearch.search(text, page, searchProgramState.listInfos.all.limit) as Promise<SearchResult>)
         ?? Promise.reject(new Error('source not found: ' + source))
       task.push(
         withTimeout(searchPromise, SEARCH_TIMEOUT, source).catch((error: any) => {
-          console.log(`[singer search] ${source} error:`, error?.message || error)
+          console.log(`[program search] ${source} error:`, error?.message || error)
           return {
             list: [],
             total: 0,
-            limit: searchSingerState.listInfos.all.limit,
+            limit: searchProgramState.listInfos.all.limit,
             source,
             allPage: 0,
           }
@@ -60,17 +60,17 @@ export const search = async(text: string, page: number, sourceId: Source) => {
   } else {
     if (listInfo?.key == key && listInfo?.list.length) return listInfo?.list
     // 如果已经超过最大页数，直接返回空列表
-    if (page > 1 && searchSingerState.maxPages[sourceId] != null && page > searchSingerState.maxPages[sourceId]!) {
+    if (page > 1 && searchProgramState.maxPages[sourceId] != null && page > searchProgramState.maxPages[sourceId]!) {
       return []
     }
     listInfo.key = key
-    const searchPromise = (musicSdk[sourceId]?.singerSearch.search(text, page, listInfo.limit) as Promise<SearchResult>)
+    const searchPromise = (musicSdk[sourceId]?.programSearch.search(text, page, listInfo.limit) as Promise<SearchResult>)
       ?? Promise.reject(new Error('source not found: ' + sourceId))
     return withTimeout(searchPromise, SEARCH_TIMEOUT, sourceId).then((data: SearchResult) => {
       if (key != listInfo.key) return []
       return setListInfo(data, page, text)
     }).catch((err: any) => {
-      console.log(`[singer search] ${sourceId} error:`, err?.message || err)
+      console.log(`[program search] ${sourceId} error:`, err?.message || err)
       if (listInfo.list.length && page == 1) clearListInfo(sourceId)
       throw err
     })

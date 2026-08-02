@@ -7,6 +7,7 @@ import BlankView, { type BlankViewType } from './BlankView'
 import SonglistList from './SonglistList'
 import AlbumList from './AlbumList'
 import SingerList from './SingerList'
+import ProgramList from './ProgramList'
 
 interface ListProps {
   onSearch: (keyword: string) => void
@@ -48,6 +49,8 @@ export default forwardRef<ListType, ListProps>(({ onSearch }, ref) => {
           ? <AlbumList ref={listRef} />
           : listType == 'singer'
             ? <SingerList ref={listRef} />
-            : <MusicList ref={listRef} />
+            : listType == 'program'
+              ? <ProgramList ref={listRef} />
+              : <MusicList ref={listRef} />
   )
 })

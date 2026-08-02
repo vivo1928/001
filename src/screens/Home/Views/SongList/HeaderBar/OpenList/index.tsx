@@ -49,7 +49,7 @@ export default forwardRef<OpenListType, {}>((props, ref) => {
 
   return (
     <>
-      <Button style={styles.button} onPress={() => modalRef.current?.show(songlistInfoRef.current.source)}>
+      <Button style={styles.button} onPress={() => modalRef.current?.show(songlistInfoRef.current.source)} accessibilityLabel={t('songlist_open')} accessibilityRole="button">
         <Text>{t('songlist_open')}</Text>
       </Button>
       <Modal ref={modalRef} onOpenId={handleOpenSonglist} />

@@ -56,7 +56,7 @@ const ListItem = ({ item, activeId, onRemove, onChangeAllowShowUpdateAlert }: {
         <CheckBox check={item.allowShowUpdateAlert} label={t('user_api_allow_show_update_alert')} onChange={changeAllowShowUpdateAlert} size={0.86} />
       </View>
       <View style={styles.listItemRight}>
-        <TouchableOpacity style={styles.btn} onPress={handleRemove}>
+        <TouchableOpacity style={styles.btn} onPress={handleRemove} accessibilityLabel={t('user_api_remove_btn')} accessibilityRole="button">
           <Icon name="close" color={theme['c-button-font']} />
         </TouchableOpacity>
       </View>

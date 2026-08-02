@@ -4,6 +4,7 @@ import songList from './songList'
 import musicSearch from './musicSearch'
 import albumSearch from './albumSearch'
 import singerSearch from './singerSearch'
+import programSearch from './programSearch'
 import album from './album'
 import singer from './singer'
 import pic from './pic'
@@ -19,6 +20,7 @@ const kg = {
   musicSearch,
   albumSearch,
   singerSearch,
+  programSearch,
   album,
   singer,
   hotSearch,

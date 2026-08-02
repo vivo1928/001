@@ -44,7 +44,7 @@ export default forwardRef<SortTabType, SortTabProps>(({ onSortChange }, ref) => 
     <ScrollView ref={scrollViewRef} style={styles.container} keyboardShouldPersistTaps={'always'} horizontal>
       {
         sorts.map(s => (
-          <TouchableOpacity style={styles.button} onPress={() => { handleSortChange(s.id) }} key={s.id}>
+          <TouchableOpacity style={styles.button} onPress={() => { handleSortChange(s.id) }} key={s.id} accessibilityLabel={s.label} accessibilityRole="button">
             <Text style={{ ...styles.buttonText, borderBottomColor: activeId == s.id ? theme['c-primary-background-active'] : 'transparent' }} color={activeId == s.id ? theme['c-primary-font-active'] : theme['c-font']}>{s.label}</Text>
           </TouchableOpacity>
         ))

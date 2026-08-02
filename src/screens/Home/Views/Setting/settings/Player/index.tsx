@@ -13,6 +13,7 @@ import IsShowLyricTranslation from './IsShowLyricTranslation'
 import IsShowLyricRoma from './IsShowLyricRoma'
 import IsS2T from './IsS2T'
 import MaxCache from './MaxCache'
+import PlaybackRate from './PlaybackRate'
 import { useI18n } from '@/lang'
 
 
@@ -21,6 +22,7 @@ export default memo(() => {
 
   return (
     <Section title={t('setting_player')}>
+      <PlaybackRate />
       <IsSavePlayTime />
       <IsAutoCleanPlayedList />
       <IsHandleAudioFocus />

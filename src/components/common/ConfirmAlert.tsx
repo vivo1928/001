@@ -112,11 +112,11 @@ export default forwardRef<ConfirmAlertType, ConfirmAlertProps>(({
         </ScrollView>
       </View>
       <View style={{ ...styles.btns, ...(reverseBtn ? styles.btnsReversedDirection : styles.btnsDirection) }}>
-        <Button style={{ ...styles.btn, ...(reverseBtn ? styles.btnReversedDirection : styles.btnDirection), backgroundColor: theme['c-button-background'] }} onPress={handleCancel}>
+        <Button style={{ ...styles.btn, ...(reverseBtn ? styles.btnReversedDirection : styles.btnDirection), backgroundColor: theme['c-button-background'] }} onPress={handleCancel} accessibilityLabel={cancelText || t('cancel')} accessibilityRole="button">
           <Text color={theme['c-button-font']}>{cancelText || t('cancel')}</Text>
         </Button>
         {showConfirm
-          ? <Button style={{ ...styles.btn, ...(reverseBtn ? styles.btnReversedDirection : styles.btnDirection), backgroundColor: theme['c-button-background'] }} onPress={onConfirm} disabled={disabledConfirm}>
+          ? <Button style={{ ...styles.btn, ...(reverseBtn ? styles.btnReversedDirection : styles.btnDirection), backgroundColor: theme['c-button-background'] }} onPress={onConfirm} disabled={disabledConfirm} accessibilityLabel={confirmText || t('confirm')} accessibilityRole="button">
               <Text color={theme['c-button-font']}>{confirmText || t('confirm')}</Text>
             </Button>
           : null}

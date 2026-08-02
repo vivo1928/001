@@ -58,9 +58,16 @@ const handleRequestData = async({
   }
 }
 
+// 最大响应体大小限制（10MB），防止大响应导致 OOM 崩溃
+const MAX_RESPONSE_SIZE = 10 * 1024 * 1024
+
 // https://stackoverflow.com/a/64945178
 const blobToBuffer = (blob) => {
   return new Promise((resolve, reject) => {
+    if (blob.size > MAX_RESPONSE_SIZE) {
+      reject(new Error(`Response too large: ${(blob.size / 1024 / 1024).toFixed(1)}MB > ${MAX_RESPONSE_SIZE / 1024 / 1024}MB`))
+      return
+    }
     const reader = new global.FileReader()
     reader.onerror = reject
     reader.onload = () => {
@@ -85,17 +92,28 @@ export const fetchData = (url, { timeout = 13_000, ...options }) => {
       return global.fetch(url, {
         ...options,
         signal: controller.signal,
-      }).then(resp => (options.binary ? resp.blob() : resp.text()).then(text => {
-        // console.log(options, headers, text)
-        return {
-          headers: resp.headers.map,
-          body: text,
-          statusCode: resp.status,
-          statusMessage: resp.statusText,
-          url: resp.url,
-          ok: resp.ok,
+      }).then(resp => {
+        // 检查 Content-Length，提前拒绝大响应，避免 OOM
+        const contentLength = resp.headers?.get?.('content-length') || resp.headers?.map?.['content-length']
+        if (contentLength && parseInt(contentLength) > MAX_RESPONSE_SIZE) {
+          throw new Error(`Response too large: ${(parseInt(contentLength) / 1024 / 1024).toFixed(1)}MB`)
         }
-      })).then(resp => {
+        return (options.binary ? resp.blob() : resp.text()).then(text => {
+          // console.log(options, headers, text)
+          return {
+            headers: resp.headers.map,
+            body: text,
+            statusCode: resp.status,
+            statusMessage: resp.statusText,
+            url: resp.url,
+            ok: resp.ok,
+          }
+        })
+      }).then(resp => {
+        // 对于非二进制响应，也检查 body 长度（防止 Content-Length 缺失的情况）
+        if (!options.binary && typeof resp.body == 'string' && resp.body.length > MAX_RESPONSE_SIZE) {
+          throw new Error(`Response too large: ${(resp.body.length / 1024 / 1024).toFixed(1)}MB`)
+        }
         if (options.binary) {
           return blobToBuffer(resp.body).then(buffer => {
             resp.body = buffer

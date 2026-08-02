@@ -14,6 +14,7 @@ const SEARCH_TYPE_LIST = [
   'songlist',
   'album',
   'singer',
+  'program',
 ] as const
 
 export default () => {

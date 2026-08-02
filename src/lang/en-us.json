@@ -257,6 +257,7 @@
   "search_type_songlist": "Playlist",
   "search_type_album": "Album",
   "search_type_singer": "Singer",
+  "search_type_program": "Program",
   
   "setting__other_dislike_list": "Dislike Song Rule",
   "setting__other_dislike_list_label": "Number of rules: {num}",
@@ -531,6 +532,7 @@
   "user_api_max_tip": "There can only be a maximum of 20 APIs at the same time🤪.\n\nIf you want to continue importing, please remove some unnecessary APIs to make room.",
   "user_api_note": "TIP: Although we have isolated the API script's running environment as much as possible, importing API scripts containing malicious behaviors may still affect your system. Please import them with caution.",
   "user_api_readme": "API writing instructions: ",
+  "user_api_remove_btn": "Remove",
   "user_api_remove_tip": "Do you really want to remove \"{name}\"?",
   "user_api_title": "Music API Management (EXPERIMENTAL)",
   "user_api_update_alert": "Music API \"{name}\" found new version",

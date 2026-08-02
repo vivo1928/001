@@ -30,6 +30,34 @@ const rootPath = path.join(__dirname, './')
     }
   }
 
+  const metadataManagerPath = path.join(rootPath, 'node_modules/react-native-track-player/android/src/main/java/com/guichaguri/trackplayer/service/metadata/MetadataManager.java')
+
+  const metadataPatchs = [
+    ['"Previous"', '"上一首"'],
+    ['"Rewind"', '"快退"'],
+    ['"Play"', '"播放"'],
+    ['"Pause"', '"暂停"'],
+    ['"Stop"', '"停止"'],
+    ['"Forward"', '"快进"'],
+    ['"Next"', '"下一首"'],
+  ]
+
+  try {
+    let file = (await fs.promises.readFile(metadataManagerPath)).toString()
+    for (const [fromStr, toStr] of metadataPatchs) {
+      console.log('Patching MetadataManager: ' + fromStr + '...')
+      if (!file.includes(fromStr)) {
+        console.warn('  WARNING: Pattern not found, skipping')
+        continue
+      }
+      file = file.replace(fromStr, toStr)
+      console.log('  OK')
+    }
+    await fs.promises.writeFile(metadataManagerPath, file)
+  } catch (err) {
+    console.error('Patch MetadataManager failed:', err.message)
+  }
+
   const musicManagerPath = path.join(rootPath, 'node_modules/react-native-track-player/android/src/main/java/com/guichaguri/trackplayer/service/MusicManager.java')
 
   const patchs = [

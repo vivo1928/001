@@ -25,7 +25,7 @@ export default forwardRef<CurrentTagBtnType, CurrentTagBtnProps>(({ onShowList }
   }))
 
   return (
-    <Button style={styles.btn} onPress={onShowList}>
+    <Button style={styles.btn} onPress={onShowList} accessibilityLabel={name || t('songlist_tag_default')} accessibilityRole="button">
       <Text style={styles.sourceMenu}>{name}</Text>
     </Button>
   )

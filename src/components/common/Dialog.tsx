@@ -8,6 +8,7 @@ import { createStyle } from '@/utils/tools'
 import { useTheme } from '@/store/theme/hook'
 import Text from './Text'
 import { scaleSizeH } from '@/utils/pixelRatio'
+import { useI18n } from '@/lang'
 
 const HEADER_HEIGHT = 20
 const styles = createStyle({
@@ -82,6 +83,7 @@ export default forwardRef<DialogType, DialogProps>(({
   const theme = useTheme()
   const { keyboardShown, keyboardHeight } = useKeyboard()
   const modalRef = useRef<ModalType>(null)
+  const t = useI18n()
 
   useImperativeHandle(ref, () => ({
     setVisible(visible: boolean) {
@@ -91,7 +93,7 @@ export default forwardRef<DialogType, DialogProps>(({
 
   const closeBtnComponent = useMemo(() => {
     return closeBtn
-      ? <TouchableHighlight style={{ ...styles.closeBtn, width: scaleSizeH(HEADER_HEIGHT) }} underlayColor={theme['c-primary-dark-200-alpha-600']} onPress={() => modalRef.current?.setVisible(false)}>
+      ? <TouchableHighlight style={{ ...styles.closeBtn, width: scaleSizeH(HEADER_HEIGHT) }} underlayColor={theme['c-primary-dark-200-alpha-600']} onPress={() => modalRef.current?.setVisible(false)} accessibilityLabel={t('close')} accessibilityRole="button">
           <Icon name="close" color={theme['c-primary-dark-500-alpha-500']} size={10} />
         </TouchableHighlight>
       : null

@@ -59,6 +59,10 @@ export const search = async(text: string, page: number, sourceId: Source) => {
     })
   } else {
     if (listInfo?.key == key && listInfo?.list.length) return listInfo?.list
+    // 如果已经超过最大页数，直接返回空列表，避免无谓的API请求导致"加载失败"
+    if (page > 1 && searchAlbumState.maxPages[sourceId] != null && page > searchAlbumState.maxPages[sourceId]!) {
+      return []
+    }
     listInfo.key = key
     const searchPromise = (musicSdk[sourceId]?.albumSearch.search(text, page, listInfo.limit) as Promise<SearchResult>)
       ?? Promise.reject(new Error('source not found: ' + sourceId))

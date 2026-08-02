@@ -35,6 +35,8 @@ export default ({ name, list, onTagChange, activeId }: TagGroupProps) => {
                   style={{ ...styles.tagButton, backgroundColor: theme['c-button-background'] }}
                   key={item.id}
                   onPress={() => { onTagChange(item.name, item.id) }}
+                  accessibilityLabel={item.name}
+                  accessibilityRole="button"
                 >
                   <Text style={styles.tagButtonText} color={theme['c-font']} >{item.name}</Text>
                 </Button>

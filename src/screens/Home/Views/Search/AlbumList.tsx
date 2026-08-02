@@ -88,9 +88,14 @@ export default forwardRef<AlbumListType, {}>((props, ref) => {
     })
   }
   const handleLoadMore: SonglistProps['onLoadMore'] = () => {
-    listRef.current?.setStatus('loading')
     const info = searchAlbumState.listInfos[searchInfoRef.current.source]!
     const page = info.list.length ? info.page + 1 : 1
+    // 如果已经超过最大页数，直接显示结束，避免无谓的API请求导致"加载失败"
+    if (searchAlbumState.maxPages[searchInfoRef.current.source] != null && page > searchAlbumState.maxPages[searchInfoRef.current.source]!) {
+      listRef.current?.setStatus('end')
+      return
+    }
+    listRef.current?.setStatus('loading')
     search(searchInfoRef.current.text, page, searchInfoRef.current.source).then((list) => {
       if (isUnmountedRef.current) return
       const mappedList = list.map(mapToSonglistItem)

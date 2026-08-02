@@ -120,7 +120,7 @@ export default forwardRef<UserApiEditModalType, {}>((props, ref) => {
               </View>
             </View>
             <View style={styles.btns}>
-              <Button style={{ ...styles.btn, backgroundColor: theme['c-button-background'] }} onPress={handleCancel}>
+              <Button style={{ ...styles.btn, backgroundColor: theme['c-button-background'] }} onPress={handleCancel} accessibilityLabel={t('close')}>
                 <Text size={14} color={theme['c-button-font']}>{t('close')}</Text>
               </Button>
               <ImportBtn btnStyle={{ ...styles.btn, backgroundColor: theme['c-button-background'] }} />

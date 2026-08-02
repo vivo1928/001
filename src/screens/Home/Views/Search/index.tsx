@@ -11,6 +11,7 @@ import searchMusicState from '@/store/search/music/state'
 import searchSonglistState from '@/store/search/songlist/state'
 import searchAlbumState from '@/store/search/album/state'
 import searchSingerState from '@/store/search/singer/state'
+import searchProgramState from '@/store/search/program/state'
 import { getSearchSetting, saveSearchSetting } from '@/utils/data'
 import { createStyle } from '@/utils/tools'
 import TipList, { type TipListType } from './TipList'
@@ -50,6 +51,9 @@ export default () => {
           break
         case 'singer':
           headerBarRef.current?.setSourceList(searchSingerState.sources, info.source)
+          break
+        case 'program':
+          headerBarRef.current?.setSourceList(searchProgramState.sources, info.source)
           break
       }
       headerBarRef.current?.setText(searchState.searchText)

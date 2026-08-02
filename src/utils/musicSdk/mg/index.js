@@ -3,6 +3,7 @@ import leaderboard from './leaderboard'
 import songList from './songList'
 import musicSearch from './musicSearch'
 import albumSearch from './albumSearch'
+import programSearch from './programSearch'
 import singerSearch from './singerSearch'
 import album from './album'
 import singer from './singer'
@@ -17,6 +18,7 @@ const mg = {
   songList,
   musicSearch,
   albumSearch,
+  programSearch,
   singerSearch,
   album,
   singer,

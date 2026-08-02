@@ -1,6 +1,6 @@
 import { updateListMusics } from '@/core/list'
 import { setMaxplayTime, setNowPlayTime } from '@/core/player/progress'
-import { setCurrentTime, getDuration, getPosition } from '@/plugins/player'
+import { setCurrentTime, getDuration, getPosition, setPlaybackRate } from '@/plugins/player'
 import { formatPlayTime2 } from '@/utils/common'
 import { savePlayInfo } from '@/utils/data'
 import { throttleBackgroundTimer } from '@/utils/tools'
@@ -149,7 +149,11 @@ export default () => {
   // })
 
   const handleConfigUpdated: typeof global.state_event.configUpdated = (keys, settings) => {
-    if (keys.includes('player.playbackRate')) startUpdateTimeout()
+    if (keys.includes('player.playbackRate')) {
+      const rate = settings['player.playbackRate'] as number
+      if (rate > 0) void setPlaybackRate(rate)
+      startUpdateTimeout()
+    }
   }
 
   const handleScreenStateChanged: Parameters<typeof onScreenStateChange>[0] = (state) => {

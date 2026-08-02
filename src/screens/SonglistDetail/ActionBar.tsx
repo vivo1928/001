@@ -34,13 +34,13 @@ export default memo(() => {
 
   return (
     <View style={styles.container}>
-      <Button onPress={handleCollection} style={styles.controlBtn}>
+      <Button onPress={handleCollection} style={styles.controlBtn} accessibilityLabel={t('collect_songlist')} accessibilityRole="button">
         <Text style={{ ...styles.controlBtnText, color: theme['c-button-font'] }}>{t('collect_songlist')}</Text>
       </Button>
-      <Button onPress={handlePlayAll} style={styles.controlBtn}>
+      <Button onPress={handlePlayAll} style={styles.controlBtn} accessibilityLabel={t('play_all')} accessibilityRole="button">
         <Text style={{ ...styles.controlBtnText, color: theme['c-button-font'] }}>{t('play_all')}</Text>
       </Button>
-      <Button onPress={back} style={styles.controlBtn}>
+      <Button onPress={back} style={styles.controlBtn} accessibilityLabel={t('back')} accessibilityRole="button">
         <Text style={{ ...styles.controlBtnText, color: theme['c-button-font'] }}>{t('back')}</Text>
       </Button>
     </View>

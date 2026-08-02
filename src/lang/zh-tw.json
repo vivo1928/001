@@ -257,6 +257,7 @@
   "search_type_songlist": "歌單",
   "search_type_album": "專輯",
   "search_type_singer": "歌手",
+  "search_type_program": "節目",
   
   "setting__other_dislike_list": "「不喜歡的歌曲」規則",
   "setting__other_dislike_list_label": "規則數量：{num}",
@@ -531,6 +532,7 @@
   "user_api_max_tip": "最多只能同時存在 20 個 API 哦🤪\n想要繼續匯入的話，請先移除一些舊的 API 騰出位置吧",
   "user_api_note": "提示：雖然我們已經盡可能地隔離了 API 腳本的執行環境，但匯入包含惡意行為的 API 腳本仍可能會影響你的系統，請謹慎匯入。",
   "user_api_readme": "API 編寫說明：",
+  "user_api_remove_btn": "移除",
   "user_api_remove_tip": "你真的要移除「{name}」嗎？",
   "user_api_title": "自訂來源 API 管理（實驗性）",
   "user_api_update_alert": "自訂來源 API「{name}」發現新版本",

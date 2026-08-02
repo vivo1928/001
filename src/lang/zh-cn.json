@@ -257,6 +257,7 @@
   "search_type_songlist": "歌单",
   "search_type_album": "专辑",
   "search_type_singer": "歌手",
+  "search_type_program": "节目",
   
   "setting__other_dislike_list": "「不喜欢的歌曲」规则",
   "setting__other_dislike_list_label": "规则数量：{num}",
@@ -531,6 +532,7 @@
   "user_api_max_tip": "最多只能同时存在 20 个源哦🤪\n想要继续导入的话，请先移除一些旧的源腾出位置吧",
   "user_api_note": "提示：虽然我们已经尽可能地隔离了脚本的运行环境，但导入包含恶意行为的脚本仍可能会影响你的系统，请谨慎导入。",
   "user_api_readme": "源编写说明：",
+  "user_api_remove_btn": "移除",
   "user_api_remove_tip": "你真的要移除「{name}」吗？",
   "user_api_title": "自定义源管理（实验性）",
   "user_api_update_alert": "自定义源「{name}」发现新版本",
