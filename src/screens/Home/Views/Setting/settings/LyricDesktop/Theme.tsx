@@ -6,6 +6,18 @@ import { StyleSheet, View, TouchableOpacity } from 'react-native'
 
 import SubTitle from '../../components/SubTitle'
 
+const colorNameMap: Record<string, string> = {
+  '#08e664': '绿色',
+  '#fffa12': '黄色',
+  '#019ce4': '蓝色',
+  '#ff1222': '红色',
+  '#ef6976': '粉色',
+  '#c851d4': '紫色',
+  '#ffa600': '橙色',
+  '#000000': '黑色',
+  '#ffffff': '白色',
+}
+
 const themes = [
   ['#08e664', 'rgba(0,0,0,0.6)'],
   ['#fffa12', 'rgba(0,0,0,0.6)'],
@@ -25,7 +37,7 @@ const ThemeItem = ({ color, change }: {
 }) => {
   return (
     <TouchableOpacity style={styles.item} activeOpacity={0.5} onPress={() => { change(color) }}
-      accessibilityLabel={color[0]}>
+      accessibilityLabel={colorNameMap[color[0]] ?? color[0]}>
       <View style={styles.colorContent}>
         <View style={{ ...styles.image, backgroundColor: color[0] }}></View>
       </View>

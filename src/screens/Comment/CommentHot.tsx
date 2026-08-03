@@ -43,8 +43,7 @@ export default ({ musicInfo, onUpdateTotal }: {
   }
   const handleListLoadMore = () => {
     if (listInfo.current.isLoading || listInfo.current.isEnd) return
-    const list = listRef.current?.getList() ?? []
-    const page = list.length ? listInfo.current.page + 1 : 1
+    const page = listInfo.current.page + 1
     listRef.current?.setStatus('loading')
     void handleGetComment(musicInfo, page).then(({ comments }) => {
       let isEnd = page >= listInfo.current.maxPage

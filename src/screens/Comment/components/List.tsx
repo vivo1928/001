@@ -30,16 +30,18 @@ const List = forwardRef<ListType, ListProps>(({
   const theme = useTheme()
   const flatListRef = useRef<FlatList>(null)
   const [currentList, setList] = useState<Comment[]>([])
+  const listDataRef = useRef<Comment[]>([])
   const [status, setStatus] = useState<Status>('idle')
   // const currentListIdRef = useRef('')
   // console.log('render comment list')
 
   useImperativeHandle(ref, () => ({
     setList(list) {
+      listDataRef.current = list
       setList(list)
     },
     getList() {
-      return currentList
+      return listDataRef.current
     },
     setStatus(val) {
       setStatus(val)
