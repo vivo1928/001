@@ -25,45 +25,6 @@ export default forwardRef<AlbumListType, {}>((props, ref) => {
   const listRef = useRef<SonglistType>(null)
   const searchInfoRef = useRef<{ text: string, source: Source }>({ text: '', source: 'kw' })
   const isUnmountedRef = useRef(false)
-  const retryCountRef = useRef(0)
-  const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-
-  const clearRetryTimer = () => {
-    if (retryTimerRef.current) {
-      clearTimeout(retryTimerRef.current)
-      retryTimerRef.current = null
-    }
-    retryCountRef.current = 0
-  }
-
-  /** 失败后延迟重试，保持loading状态不影响读屏 */
-  const scheduleRetry = () => {
-    if (isUnmountedRef.current) return
-    retryCountRef.current++
-    if (retryCountRef.current >= 3) {
-      listRef.current?.setStatus('error')
-      return
-    }
-    // 保持loading状态，不显示error，读屏不会额外播报
-    retryTimerRef.current = setTimeout(async () => {
-      if (isUnmountedRef.current) return
-      const { text, source } = searchInfoRef.current
-      try {
-        const list = await search(text, 1, source)
-        if (isUnmountedRef.current) return
-        clearRetryTimer()
-        requestAnimationFrame(() => {
-          const mappedList = list.map(mapToSonglistItem)
-          listRef.current?.setList(mappedList, false)
-          listRef.current?.setStatus(searchAlbumState.maxPages[searchAlbumState.source] == 1 ? 'end' : 'idle')
-        })
-      } catch {
-        if (!isUnmountedRef.current) {
-          scheduleRetry() // 继续重试
-        }
-      }
-    }, 1500)
-  }
 
   const handleOpenDetail = (item: ListInfoItem, index: number) => {
     navigations.pushAlbumDetailScreen(commonState.componentIds.home!, {
@@ -77,42 +38,39 @@ export default forwardRef<AlbumListType, {}>((props, ref) => {
     })
   }
 
-  useImperativeHandle(ref, () => ({
-    async loadList(text, source) {
-      clearRetryTimer() // 新搜索取消之前的重试
-      listRef.current?.setList([], false)
-      if (searchAlbumState.searchText == text && searchAlbumState.source == source && searchAlbumState.listInfos[searchAlbumState.source]!.list.length) {
+  const loadList = async (text: string, source: Source) => {
+    listRef.current?.setList([], false)
+    if (searchAlbumState.searchText == text && searchAlbumState.source == source && searchAlbumState.listInfos[searchAlbumState.source]!.list.length) {
+      requestAnimationFrame(() => {
+        const mappedList = searchAlbumState.listInfos[searchAlbumState.source]!.list.map(mapToSonglistItem)
+        listRef.current?.setList(mappedList, false)
+      })
+    } else {
+      listRef.current?.setStatus('loading')
+      const page = 1
+      searchInfoRef.current.text = text
+      searchInfoRef.current.source = source
+      return search(text, page, source).then((list) => {
+        if (isUnmountedRef.current) return
         requestAnimationFrame(() => {
-          const mappedList = searchAlbumState.listInfos[searchAlbumState.source]!.list.map(mapToSonglistItem)
+          const mappedList = list.map(mapToSonglistItem)
           listRef.current?.setList(mappedList, false)
+          listRef.current?.setStatus(searchAlbumState.maxPages[searchAlbumState.source] == page ? 'end' : 'idle')
         })
-      } else {
-        listRef.current?.setStatus('loading')
-        const page = 1
-        searchInfoRef.current.text = text
-        searchInfoRef.current.source = source
-        return search(text, page, source).then((list) => {
-          if (isUnmountedRef.current) return
-          clearRetryTimer()
-          requestAnimationFrame(() => {
-            const mappedList = list.map(mapToSonglistItem)
-            listRef.current?.setList(mappedList, false)
-            listRef.current?.setStatus(searchAlbumState.maxPages[searchAlbumState.source] == page ? 'end' : 'idle')
-          })
-        }).catch(() => {
-          if (!isUnmountedRef.current) {
-            scheduleRetry()
-          }
-        })
-      }
-    },
+      }).catch(() => {
+        listRef.current?.setStatus('error')
+      })
+    }
+  }
+
+  useImperativeHandle(ref, () => ({
+    loadList,
   }), [])
 
   useEffect(() => {
     isUnmountedRef.current = false
     return () => {
       isUnmountedRef.current = true
-      clearRetryTimer()
     }
   }, [])
 
@@ -141,7 +99,7 @@ export default forwardRef<AlbumListType, {}>((props, ref) => {
     search(searchInfoRef.current.text, page, searchInfoRef.current.source).then((list) => {
       if (isUnmountedRef.current) return
       const mappedList = list.map(mapToSonglistItem)
-      listRef.current?.setList(mappedList, false)
+      listRef.current?.setList(mappedList, true, false)
       listRef.current?.setStatus(searchAlbumState.maxPages[searchAlbumState.source] == page ? 'end' : 'idle')
     }).catch(() => {
       listRef.current?.setStatus('error')

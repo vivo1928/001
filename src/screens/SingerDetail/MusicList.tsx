@@ -216,5 +216,6 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId, activeT
     onRefresh={handleRefresh}
     onLoadMore={handleLoadMore}
     ListHeaderComponent={header}
+    rowType='medium'
   />
 })

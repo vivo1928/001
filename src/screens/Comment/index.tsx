@@ -5,7 +5,7 @@ import Header from './components/Header'
 import { Icon } from '@/components/common/Icon'
 import CommentHot from './CommentHot'
 import CommentNew from './CommentNew'
-import { createStyle, toast } from '@/utils/tools'
+import { createStyle } from '@/utils/tools'
 import { useTheme } from '@/store/theme/hook'
 import Text from '@/components/common/Text'
 import { useI18n } from '@/lang'
@@ -38,13 +38,14 @@ const HeaderItem = ({ id, label, isActive, onPress }: {
   return components
 }
 
-const HotCommentPage = memo(({ activeId, musicInfo, onUpdateTotal }: {
+const HotCommentPage = memo(({ activeId, musicInfo, refreshKey, onUpdateTotal }: {
   activeId: ActiveId
   musicInfo: LX.Music.MusicInfoOnline
+  refreshKey: number
   onUpdateTotal: (total: number) => void
 }) => {
   const initedRef = useRef(false)
-  const comment = useMemo(() => <CommentHot musicInfo={musicInfo} onUpdateTotal={onUpdateTotal} />, [musicInfo, onUpdateTotal])
+  const comment = useMemo(() => <CommentHot musicInfo={musicInfo} refreshKey={refreshKey} onUpdateTotal={onUpdateTotal} />, [musicInfo, refreshKey, onUpdateTotal])
   switch (activeId) {
     case 'hot':
       if (!initedRef.current) initedRef.current = true
@@ -54,13 +55,14 @@ const HotCommentPage = memo(({ activeId, musicInfo, onUpdateTotal }: {
   }
 })
 
-const NewCommentPage = memo(({ activeId, musicInfo, onUpdateTotal }: {
+const NewCommentPage = memo(({ activeId, musicInfo, refreshKey, onUpdateTotal }: {
   activeId: ActiveId
   musicInfo: LX.Music.MusicInfoOnline
+  refreshKey: number
   onUpdateTotal: (total: number) => void
 }) => {
   const initedRef = useRef(false)
-  const comment = useMemo(() => <CommentNew musicInfo={musicInfo} onUpdateTotal={onUpdateTotal} />, [musicInfo, onUpdateTotal])
+  const comment = useMemo(() => <CommentNew musicInfo={musicInfo} refreshKey={refreshKey} onUpdateTotal={onUpdateTotal} />, [musicInfo, refreshKey, onUpdateTotal])
   switch (activeId) {
     case 'new':
       if (!initedRef.current) initedRef.current = true
@@ -85,6 +87,7 @@ export default memo(({ componentId }: {
   const [activeId, setActiveId] = useState<ActiveId>('hot')
   const [pageIndex, setPageIndex] = useState(0)
   const [musicInfo, setMusicInfo] = useState<LX.Music.MusicInfo | null>(getMusicInfo(playerState.playMusicInfo.musicInfo))
+  const [refreshKey, setRefreshKey] = useState(0)
   const t = useI18n()
   const theme = useTheme()
   const [total, setTotal] = useState({ hot: 0, new: 0 })
@@ -115,13 +118,9 @@ export default memo(({ componentId }: {
     if (!playerState.playMusicInfo.musicInfo) return
     let playerMusicInfo = playerState.playMusicInfo.musicInfo
     if ('progress' in playerMusicInfo) playerMusicInfo = playerMusicInfo.metadata.musicInfo
-
-    if (musicInfo && musicInfo.id == playerMusicInfo.id) {
-      toast(t('comment_refresh', { name: musicInfo.name }))
-      return
-    }
     setMusicInfo(playerMusicInfo)
-  }, [musicInfo, t])
+    setRefreshKey(k => k + 1)
+  }, [])
 
   const setHotTotal = useCallback((total: number) => {
     setTotal(totalInfo => ({ ...totalInfo, hot: total }))
@@ -152,10 +151,10 @@ export default memo(({ componentId }: {
           accessible={false}
         >
           <View collapsable={false} style={styles.pageStyle} importantForAccessibility={pageIndex == 0 ? 'auto' : 'no-hide-descendants'}>
-            <HotCommentPage activeId={activeId} musicInfo={musicInfo as LX.Music.MusicInfoOnline} onUpdateTotal={setHotTotal} />
+            <HotCommentPage activeId={activeId} musicInfo={musicInfo as LX.Music.MusicInfoOnline} refreshKey={refreshKey} onUpdateTotal={setHotTotal} />
           </View>
           <View collapsable={false} style={styles.pageStyle} importantForAccessibility={pageIndex == 1 ? 'auto' : 'no-hide-descendants'}>
-            <NewCommentPage activeId={activeId} musicInfo={musicInfo as LX.Music.MusicInfoOnline} onUpdateTotal={setNewTotal} />
+            <NewCommentPage activeId={activeId} musicInfo={musicInfo as LX.Music.MusicInfoOnline} refreshKey={refreshKey} onUpdateTotal={setNewTotal} />
           </View>
         </PagerView>
       </View>

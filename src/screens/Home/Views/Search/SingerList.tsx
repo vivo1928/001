@@ -54,7 +54,7 @@ export default forwardRef<SingerListType, {}>((props, ref) => {
         clearRetryTimer()
         requestAnimationFrame(() => {
           const mappedList = list.map(mapToSonglistItem)
-          listRef.current?.setList(mappedList, false)
+          listRef.current?.setList(mappedList, false, false)
           listRef.current?.setStatus(searchSingerState.maxPages[searchSingerState.source] == 1 ? 'end' : 'idle')
         })
       } catch {
@@ -77,35 +77,37 @@ export default forwardRef<SingerListType, {}>((props, ref) => {
     })
   }
 
-  useImperativeHandle(ref, () => ({
-    async loadList(text, source) {
-      clearRetryTimer() // 新搜索取消之前的重试
-      listRef.current?.setList([], false)
-      if (searchSingerState.searchText == text && searchSingerState.source == source && searchSingerState.listInfos[searchSingerState.source]!.list.length) {
+  const loadList = async (text: string, source: Source) => {
+    clearRetryTimer() // 新搜索取消之前的重试
+    listRef.current?.setList([], false, false)
+    if (searchSingerState.searchText == text && searchSingerState.source == source && searchSingerState.listInfos[searchSingerState.source]!.list.length) {
+      requestAnimationFrame(() => {
+        const mappedList = searchSingerState.listInfos[searchSingerState.source]!.list.map(mapToSonglistItem)
+        listRef.current?.setList(mappedList, false, false)
+      })
+    } else {
+      listRef.current?.setStatus('loading')
+      const page = 1
+      searchInfoRef.current.text = text
+      searchInfoRef.current.source = source
+      return search(text, page, source).then((list) => {
+        if (isUnmountedRef.current) return
+        clearRetryTimer()
         requestAnimationFrame(() => {
-          const mappedList = searchSingerState.listInfos[searchSingerState.source]!.list.map(mapToSonglistItem)
-          listRef.current?.setList(mappedList, false)
+          const mappedList = list.map(mapToSonglistItem)
+          listRef.current?.setList(mappedList, false, false)
+          listRef.current?.setStatus(searchSingerState.maxPages[searchSingerState.source] == page ? 'end' : 'idle')
         })
-      } else {
-        listRef.current?.setStatus('loading')
-        const page = 1
-        searchInfoRef.current.text = text
-        searchInfoRef.current.source = source
-        return search(text, page, source).then((list) => {
-          if (isUnmountedRef.current) return
-          clearRetryTimer()
-          requestAnimationFrame(() => {
-            const mappedList = list.map(mapToSonglistItem)
-            listRef.current?.setList(mappedList, false)
-            listRef.current?.setStatus(searchSingerState.maxPages[searchSingerState.source] == page ? 'end' : 'idle')
-          })
-        }).catch(() => {
-          if (!isUnmountedRef.current) {
-            scheduleRetry()
-          }
-        })
-      }
-    },
+      }).catch(() => {
+        if (!isUnmountedRef.current) {
+          scheduleRetry()
+        }
+      })
+    }
+  }
+
+  useImperativeHandle(ref, () => ({
+    loadList,
   }), [])
 
   useEffect(() => {
@@ -123,7 +125,7 @@ export default forwardRef<SingerListType, {}>((props, ref) => {
     search(searchInfoRef.current.text, page, searchInfoRef.current.source).then((list) => {
       if (isUnmountedRef.current) return
       const mappedList = list.map(mapToSonglistItem)
-      listRef.current?.setList(mappedList, false)
+      listRef.current?.setList(mappedList, false, false)
       listRef.current?.setStatus(searchSingerState.maxPages[searchSingerState.source] == page ? 'end' : 'idle')
     }).catch(() => {
       listRef.current?.setStatus('error')
@@ -141,7 +143,7 @@ export default forwardRef<SingerListType, {}>((props, ref) => {
     search(searchInfoRef.current.text, page, searchInfoRef.current.source).then((list) => {
       if (isUnmountedRef.current) return
       const mappedList = list.map(mapToSonglistItem)
-      listRef.current?.setList(mappedList, false)
+      listRef.current?.setList(mappedList, true, false)
       listRef.current?.setStatus(searchSingerState.maxPages[searchSingerState.source] == page ? 'end' : 'idle')
     }).catch(() => {
       listRef.current?.setStatus('error')

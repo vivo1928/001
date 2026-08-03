@@ -72,7 +72,7 @@ export default forwardRef<MusicListType, {}>((props, ref) => {
     search(searchInfoRef.current.text, page, searchInfoRef.current.source).then((list) => {
       // const result = setListInfo(listDetail, searchSonglistState.listDetailInfo.id, page)
       if (isUnmountedRef.current) return
-      listRef.current?.setList(list, searchInfoRef.current.source == 'all')
+      listRef.current?.setList(list, true, searchInfoRef.current.source == 'all')
       listRef.current?.setStatus(searchSonglistState.maxPages[searchSonglistState.source] == page ? 'end' : 'idle')
     }).catch(() => {
       listRef.current?.setStatus('error')

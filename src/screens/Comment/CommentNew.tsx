@@ -4,8 +4,9 @@ import music from '@/utils/musicSdk'
 import List, { type ListType } from './components/List'
 const limit = 15
 
-export default ({ musicInfo, onUpdateTotal }: {
+export default ({ musicInfo, refreshKey, onUpdateTotal }: {
   musicInfo: LX.Music.MusicInfoOnline
+  refreshKey: number
   onUpdateTotal: (total: number) => void
 }) => {
   // const [isLoading, setIsLoading] = useState(false)
@@ -90,7 +91,7 @@ export default ({ musicInfo, onUpdateTotal }: {
   useEffect(() => {
     handleShowComment(musicInfo)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [musicInfo.id])
+  }, [musicInfo.id, refreshKey])
 
 
   return (
