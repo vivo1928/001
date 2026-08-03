@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState, forwardRef, useImperativeHandle } from 'react'
-import { FlatList, type FlatListProps, RefreshControl, View } from 'react-native'
+import { FlatList, type FlatListProps, RefreshControl, View, Vibration, AccessibilityInfo } from 'react-native'
 
 // import { useMusicList } from '@/store/list/hook'
 import ListItem, { ITEM_HEIGHT } from './ListItem'
@@ -179,6 +179,12 @@ const List = forwardRef<ListType, ListProps>(({
     prevSelectIndexRef.current = index
     handleUpdateSelectedList([item])
     onMuiltSelectMode()
+    // 震动反馈
+    Vibration.vibrate(30)
+    // 无障碍播报提示
+    AccessibilityInfo.announceForAccessibility(
+      global.i18n.t('download_multi_select') || '已进入多选模式',
+    )
   }
 
   const handleLoadMore = () => {

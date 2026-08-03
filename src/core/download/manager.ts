@@ -5,7 +5,7 @@ import {
   stopDownload,
   mkdir,
   existsFile,
-  temporaryDirectoryPath,
+  externalStorageDirectoryPath,
 } from '@/utils/fs'
 
 /**
@@ -44,6 +44,9 @@ const sanitizeFileName = (name: string): string => {
   return name.replace(/[/\\?%*:|"<>]/g, '_').replace(/\s+/g, ' ').trim()
 }
 
+// 基础下载目录：公共目录/音乐下载
+const BASE_DOWNLOAD_DIR = `${externalStorageDirectoryPath}/音乐下载`
+
 // ---------------------------------------------------------------------------
 // 公开类型
 // ---------------------------------------------------------------------------
@@ -58,6 +61,7 @@ export interface DownloadTask {
   filePath: string
   fileName: string
   error?: string
+  subDir?: string // 子目录名（歌单/专辑名）
 }
 
 /** 下载进度回调 */
@@ -86,7 +90,7 @@ class DownloadManager {
   ) {
     this.onProgress = onProgress
     this.onComplete = onComplete
-    this.downloadDir = downloadDir ?? `${temporaryDirectoryPath}/downloads`
+    this.downloadDir = downloadDir ?? BASE_DOWNLOAD_DIR
   }
 
   // -----------------------------------------------------------------------
@@ -96,21 +100,26 @@ class DownloadManager {
   /**
    * 获取下载文件的保存路径和文件名
    * 文件名格式：{singer} - {name}.{ext}
+   * 如有子目录则在基础下载目录下创建子目录
    */
-  getDownloadPath(musicInfo: LX.Music.MusicInfoOnline, quality: LX.Quality): { filePath: string; fileName: string } {
+  getDownloadPath(musicInfo: LX.Music.MusicInfoOnline, quality: LX.Quality, subDir?: string): { filePath: string; fileName: string } {
     const ext = getFileExt(quality)
     const fileName = `${sanitizeFileName(musicInfo.singer)} - ${sanitizeFileName(musicInfo.name)}.${ext}`
-    const filePath = `${this.downloadDir}/${fileName}`
+    const dir = subDir ? `${this.downloadDir}/${sanitizeFileName(subDir)}` : this.downloadDir
+    const filePath = `${dir}/${fileName}`
     return { filePath, fileName }
   }
 
   /**
    * 添加单个下载任务到队列
+   * @param musicInfo 歌曲信息
+   * @param quality 音质
+   * @param subDir 可选子目录（歌单名/专辑名）
    * @returns 任务ID
    */
-  addToQueue(musicInfo: LX.Music.MusicInfoOnline, quality: LX.Quality): string {
+  addToQueue(musicInfo: LX.Music.MusicInfoOnline, quality: LX.Quality, subDir?: string): string {
     const id = generateId()
-    const { filePath, fileName } = this.getDownloadPath(musicInfo, quality)
+    const { filePath, fileName } = this.getDownloadPath(musicInfo, quality, subDir)
 
     const task: DownloadTask = {
       id,
@@ -120,6 +129,7 @@ class DownloadManager {
       progress: 0,
       filePath,
       fileName,
+      subDir,
     }
 
     this.queue.push(task)
@@ -130,10 +140,13 @@ class DownloadManager {
 
   /**
    * 批量添加下载任务到队列
+   * @param musicInfos 歌曲列表
+   * @param quality 音质
+   * @param subDir 可选子目录（歌单名/专辑名）
    * @returns 任务ID数组
    */
-  addBatchToQueue(musicInfos: LX.Music.MusicInfoOnline[], quality: LX.Quality): string[] {
-    return musicInfos.map((musicInfo) => this.addToQueue(musicInfo, quality))
+  addBatchToQueue(musicInfos: LX.Music.MusicInfoOnline[], quality: LX.Quality, subDir?: string): string[] {
+    return musicInfos.map((musicInfo) => this.addToQueue(musicInfo, quality, subDir))
   }
 
   /**
@@ -273,9 +286,15 @@ class DownloadManager {
    * 执行单个文件的下载流程
    */
   private async downloadSingleTask(task: DownloadTask): Promise<void> {
-    // 1. 确保下载目录存在
-    const dirExists = await existsFile(this.downloadDir).catch(() => false)
+    // 1. 确保下载目录存在（含子目录）
+    const targetDir = task.subDir ? `${this.downloadDir}/${sanitizeFileName(task.subDir)}` : this.downloadDir
+    const dirExists = await existsFile(targetDir).catch(() => false)
     if (!dirExists) {
+      await mkdir(targetDir)
+    }
+    // 也确保基础下载目录存在
+    const baseDirExists = await existsFile(this.downloadDir).catch(() => false)
+    if (!baseDirExists) {
       await mkdir(this.downloadDir)
     }
 

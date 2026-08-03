@@ -148,10 +148,10 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId }, ref) 
     downloadManager['onProgress'] = (id, progress) => {
       const stats = downloadManager.getStats()
       const doneCount = stats.completed + stats.failed
-      const totalProgress = total > 0 ? Math.round((doneCount / total) * 100) : 0
+      const currentSong = doneCount + 1
       downloadProgressRef.current?.updateProgress(
-        totalProgress,
-        `${global.i18n.t('download_current_progress', { current: doneCount + 1, total })} ${progress}%`,
+        total > 0 ? Math.round((doneCount / total) * 100) : 0,
+        `${global.i18n.t('download_current_progress', { current: currentSong, total })} ${progress}%`,
       )
     }
 
@@ -172,9 +172,10 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId }, ref) 
       const doneCount = stats.completed + stats.failed
 
       if (doneCount < total) {
+        const currentSong = doneCount + 1
         downloadProgressRef.current?.updateProgress(
           total > 0 ? Math.round((doneCount / total) * 100) : 0,
-          `${global.i18n.t('download_current_progress', { current: doneCount + 1, total })}`,
+          `${global.i18n.t('download_current_progress', { current: currentSong, total })}`,
         )
       }
 

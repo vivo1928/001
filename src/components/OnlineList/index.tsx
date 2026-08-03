@@ -31,7 +31,7 @@ export interface OnlineListType {
   getList: () => LX.Music.MusicInfoOnline[]
   getSelectedList: () => LX.Music.MusicInfoOnline[]
   selectRange: (list: LX.Music.MusicInfoOnline[]) => void
-  startBatchDownload: (list: LX.Music.MusicInfoOnline[]) => void
+  startBatchDownload: (list: LX.Music.MusicInfoOnline[], subDir?: string) => void
 }
 
 const downloadManager = new DownloadManager(
@@ -91,8 +91,8 @@ export default forwardRef<OnlineListType, OnlineListProps>(({
     selectRange(list) {
       listRef.current?.selectRange(list)
     },
-    startBatchDownload(list) {
-      handleStartDownload(list)
+    startBatchDownload(list, subDir) {
+      handleStartDownload(list, subDir)
     },
   }))
 
@@ -194,18 +194,18 @@ export default forwardRef<OnlineListType, OnlineListProps>(({
     handleStartDownload(selectedList)
   }, [])
 
-  const handleStartDownload = (list: LX.Music.MusicInfoOnline[]) => {
+  const handleStartDownload = (list: LX.Music.MusicInfoOnline[], subDir?: string) => {
     if (!list.length) return
     // 显示音质选择（不显示文件大小）
     downloadQualityRef.current?.show(list[0], {
       showFileSize: false,
       onSelect: (quality) => {
-        startBatchDownload(list, quality)
+        startBatchDownload(list, quality, subDir)
       },
     })
   }
 
-  const startBatchDownload = (list: LX.Music.MusicInfoOnline[], quality: LX.Quality) => {
+  const startBatchDownload = (list: LX.Music.MusicInfoOnline[], quality: LX.Quality, subDir?: string) => {
     const total = list.length
     downloadContextRef.current = {
       tasks: [],
@@ -224,7 +224,7 @@ export default forwardRef<OnlineListType, OnlineListProps>(({
     })
 
     // 添加所有任务到队列
-    const taskIds = downloadManager.addBatchToQueue(list, quality)
+    const taskIds = downloadManager.addBatchToQueue(list, quality, subDir)
     const allTasks = downloadManager.getQueue().filter(t => taskIds.includes(t.id))
     downloadContextRef.current.tasks = allTasks
 
@@ -241,10 +241,10 @@ export default forwardRef<OnlineListType, OnlineListProps>(({
       const currentCompleted = downloadManager.getStats().completed
       const currentFailed = downloadManager.getStats().failed
       const doneCount = currentCompleted + currentFailed
-      const totalProgress = total > 0 ? Math.round((doneCount / total) * 100) : 0
+      const currentSong = doneCount + 1
       downloadProgressRef.current?.updateProgress(
-        totalProgress,
-        `${global.i18n.t('download_current_progress', { current: doneCount + 1, total })} ${progress}%`,
+        total > 0 ? Math.round((doneCount / total) * 100) : 0,
+        `${global.i18n.t('download_current_progress', { current: currentSong, total })} ${progress}%`,
       )
     }
 
@@ -269,9 +269,10 @@ export default forwardRef<OnlineListType, OnlineListProps>(({
       const totalProgress = total > 0 ? Math.round((doneCount / total) * 100) : 0
 
       if (doneCount < total) {
+        const currentSong = doneCount + 1
         downloadProgressRef.current?.updateProgress(
           totalProgress,
-          `${global.i18n.t('download_current_progress', { current: doneCount + 1, total })}`,
+          `${global.i18n.t('download_current_progress', { current: currentSong, total })}`,
         )
       }
 
@@ -292,7 +293,7 @@ export default forwardRef<OnlineListType, OnlineListProps>(({
               },
             })
             // 重试失败的歌曲
-            const retryIds = downloadManager.addBatchToQueue(retryList, quality)
+            const retryIds = downloadManager.addBatchToQueue(retryList, quality, subDir)
             const retryTasks = downloadManager.getQueue().filter(t => retryIds.includes(t.id))
             allTasks.push(...retryTasks)
 

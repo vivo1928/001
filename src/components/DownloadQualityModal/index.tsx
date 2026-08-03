@@ -54,8 +54,12 @@ export default forwardRef<DownloadQualityModalType>((_props, ref) => {
 
   const getFileSize = (quality: LX.Quality): string | null => {
     if (!musicInfo || !showFileSize) return null
-    const qualityInfo = musicInfo.meta.qualitys.find(q => q.type === quality)
-    return qualityInfo?.size ?? null
+    // 先尝试 qualitys 数组
+    const qualityInfo = musicInfo.meta.qualitys?.find(q => q.type === quality)
+    if (qualityInfo?.size) return qualityInfo.size
+    // 回退到 _qualitys 字典
+    const q = musicInfo.meta._qualitys?.[quality]
+    return q?.size ?? null
   }
 
   const getAvailableQualities = (): LX.Quality[] => {
