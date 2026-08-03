@@ -16,6 +16,8 @@ export interface MultipleModeBarProps {
   onSwitchMode: (mode: SelectMode) => void
   onSelectAll: (isAll: boolean) => void
   onExitSelectMode: () => void
+  onBatchDownload?: () => void
+  onRangeSelect?: () => void
 }
 export interface MultipleModeBarType {
   show: () => void
@@ -24,7 +26,7 @@ export interface MultipleModeBarType {
   exitSelectMode: () => void
 }
 
-export default forwardRef<MultipleModeBarType, MultipleModeBarProps>(({ onSelectAll, onSwitchMode, onExitSelectMode }, ref) => {
+export default forwardRef<MultipleModeBarType, MultipleModeBarProps>(({ onSelectAll, onSwitchMode, onExitSelectMode, onBatchDownload, onRangeSelect }, ref) => {
   // const isGetDetailFailedRef = useRef(false)
   const [visible, setVisible] = useState(false)
   const [animatePlayed, setAnimatPlayed] = useState(true)
@@ -119,22 +121,30 @@ export default forwardRef<MultipleModeBarType, MultipleModeBarProps>(({ onSelect
             accessibilityLabel={global.i18n.t('list_select_single')}>
             <Text color={theme['c-button-font']}>{global.i18n.t('list_select_single')}</Text>
           </Button>
-          <Button onPress={() => { onSwitchMode('range') }} style={{ ...styles.btn, backgroundColor: selectMode == 'range' ? theme['c-button-background'] : 'rgba(0,0,0,0)' }}
-            accessibilityLabel={global.i18n.t('list_select_range')}>
-            <Text color={theme['c-button-font']}>{global.i18n.t('list_select_range')}</Text>
+          <Button onPress={() => onRangeSelect?.()} style={{ ...styles.btn, backgroundColor: 'rgba(0,0,0,0)' }}
+            accessibilityLabel={global.i18n.t('download_choose_range')}>
+            <Text color={theme['c-button-font']}>{global.i18n.t('download_choose_range')}</Text>
           </Button>
         </View>
         <TouchableOpacity onPress={handleSelectAll} style={styles.btn}
           accessibilityLabel={global.i18n.t(isSelectAll ? 'list_select_unall' : 'list_select_all')}>
           <Text color={theme['c-button-font']}>{global.i18n.t(isSelectAll ? 'list_select_unall' : 'list_select_all')}</Text>
         </TouchableOpacity>
+        {onBatchDownload
+          ? (
+            <TouchableOpacity onPress={onBatchDownload} style={styles.btn}
+              accessibilityLabel={global.i18n.t('download_batch')}>
+              <Text color={theme['c-button-font']}>{global.i18n.t('download_batch')}</Text>
+            </TouchableOpacity>
+          )
+          : null}
         <TouchableOpacity onPress={onExitSelectMode} style={styles.btn}
           accessibilityLabel={global.i18n.t('list_select_cancel')}>
           <Text color={theme['c-button-font']}>{global.i18n.t('list_select_cancel')}</Text>
         </TouchableOpacity>
       </Animated.View>
     )
-  }, [animaStyle, selectMode, theme, handleSelectAll, isSelectAll, onExitSelectMode, onSwitchMode])
+  }, [animaStyle, selectMode, theme, handleSelectAll, isSelectAll, onExitSelectMode, onSwitchMode, onBatchDownload, onRangeSelect])
 
   return !visible && animatePlayed ? null : component
 })

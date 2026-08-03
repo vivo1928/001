@@ -24,9 +24,10 @@ export interface HeaderType {
 export interface HeaderProps {
   componentId: string
   onPlayAll?: () => void
+  onBatchDownload?: () => void
 }
 
-export default forwardRef<HeaderType, HeaderProps>(({ componentId, onPlayAll }, ref) => {
+export default forwardRef<HeaderType, HeaderProps>(({ componentId, onPlayAll, onBatchDownload }, ref) => {
   const statusBarHeight = useStatusbarHeight()
   const theme = useTheme()
   const info = useAlbumInfo()
@@ -55,7 +56,7 @@ export default forwardRef<HeaderType, HeaderProps>(({ componentId, onPlayAll }, 
           </View>
         </View>
       </View>
-      <ActionBar onPlayAll={onPlayAll} />
+      <ActionBar onPlayAll={onPlayAll} onBatchDownload={onBatchDownload} />
     </View>
   )
 })

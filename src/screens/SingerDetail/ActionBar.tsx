@@ -11,9 +11,10 @@ import { useI18n } from '@/lang'
 
 export interface ActionBarProps {
   onPlayAll?: () => void
+  onBatchDownload?: () => void
 }
 
-export default memo(({ onPlayAll }: ActionBarProps) => {
+export default memo(({ onPlayAll, onBatchDownload }: ActionBarProps) => {
   const theme = useTheme()
   const t = useI18n()
 
@@ -25,10 +26,17 @@ export default memo(({ onPlayAll }: ActionBarProps) => {
     onPlayAll?.()
   }
 
+  const handleBatchDownload = () => {
+    onBatchDownload?.()
+  }
+
   return (
     <View style={styles.container}>
       <Button onPress={handlePlayAll} style={styles.controlBtn} accessibilityLabel={t('play_all')}>
         <Text style={{ ...styles.controlBtnText, color: theme['c-button-font'] }}>{t('play_all')}</Text>
+      </Button>
+      <Button onPress={handleBatchDownload} style={styles.controlBtn} accessibilityLabel={t('download_all')}>
+        <Text style={{ ...styles.controlBtnText, color: theme['c-button-font'] }}>{t('download_all')}</Text>
       </Button>
       <Button onPress={back} style={styles.controlBtn} accessibilityLabel={t('back')}>
         <Text style={{ ...styles.controlBtnText, color: theme['c-button-font'] }}>{t('back')}</Text>
@@ -47,7 +55,7 @@ const styles = createStyle({
   controlBtn: {
     flexGrow: 1,
     flexShrink: 1,
-    width: '50%',
+    width: '33%',
     paddingTop: 12,
     paddingBottom: 12,
     paddingLeft: 10,

@@ -37,6 +37,7 @@ export interface ListType {
   setIsMultiSelectMode: (isMultiSelectMode: boolean) => void
   setSelectMode: (mode: SelectMode) => void
   selectAll: (isAll: boolean) => void
+  selectRange: (list: LX.Music.MusicInfoOnline[]) => void
   getSelectedList: () => LX.Music.MusicInfoOnline[]
   getList: () => LX.Music.MusicInfoOnline[]
   setStatus: (val: Status) => void
@@ -100,6 +101,12 @@ const List = forwardRef<ListType, ListProps>(({
       }
       selectedListRef.current = list
       setSelectedList(list)
+    },
+    selectRange(list) {
+      selectedListRef.current = list
+      setSelectedList(list)
+      if (list.length === currentList.length) onSelectAll(true)
+      else if (list.length === 0) onSelectAll(false)
     },
     getSelectedList() {
       return selectedListRef.current
@@ -192,6 +199,7 @@ const List = forwardRef<ListType, ListProps>(({
       rowInfo={rowInfo.current}
       isShowAlbumName={isShowAlbumName}
       isShowInterval={isShowInterval}
+      hideMoreButton={visibleMultiSelect}
     />
   )
   const getkey: FlatListType['keyExtractor'] = item => item.id

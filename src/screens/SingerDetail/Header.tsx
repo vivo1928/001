@@ -24,6 +24,7 @@ export interface HeaderType {
 export interface HeaderProps {
   componentId: string
   onPlayAll?: () => void
+  onBatchDownload?: () => void
   activeTab: SingerTabType
   onTabChange: (tab: SingerTabType) => void
 }
@@ -33,7 +34,7 @@ const TAB_LIST: { label: string; key: SingerTabType }[] = [
   { label: '专辑', key: 'album' },
 ]
 
-export default forwardRef<HeaderType, HeaderProps>(({ componentId, onPlayAll, activeTab, onTabChange }, ref) => {
+export default forwardRef<HeaderType, HeaderProps>(({ componentId, onPlayAll, onBatchDownload, activeTab, onTabChange }, ref) => {
   const statusBarHeight = useStatusbarHeight()
   const theme = useTheme()
   const info = useSingerInfo()
@@ -58,7 +59,7 @@ export default forwardRef<HeaderType, HeaderProps>(({ componentId, onPlayAll, ac
           </View>
         </View>
       </View>
-      { activeTab === 'song' ? <ActionBar onPlayAll={onPlayAll} /> : null }
+      { activeTab === 'song' ? <ActionBar onPlayAll={onPlayAll} onBatchDownload={onBatchDownload} /> : null }
       {/* 选项卡 */}
       <View style={styles.tabBar}>
         {TAB_LIST.map(tab => (

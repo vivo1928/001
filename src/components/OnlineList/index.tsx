@@ -1,4 +1,4 @@
-import { useRef, forwardRef, useImperativeHandle } from 'react'
+import { useRef, forwardRef, useImperativeHandle, useCallback } from 'react'
 import { View } from 'react-native'
 // import LoadingMask, { LoadingMaskType } from '@/components/common/LoadingMask'
 import List, { type ListProps, type ListType, type Status, type RowInfoType } from './List'
@@ -6,8 +6,13 @@ import ListMenu, { type ListMenuType, type Position, type SelectInfo } from './L
 import ListMusicMultiAdd, { type MusicMultiAddModalType as ListAddMultiType } from '@/components/MusicMultiAddModal'
 import ListMusicAdd, { type MusicAddModalType as ListMusicAddType } from '@/components/MusicAddModal'
 import MultipleModeBar, { type MultipleModeBarType, type SelectMode } from './MultipleModeBar'
+import DownloadQualityModal, { type DownloadQualityModalType } from '@/components/DownloadQualityModal'
+import DownloadProgressModal, { type DownloadProgressModalType } from '@/components/DownloadProgressModal'
+import DownloadFailedModal, { type DownloadFailedModalType } from '@/components/DownloadFailedModal'
+import RangeSelectModal, { type RangeSelectModalType } from '@/components/RangeSelectModal'
 import { handleDislikeMusic, handlePlay, handlePlayLater, handleShare, handleShowMusicSourceDetail } from './listAction'
 import { createStyle } from '@/utils/tools'
+import DownloadManager, { type DownloadTask } from '@/core/download/manager'
 
 export interface OnlineListProps {
   onRefresh: ListProps['onRefresh']
@@ -17,12 +22,28 @@ export interface OnlineListProps {
   ListHeaderComponent?: ListProps['ListHeaderComponent']
   checkHomePagerIdle?: boolean
   rowType?: RowInfoType
+  // 批量下载回调（可选，由外部决定是否展示批量下载按钮）
+  onBatchDownload?: (selectedList: LX.Music.MusicInfoOnline[]) => void
 }
 export interface OnlineListType {
   setList: (list: LX.Music.MusicInfoOnline[], isAppend?: boolean, showSource?: boolean) => void
   setStatus: (val: Status) => void
   getList: () => LX.Music.MusicInfoOnline[]
+  getSelectedList: () => LX.Music.MusicInfoOnline[]
+  selectRange: (list: LX.Music.MusicInfoOnline[]) => void
+  startBatchDownload: (list: LX.Music.MusicInfoOnline[]) => void
 }
+
+const downloadManager = new DownloadManager(
+  // onProgress
+  (taskId, progress) => {
+    // 进度更新由具体的下载流程控制
+  },
+  // onComplete
+  (taskId, success, error) => {
+    // 完成回调由具体的下载流程控制
+  },
+)
 
 export default forwardRef<OnlineListType, OnlineListProps>(({
   onRefresh,
@@ -32,13 +53,26 @@ export default forwardRef<OnlineListType, OnlineListProps>(({
   ListHeaderComponent,
   checkHomePagerIdle = false,
   rowType,
+  onBatchDownload,
 }, ref) => {
   const listRef = useRef<ListType>(null)
   const multipleModeBarRef = useRef<MultipleModeBarType>(null)
   const listMusicAddRef = useRef<ListMusicAddType>(null)
   const listMusicMultiAddRef = useRef<ListAddMultiType>(null)
   const listMenuRef = useRef<ListMenuType>(null)
+  const downloadQualityRef = useRef<DownloadQualityModalType>(null)
+  const downloadProgressRef = useRef<DownloadProgressModalType>(null)
+  const downloadFailedRef = useRef<DownloadFailedModalType>(null)
+  const rangeSelectRef = useRef<RangeSelectModalType>(null)
   // const loadingMaskRef = useRef<LoadingMaskType>(null)
+
+  // 当前正在下载的上下文
+  const downloadContextRef = useRef<{
+    tasks: DownloadTask[]
+    quality: LX.Quality
+    isBatch: boolean
+    failedSongs: Array<{ name: string, singer: string, error?: string }>
+  }>({ tasks: [], quality: '128k', isBatch: false, failedSongs: [] })
 
   useImperativeHandle(ref, () => ({
     setList(list, isAppend = false, showSource = false) {
@@ -51,8 +85,18 @@ export default forwardRef<OnlineListType, OnlineListProps>(({
     getList() {
       return listRef.current?.getList() ?? []
     },
+    getSelectedList() {
+      return listRef.current?.getSelectedList() ?? []
+    },
+    selectRange(list) {
+      listRef.current?.selectRange(list)
+    },
+    startBatchDownload(list) {
+      handleStartDownload(list)
+    },
   }))
 
+  // ============ 多选模式 ============
   const hancelMultiSelect = () => {
     multipleModeBarRef.current?.show()
     listRef.current?.setIsMultiSelectMode(true)
@@ -60,6 +104,17 @@ export default forwardRef<OnlineListType, OnlineListProps>(({
   const hancelSwitchSelectMode = (mode: SelectMode) => {
     multipleModeBarRef.current?.setSwitchMode(mode)
     listRef.current?.setSelectMode(mode)
+  }
+  const handleRangeSelect = () => {
+    const list = listRef.current?.getList() ?? []
+    if (list.length === 0) return
+    rangeSelectRef.current?.show(list.length, {
+      onConfirm: (start, end) => {
+        // 选中区间 [start-1, end-1] 的歌曲
+        const selected = list.slice(start - 1, end)
+        listRef.current?.selectRange(selected)
+      },
+    })
   }
   const hancelExitSelect = () => {
     multipleModeBarRef.current?.exitSelectMode()
@@ -74,6 +129,213 @@ export default forwardRef<OnlineListType, OnlineListProps>(({
       selectedList: listRef.current!.getSelectedList(),
     }, position)
   }
+
+  // ============ 单个歌曲下载 ============
+  const handleSingleDownload = (info: SelectInfo) => {
+    const musicInfo = info.musicInfo
+    // 显示音质选择（含文件大小）
+    downloadQualityRef.current?.show(musicInfo, {
+      showFileSize: true,
+      onSelect: (quality) => {
+        startSingleDownload(musicInfo, quality)
+      },
+    })
+  }
+
+  const startSingleDownload = (musicInfo: LX.Music.MusicInfoOnline, quality: LX.Quality) => {
+    downloadContextRef.current = { tasks: [], quality, isBatch: false, failedSongs: [] }
+    // 显示进度弹窗
+    downloadProgressRef.current?.show(musicInfo.name, {
+      onCancel: () => {
+        downloadManager.cancelAll()
+        downloadProgressRef.current?.close()
+      },
+    })
+
+    // 添加下载任务
+    const taskId = downloadManager.addToQueue(musicInfo, quality)
+    const task = downloadManager.getQueue().find(t => t.id === taskId)!
+
+    // 设置进度回调
+    const originalOnProgress = downloadManager['onProgress']
+    downloadManager['onProgress'] = (id, progress) => {
+      if (id === taskId) {
+        downloadProgressRef.current?.updateProgress(progress)
+      }
+    }
+
+    // 设置完成回调
+    const originalOnComplete = downloadManager['onComplete']
+    downloadManager['onComplete'] = (id, success, error) => {
+      if (id !== taskId) return
+      downloadProgressRef.current?.close()
+      if (success) {
+        // 下载成功，关闭弹窗
+      } else {
+        // 下载失败，显示失败弹窗
+        downloadFailedRef.current?.show({
+          message: `${musicInfo.singer} - ${musicInfo.name} 下载失败`,
+          onRetry: () => {
+            startSingleDownload(musicInfo, quality)
+          },
+          onCancel: () => {},
+        })
+      }
+      // 恢复回调
+      downloadManager['onProgress'] = originalOnProgress
+      downloadManager['onComplete'] = originalOnComplete
+    }
+  }
+
+  // ============ 批量下载 ============
+  const handleBatchDownload = useCallback(() => {
+    const selectedList = listRef.current?.getSelectedList() ?? []
+    if (!selectedList.length) return
+    handleStartDownload(selectedList)
+  }, [])
+
+  const handleStartDownload = (list: LX.Music.MusicInfoOnline[]) => {
+    if (!list.length) return
+    // 显示音质选择（不显示文件大小）
+    downloadQualityRef.current?.show(list[0], {
+      showFileSize: false,
+      onSelect: (quality) => {
+        startBatchDownload(list, quality)
+      },
+    })
+  }
+
+  const startBatchDownload = (list: LX.Music.MusicInfoOnline[], quality: LX.Quality) => {
+    const total = list.length
+    downloadContextRef.current = {
+      tasks: [],
+      quality,
+      isBatch: true,
+      failedSongs: [],
+    }
+
+    // 显示进度弹窗
+    downloadProgressRef.current?.show(global.i18n.t('download_batch'), {
+      onCancel: () => {
+        downloadManager.cancelAll()
+        downloadProgressRef.current?.close()
+        downloadContextRef.current.failedSongs = []
+      },
+    })
+
+    // 添加所有任务到队列
+    const taskIds = downloadManager.addBatchToQueue(list, quality)
+    const allTasks = downloadManager.getQueue().filter(t => taskIds.includes(t.id))
+    downloadContextRef.current.tasks = allTasks
+
+    let completedCount = 0
+    let failedCount = 0
+    const failedSongs: Array<{ name: string, singer: string, error?: string }> = []
+
+    // 设置进度回调
+    const originalOnProgress = downloadManager['onProgress']
+    downloadManager['onProgress'] = (id, progress) => {
+      const task = allTasks.find(t => t.id === id)
+      if (!task) return
+      task.progress = progress
+      const currentCompleted = downloadManager.getStats().completed
+      const currentFailed = downloadManager.getStats().failed
+      const doneCount = currentCompleted + currentFailed
+      const totalProgress = total > 0 ? Math.round((doneCount / total) * 100) : 0
+      downloadProgressRef.current?.updateProgress(
+        totalProgress,
+        `${global.i18n.t('download_current_progress', { current: doneCount + 1, total })} ${progress}%`,
+      )
+    }
+
+    // 设置完成回调
+    const originalOnComplete = downloadManager['onComplete']
+    downloadManager['onComplete'] = (id, success, error) => {
+      const task = allTasks.find(t => t.id === id)
+      if (!task) return
+      if (success) {
+        completedCount++
+      } else if (error !== 'cancelled') {
+        failedCount++
+        failedSongs.push({
+          name: task.musicInfo.name,
+          singer: task.musicInfo.singer,
+          error,
+        })
+      }
+
+      const stats = downloadManager.getStats()
+      const doneCount = stats.completed + stats.failed
+      const totalProgress = total > 0 ? Math.round((doneCount / total) * 100) : 0
+
+      if (doneCount < total) {
+        downloadProgressRef.current?.updateProgress(
+          totalProgress,
+          `${global.i18n.t('download_current_progress', { current: doneCount + 1, total })}`,
+        )
+      }
+
+      // 所有任务完成
+      if (doneCount >= total) {
+        downloadProgressRef.current?.close()
+
+        // 如果有失败的任务，尝试重试一次
+        if (failedSongs.length > 0) {
+          // 先重试失败的歌曲
+          const retryList = list.filter((_, i) => failedSongs.some(f => f.name === list[i].name && f.singer === list[i].singer))
+          if (retryList.length > 0) {
+            // 更新进度
+            downloadProgressRef.current?.show(global.i18n.t('download_batch'), {
+              onCancel: () => {
+                downloadManager.cancelAll()
+                downloadProgressRef.current?.close()
+              },
+            })
+            // 重试失败的歌曲
+            const retryIds = downloadManager.addBatchToQueue(retryList, quality)
+            const retryTasks = downloadManager.getQueue().filter(t => retryIds.includes(t.id))
+            allTasks.push(...retryTasks)
+
+            // 重试完成后检查最终结果
+            const retryOnComplete = downloadManager['onComplete']
+            downloadManager['onComplete'] = (retryId, retrySuccess, retryError) => {
+              const retryStats = downloadManager.getStats()
+              if (retryStats.completed + retryStats.failed >= allTasks.length) {
+                downloadProgressRef.current?.close()
+                // 检查最终失败列表
+                const finalFailed = failedSongs.filter(f => {
+                  const retryTask = allTasks.find(t =>
+                    t.musicInfo.name === f.name && t.musicInfo.singer === f.singer && t.status === 'failed',
+                  )
+                  return retryTask != null
+                })
+                if (finalFailed.length > 0) {
+                  downloadFailedRef.current?.showFailedSongs(finalFailed, {
+                    onRetryAll: () => {
+                      // 重新下载所有失败的歌曲
+                      startBatchDownload(
+                        list.filter((_, i) => finalFailed.some(f => f.name === list[i].name && f.singer === list[i].singer)),
+                        quality,
+                      )
+                    },
+                    onCancel: () => {},
+                  })
+                }
+                downloadManager['onComplete'] = retryOnComplete
+              }
+            }
+            return
+          }
+        }
+
+        // 没有失败，全部完成
+        // 恢复回调
+        downloadManager['onProgress'] = originalOnProgress
+        downloadManager['onComplete'] = originalOnComplete
+      }
+    }
+  }
+
   const handleAddMusic = (info: SelectInfo) => {
     if (info.selectedList.length) {
       listMusicMultiAddRef.current?.show({ selectedList: info.selectedList, listId: '', isMove: false })
@@ -103,6 +365,8 @@ export default forwardRef<OnlineListType, OnlineListProps>(({
           onSwitchMode={hancelSwitchSelectMode}
           onSelectAll={isAll => listRef.current?.selectAll(isAll)}
           onExitSelectMode={hancelExitSelect}
+          onBatchDownload={handleBatchDownload}
+          onRangeSelect={handleRangeSelect}
         />
       </View>
       <ListMusicAdd ref={listMusicAddRef} onAdded={() => { hancelExitSelect() }} />
@@ -111,11 +375,16 @@ export default forwardRef<OnlineListType, OnlineListProps>(({
         ref={listMenuRef}
         onPlay={info => { handlePlay(info.musicInfo) }}
         onPlayLater={info => { hancelExitSelect(); handlePlayLater(info.musicInfo, info.selectedList, hancelExitSelect) }}
+        onDownload={handleSingleDownload}
         onCopyName={info => { handleShare(info.musicInfo) }}
         onAdd={handleAddMusic}
         onMusicSourceDetail={info => { void handleShowMusicSourceDetail(info.musicInfo) }}
         onDislikeMusic={info => { void handleDislikeMusic(info.musicInfo) }}
       />
+      <DownloadQualityModal ref={downloadQualityRef} />
+      <DownloadProgressModal ref={downloadProgressRef} />
+      <DownloadFailedModal ref={downloadFailedRef} />
+      <RangeSelectModal ref={rangeSelectRef} />
       {/* <LoadingMask ref={loadingMaskRef} /> */}
     </View>
   )
@@ -134,4 +403,3 @@ const styles = createStyle({
     height: 40,
   },
 })
-

@@ -59,6 +59,7 @@ const Pic = ({ componentId, playCount, imgUrl }: {
 
 export interface HeaderProps {
   componentId: string
+  onBatchDownload?: () => void
 }
 
 export interface HeaderType {
@@ -71,7 +72,7 @@ export interface DetailInfo {
   imgUrl?: string
 }
 
-export default forwardRef<HeaderType, HeaderProps>(({ componentId }: { componentId: string }, ref) => {
+export default forwardRef<HeaderType, HeaderProps>(({ componentId, onBatchDownload }: HeaderProps, ref) => {
   const statusBarHeight = useStatusbarHeight()
   const theme = useTheme()
   const info = useListInfo()
@@ -94,7 +95,7 @@ export default forwardRef<HeaderType, HeaderProps>(({ componentId }: { component
           </View>
         </View>
       </View>
-      <ButtonBar />
+      <ButtonBar onBatchDownload={onBatchDownload} />
       {/* <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
         <View style={{ flexGrow: 0, flexShrink: 1, paddingTop: 5, paddingRight: 5 }}>
               <Text style={{ fontSize: 12, color: AppColors.normal20 }} numberOfLines={ 1 }>{playCount || '-'}</Text>

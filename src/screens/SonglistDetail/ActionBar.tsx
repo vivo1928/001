@@ -13,7 +13,11 @@ import { useI18n } from '@/lang'
 import { useListInfo } from './state'
 // import { NAV_SHEAR_NATIVE_IDS } from '@/config/constant'
 
-export default memo(() => {
+export interface ActionBarProps {
+  onBatchDownload?: () => void
+}
+
+export default memo(({ onBatchDownload }: ActionBarProps) => {
   const theme = useTheme()
   const t = useI18n()
   const info = useListInfo()
@@ -32,6 +36,10 @@ export default memo(() => {
     void handleCollect(info.id, info.source, songlistState.listDetailInfo.info.name || info.name)
   }
 
+  const handleBatchDownload = () => {
+    onBatchDownload?.()
+  }
+
   return (
     <View style={styles.container}>
       <Button onPress={handleCollection} style={styles.controlBtn} accessibilityLabel={t('collect_songlist')} accessibilityRole="button">
@@ -39,6 +47,9 @@ export default memo(() => {
       </Button>
       <Button onPress={handlePlayAll} style={styles.controlBtn} accessibilityLabel={t('play_all')} accessibilityRole="button">
         <Text style={{ ...styles.controlBtnText, color: theme['c-button-font'] }}>{t('play_all')}</Text>
+      </Button>
+      <Button onPress={handleBatchDownload} style={styles.controlBtn} accessibilityLabel={t('download_all')} accessibilityRole="button">
+        <Text style={{ ...styles.controlBtnText, color: theme['c-button-font'] }}>{t('download_all')}</Text>
       </Button>
       <Button onPress={back} style={styles.controlBtn} accessibilityLabel={t('back')} accessibilityRole="button">
         <Text style={{ ...styles.controlBtnText, color: theme['c-button-font'] }}>{t('back')}</Text>

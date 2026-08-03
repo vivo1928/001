@@ -29,7 +29,7 @@ const useQualityTag = (musicInfo: LX.Music.MusicInfoOnline) => {
   return info
 }
 
-export default memo(({ item, index, showSource, onPress, onLongPress, onShowMenu, selectedList, rowInfo, isShowAlbumName, isShowInterval }: {
+export default memo(({ item, index, showSource, onPress, onLongPress, onShowMenu, selectedList, rowInfo, isShowAlbumName, isShowInterval, hideMoreButton }: {
   item: LX.Music.MusicInfoOnline
   index: number
   showSource?: boolean
@@ -40,6 +40,7 @@ export default memo(({ item, index, showSource, onPress, onLongPress, onShowMenu
   rowInfo: RowInfo
   isShowAlbumName: boolean
   isShowInterval: boolean
+  hideMoreButton?: boolean
 }) => {
   const theme = useTheme()
   const t = useI18n()
@@ -78,10 +79,12 @@ export default memo(({ item, index, showSource, onPress, onLongPress, onShowMenu
           ) : null
         }
       </TouchableOpacity>
-     <TouchableOpacity onPress={handleShowMenu} ref={moreButtonRef} style={styles.moreButton}
-        accessibilityLabel={t('more_options')}>
-        <Icon name="dots-vertical" style={{ color: theme['c-350'] }} size={12} />
-      </TouchableOpacity>
+     {hideMoreButton ? null : (
+        <TouchableOpacity onPress={handleShowMenu} ref={moreButtonRef} style={styles.moreButton}
+          accessibilityLabel={t('more_options')}>
+          <Icon name="dots-vertical" style={{ color: theme['c-350'] }} size={12} />
+        </TouchableOpacity>
+      )}
     </View>
   )
 }, (prevProps, nextProps) => {

@@ -5,6 +5,10 @@ import songlistState from '@/store/songlist/state'
 import { handlePlay } from './listAction'
 import Header, { type HeaderType } from './Header'
 import { useListInfo } from './state'
+import DownloadQualityModal, { type DownloadQualityModalType } from '@/components/DownloadQualityModal'
+import DownloadProgressModal, { type DownloadProgressModalType } from '@/components/DownloadProgressModal'
+import DownloadFailedModal, { type DownloadFailedModalType } from '@/components/DownloadFailedModal'
+import DownloadManager, { type DownloadTask } from '@/core/download/manager'
 
 export interface MusicListProps {
   componentId: string
@@ -14,11 +18,16 @@ export interface MusicListType {
   loadList: (source: LX.OnlineSource, listId: string) => void
 }
 
+const downloadManager = new DownloadManager()
+
 export default forwardRef<MusicListType, MusicListProps>(({ componentId }, ref) => {
   const listRef = useRef<OnlineListType>(null)
   const headerRef = useRef<HeaderType>(null)
   const isUnmountedRef = useRef(false)
   const info = useListInfo()
+  const downloadQualityRef = useRef<DownloadQualityModalType>(null)
+  const downloadProgressRef = useRef<DownloadProgressModalType>(null)
+  const downloadFailedRef = useRef<DownloadFailedModalType>(null)
 
   useImperativeHandle(ref, () => ({
     async loadList(source, id) {
@@ -109,16 +118,140 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId }, ref) 
     })
   }
 
+  const handleBatchDownload = () => {
+    const list = songlistState.listDetailInfo.list
+    if (!list?.length) return
+    // 显示音质选择（不显示文件大小）
+    downloadQualityRef.current?.show(list[0], {
+      showFileSize: false,
+      onSelect: (quality) => {
+        startBatchDownload(list, quality)
+      },
+    })
+  }
+
+  const startBatchDownload = (list: LX.Music.MusicInfoOnline[], quality: LX.Quality) => {
+    const total = list.length
+    downloadProgressRef.current?.show(global.i18n.t('download_batch'), {
+      onCancel: () => {
+        downloadManager.cancelAll()
+        downloadProgressRef.current?.close()
+      },
+    })
+
+    const taskIds = downloadManager.addBatchToQueue(list, quality)
+    const allTasks = downloadManager.getQueue().filter(t => taskIds.includes(t.id))
+    const failedSongs: Array<{ name: string, singer: string, error?: string }> = []
+
+    // 设置进度回调
+    const originalOnProgress = downloadManager['onProgress']
+    downloadManager['onProgress'] = (id, progress) => {
+      const stats = downloadManager.getStats()
+      const doneCount = stats.completed + stats.failed
+      const totalProgress = total > 0 ? Math.round((doneCount / total) * 100) : 0
+      downloadProgressRef.current?.updateProgress(
+        totalProgress,
+        `${global.i18n.t('download_current_progress', { current: doneCount + 1, total })} ${progress}%`,
+      )
+    }
+
+    // 设置完成回调
+    const originalOnComplete = downloadManager['onComplete']
+    downloadManager['onComplete'] = (id, success, error) => {
+      const task = allTasks.find(t => t.id === id)
+      if (!task) return
+      if (!success && error !== 'cancelled') {
+        failedSongs.push({
+          name: task.musicInfo.name,
+          singer: task.musicInfo.singer,
+          error,
+        })
+      }
+
+      const stats = downloadManager.getStats()
+      const doneCount = stats.completed + stats.failed
+
+      if (doneCount < total) {
+        downloadProgressRef.current?.updateProgress(
+          total > 0 ? Math.round((doneCount / total) * 100) : 0,
+          `${global.i18n.t('download_current_progress', { current: doneCount + 1, total })}`,
+        )
+      }
+
+      // 所有任务完成
+      if (doneCount >= total) {
+        downloadProgressRef.current?.close()
+
+        // 如果有失败，尝试重试一次
+        if (failedSongs.length > 0) {
+          const retryList = list.filter(item =>
+            failedSongs.some(f => f.name === item.name && f.singer === item.singer),
+          )
+          if (retryList.length > 0) {
+            downloadProgressRef.current?.show(global.i18n.t('download_batch'), {
+              onCancel: () => {
+                downloadManager.cancelAll()
+                downloadProgressRef.current?.close()
+              },
+            })
+            const retryIds = downloadManager.addBatchToQueue(retryList, quality)
+            const retryTasks = downloadManager.getQueue().filter(t => retryIds.includes(t.id))
+            allTasks.push(...retryTasks)
+
+            const retryOnComplete = downloadManager['onComplete']
+            downloadManager['onComplete'] = (retryId, retrySuccess, retryError) => {
+              const retryStats = downloadManager.getStats()
+              if (retryStats.completed + retryStats.failed >= allTasks.length) {
+                downloadProgressRef.current?.close()
+                const finalFailed = failedSongs.filter(f => {
+                  const retryTask = allTasks.find(t =>
+                    t.musicInfo.name === f.name && t.musicInfo.singer === f.singer && t.status === 'failed',
+                  )
+                  return retryTask != null
+                })
+                if (finalFailed.length > 0) {
+                  downloadFailedRef.current?.showFailedSongs(finalFailed, {
+                    onRetryAll: () => {
+                      startBatchDownload(
+                        list.filter(item =>
+                          finalFailed.some(f => f.name === item.name && f.singer === item.singer),
+                        ),
+                        quality,
+                      )
+                    },
+                    onCancel: () => {},
+                  })
+                }
+                downloadManager['onComplete'] = retryOnComplete
+              }
+            }
+            return
+          }
+        }
+
+        downloadManager['onProgress'] = originalOnProgress
+        downloadManager['onComplete'] = originalOnComplete
+      }
+    }
+  }
+
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  const header = useMemo(() => <Header ref={headerRef} componentId={componentId} />, [])
+  const header = useMemo(() => (
+    <Header ref={headerRef} componentId={componentId} onBatchDownload={handleBatchDownload} />
+  ), [componentId])
 
-  return <OnlineList
-    ref={listRef}
-    onPlayList={handlePlayList}
-    onRefresh={handleRefresh}
-    onLoadMore={handleLoadMore}
-    ListHeaderComponent={header}
-    // progressViewOffset={}
-   />
+  return (
+    <>
+      <OnlineList
+        ref={listRef}
+        onPlayList={handlePlayList}
+        onRefresh={handleRefresh}
+        onLoadMore={handleLoadMore}
+        ListHeaderComponent={header}
+      />
+      <DownloadQualityModal ref={downloadQualityRef} />
+      <DownloadProgressModal ref={downloadProgressRef} />
+      <DownloadFailedModal ref={downloadFailedRef} />
+    </>
+  )
 })
-
