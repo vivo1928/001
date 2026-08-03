@@ -10,6 +10,7 @@ import settingState from '@/store/setting/state'
 import { updateSetting } from '@/core/common'
 import { onScreenStateChange } from '@/utils/nativeModules/utils'
 import { AppState } from 'react-native'
+import TrackPlayer, { State as TPState } from 'react-native-track-player'
 
 const delaySavePlayInfo = throttleBackgroundTimer(() => {
   void savePlayInfo({
@@ -75,7 +76,19 @@ export default () => {
     if (!playerState.musicInfo.id) return
     // console.log('setProgress', time, maxTime)
     setNowPlayTime(time)
-    void setCurrentTime(time)
+    void setCurrentTime(time).then(async() => {
+      // 防止 seek 后 TrackPlayer 意外停止播放（如快速连续拖动进度条导致静音）
+      if (playerState.isPlay) {
+        try {
+          const state = await TrackPlayer.getState()
+          if (state !== TPState.Playing && state !== TPState.Buffering) {
+            await TrackPlayer.play()
+          }
+        } catch (e) {
+          // ignore
+        }
+      }
+    })
 
     if (maxTime != null) setMaxplayTime(maxTime)
 
