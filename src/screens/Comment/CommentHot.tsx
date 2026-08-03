@@ -46,8 +46,11 @@ export default ({ musicInfo, refreshKey, onUpdateTotal }: {
     if (listInfo.current.isLoading || listInfo.current.isEnd) return
     const page = listInfo.current.page + 1
     listRef.current?.setStatus('loading')
-    void handleGetComment(musicInfo, page).then(({ comments }) => {
-      let isEnd = page >= listInfo.current.maxPage
+    void handleGetComment(musicInfo, page).then(({ comments, maxPage }) => {
+      // 更新 maxPage（某些平台不同页返回的 maxPage 可能不同）
+      if (maxPage > listInfo.current.maxPage) listInfo.current.maxPage = maxPage
+      // 到达末尾的条件：超过最大页数 或 返回的评论少于 limit（说明没有更多数据了）
+      const isEnd = page >= listInfo.current.maxPage || comments.length < limit
       if (listInfo.current.isEnd != isEnd) listInfo.current.isEnd = isEnd
       listRef.current?.setList(filterList([...listRef.current.getList(), ...comments]))
     }).finally(updateStatus)

@@ -1,6 +1,7 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState, useCallback } from 'react'
 
 import { search } from '@/core/search/album'
+import { getAlbumSongs } from '@/core/singerAlbum'
 import Songlist, { type SonglistProps, type SonglistType } from '@/screens/Home/Views/SongList/components/Songlist'
 import searchAlbumState, { type Source } from '@/store/search/album/state'
 import { navigations } from '@/navigation'
@@ -74,21 +75,44 @@ export default forwardRef<AlbumListType, {}>((props, ref) => {
         })
       }
     } else {
-      // 收藏
-      createList({
-        name: item.name,
-        source: item.source as LX.OnlineSource,
-        sourceListId: collectKey,
-      }).then(() => {
-        setCollectedSet(prev => {
-          const next = new Set(prev)
-          next.add(collectKey)
-          return next
+      // 收藏：先获取专辑歌曲，再创建歌单并填充歌曲
+      toast(`正在获取专辑歌曲：${item.name}`)
+      getAlbumSongs(item.id, item.source as LX.OnlineSource, item.name, item.author).then((songs) => {
+        createList({
+          name: item.name,
+          source: item.source as LX.OnlineSource,
+          sourceListId: collectKey,
+          list: songs as LX.Music.MusicInfo[],
+        }).then(() => {
+          setCollectedSet(prev => {
+            const next = new Set(prev)
+            next.add(collectKey)
+            return next
+          })
+          toast(`已创建歌单：${item.name}（${songs.length}首）`)
+        }).catch((err) => {
+          console.error('[Search AlbumList] createList error:', err)
+          toast('收藏失败')
         })
-        toast(`已创建歌单：${item.name}`)
       }).catch((err) => {
-        console.error('[Search AlbumList] createList error:', err)
-        toast('收藏失败')
+        console.error('[Search AlbumList] getAlbumSongs error:', err)
+        toast('获取专辑歌曲失败，已创建空歌单')
+        // 降级：创建空歌单
+        createList({
+          name: item.name,
+          source: item.source as LX.OnlineSource,
+          sourceListId: collectKey,
+        }).then(() => {
+          setCollectedSet(prev => {
+            const next = new Set(prev)
+            next.add(collectKey)
+            return next
+          })
+          toast(`已创建歌单：${item.name}`)
+        }).catch((err2) => {
+          console.error('[Search AlbumList] createList fallback error:', err2)
+          toast('收藏失败')
+        })
       })
     }
   }, [collectedSet])

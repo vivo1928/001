@@ -3,6 +3,7 @@ import musicSdk from '@/utils/musicSdk'
 
 const LIMIT = 20
 const FETCH_TIMEOUT = 8000
+const ALBUM_SONG_TIMEOUT = 15000
 
 const withTimeout = <T,>(promise: Promise<T>, ms: number, msg: string): Promise<T> => {
   return Promise.race([
@@ -104,5 +105,44 @@ export const clearCache = (singerId: string, source: LX.OnlineSource) => {
     if (key.startsWith(prefix)) {
       cache.delete(key)
     }
+  }
+}
+
+/**
+ * 获取专辑的歌曲列表（第一页）
+ * 用于收藏专辑时自动填充歌曲到歌单
+ * @param id 专辑ID
+ * @param source 源
+ * @param albumName 专辑名（可选，用于降级搜索）
+ * @param singerName 歌手名（可选，用于降级搜索）
+ * @returns
+ */
+export const getAlbumSongs = async(id: string, source: LX.OnlineSource, albumName?: string, singerName?: string): Promise<LX.Music.MusicInfoOnline[]> => {
+  const sdk = musicSdk[source]
+  if (!sdk) throw new Error('source not found: ' + source)
+
+  const albumApi = sdk?.album
+  const getDetail = albumApi?.getAlbumDetail || albumApi?.getAlbumListDetail
+  if (!getDetail) {
+    console.warn(`[singerAlbum] Album API not available for source: ${source}, cannot fetch album songs`)
+    return []
+  }
+
+  try {
+    const result = await withTimeout(
+      getDetail.call(albumApi, id, 1, undefined, albumName, singerName),
+      ALBUM_SONG_TIMEOUT,
+      `Album API timeout for source: ${source}`,
+    )
+
+    if (!result || !result.list || result.list.length === 0) {
+      console.warn(`[singerAlbum] Album API returned empty list for source: ${source}, id: ${id}`)
+      return []
+    }
+
+    return result.list.map(s => toNewMusicInfo(s) as LX.Music.MusicInfoOnline)
+  } catch (err: any) {
+    console.warn(`[singerAlbum] getAlbumSongs error: ${err?.message || err}`)
+    return []
   }
 }

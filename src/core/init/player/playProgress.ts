@@ -84,15 +84,24 @@ export default () => {
 
     // ExoPlayer seek bug: seek 后可能静音但时间进度继续走
     // 状态检查不可靠（ExoPlayer 可能报告 Playing 但无音频输出）
-    // 强制延迟重新调用 play() 重新初始化音频解码器
+    // 策略：延迟后检查实际 TrackPlayer 状态，仅在需要时恢复播放
     if (wasPlaying) {
       if (seekPlayTimer) {
         BackgroundTimer.clearTimeout(seekPlayTimer)
       }
-      seekPlayTimer = BackgroundTimer.setTimeout(() => {
+      seekPlayTimer = BackgroundTimer.setTimeout(async () => {
         seekPlayTimer = null
-        TrackPlayer.play().catch(() => {})
-      }, 50)
+        try {
+          const state = await TrackPlayer.getState()
+          // 检查实际播放器状态，如果 seek 导致播放停止则恢复
+          if (state !== TPState.Playing && state !== TPState.Buffering) {
+            await TrackPlayer.play()
+          }
+        } catch (e) {
+          // 如果状态检查失败，尝试恢复播放
+          try { await TrackPlayer.play() } catch (_) {}
+        }
+      }, 100)
     }
 
     if (maxTime != null) setMaxplayTime(maxTime)
