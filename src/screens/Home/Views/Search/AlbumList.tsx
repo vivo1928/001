@@ -1,4 +1,4 @@
-import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react'
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState, useCallback } from 'react'
 
 import { search } from '@/core/search/album'
 import Songlist, { type SonglistProps, type SonglistType } from '@/screens/Home/Views/SongList/components/Songlist'
@@ -6,8 +6,9 @@ import searchAlbumState, { type Source } from '@/store/search/album/state'
 import { navigations } from '@/navigation'
 import commonState from '@/store/common/state'
 import { type ListInfoItem } from '@/store/songlist/state'
-import { createList } from '@/core/list'
+import { createList, removeUserList } from '@/core/list'
 import { toast } from '@/utils/tools'
+import listState from '@/store/list/state'
 
 export interface AlbumListType {
   loadList: (text: string, source: Source) => void
@@ -23,10 +24,24 @@ const mapToSonglistItem = (item: any): ListInfoItem => ({
   desc: item.publish_date || '',
 })
 
+// 获取收藏标识键
+const getCollectKey = (item: ListInfoItem) => `${item.source}__${item.id}`
+
 export default forwardRef<AlbumListType, {}>((props, ref) => {
   const listRef = useRef<SonglistType>(null)
   const searchInfoRef = useRef<{ text: string, source: Source }>({ text: '', source: 'kw' })
   const isUnmountedRef = useRef(false)
+
+  // 收藏状态管理
+  const [collectedSet, setCollectedSet] = useState<Set<string>>(() => {
+    const set = new Set<string>()
+    for (const list of listState.userList) {
+      if (list.sourceListId) {
+        set.add(list.sourceListId)
+      }
+    }
+    return set
+  })
 
   const handleOpenDetail = (item: ListInfoItem, index: number) => {
     navigations.pushAlbumDetailScreen(commonState.componentIds.home!, {
@@ -40,10 +55,62 @@ export default forwardRef<AlbumListType, {}>((props, ref) => {
     })
   }
 
-  const handleCollect = (item: ListInfoItem) => {
-    createList({ name: item.name })
-    toast(`已创建歌单：${item.name}`)
-  }
+  const handleCollect = useCallback((item: ListInfoItem) => {
+    const collectKey = getCollectKey(item)
+    if (collectedSet.has(collectKey)) {
+      // 取消收藏
+      const targetList = listState.userList.find(l => l.sourceListId === collectKey)
+      if (targetList) {
+        removeUserList([targetList.id]).then(() => {
+          setCollectedSet(prev => {
+            const next = new Set(prev)
+            next.delete(collectKey)
+            return next
+          })
+          toast(`已取消收藏：${item.name}`)
+        }).catch((err) => {
+          console.error('[Search AlbumList] removeUserList error:', err)
+          toast('取消收藏失败')
+        })
+      }
+    } else {
+      // 收藏
+      createList({
+        name: item.name,
+        source: item.source as LX.OnlineSource,
+        sourceListId: collectKey,
+      }).then(() => {
+        setCollectedSet(prev => {
+          const next = new Set(prev)
+          next.add(collectKey)
+          return next
+        })
+        toast(`已创建歌单：${item.name}`)
+      }).catch((err) => {
+        console.error('[Search AlbumList] createList error:', err)
+        toast('收藏失败')
+      })
+    }
+  }, [collectedSet])
+
+  // 监听歌单列表变化，同步收藏状态
+  useEffect(() => {
+    const handleUpdate = (allList: any[]) => {
+      // allList[0]=defaultList, allList[1]=loveList, 其余为userList
+      const userList = allList.slice(2) as LX.List.UserListInfo[]
+      const set = new Set<string>()
+      for (const list of userList) {
+        if (list.sourceListId) {
+          set.add(list.sourceListId)
+        }
+      }
+      setCollectedSet(set)
+    }
+    global.state_event.on('mylistUpdated', handleUpdate)
+    return () => {
+      global.state_event.off('mylistUpdated', handleUpdate)
+    }
+  }, [])
 
   const loadList = async (text: string, source: Source) => {
     listRef.current?.setList([], false)
@@ -119,5 +186,6 @@ export default forwardRef<AlbumListType, {}>((props, ref) => {
     onLoadMore={handleLoadMore}
     onOpenDetail={handleOpenDetail}
     onCollect={handleCollect}
+    collectedSet={collectedSet}
   />
 })

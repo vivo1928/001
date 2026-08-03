@@ -9,13 +9,14 @@ import { useTheme } from '@/store/theme/hook'
 import Image from '@/components/common/Image'
 
 const gap = scaleSizeW(15)
-export default memo(({ item, index, width, showSource, onPress, onCollect }: {
+export default memo(({ item, index, width, showSource, onPress, onCollect, isCollected }: {
   item: ListInfoItem
   index: number
   showSource: boolean
   width: number
   onPress: (item: ListInfoItem, index: number) => void
   onCollect?: (item: ListInfoItem) => void
+  isCollected?: boolean
 }) => {
   const theme = useTheme()
   const itemWidth = width - gap
@@ -40,11 +41,14 @@ export default memo(({ item, index, width, showSource, onPress, onCollect }: {
                 <TouchableOpacity
                   activeOpacity={0.6}
                   onPress={handleCollect}
-                  style={styles.collectButton}
+                  style={{
+                    ...styles.collectButton,
+                    backgroundColor: isCollected ? 'rgba(0, 150, 255, 0.75)' : 'rgba(0, 0, 0, 0.45)',
+                  }}
                   hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
-                  accessibilityLabel="收藏"
+                  accessibilityLabel={isCollected ? '取消收藏' : '收藏'}
                 >
-                  <Text size={14} color="#fff" style={styles.collectIcon}>+</Text>
+                  <Text size={14} color="#fff" style={styles.collectIcon}>{isCollected ? '✓' : '+'}</Text>
                 </TouchableOpacity>
               ) : null }
             </View>

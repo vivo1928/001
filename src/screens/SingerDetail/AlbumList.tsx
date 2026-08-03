@@ -1,4 +1,4 @@
-import { forwardRef, useImperativeHandle, useRef, useMemo } from 'react'
+import { forwardRef, useImperativeHandle, useRef, useMemo, useState, useCallback, useEffect } from 'react'
 
 import Songlist, { type SonglistProps, type SonglistType } from '@/screens/Home/Views/SongList/components/Songlist'
 import { navigations } from '@/navigation'
@@ -6,9 +6,10 @@ import commonState from '@/store/common/state'
 import { type ListInfoItem } from '@/store/songlist/state'
 import { useSingerInfo, type SingerTabType } from './state'
 import Header from './Header'
-import musicSdk from '@/utils/musicSdk'
-import { createList } from '@/core/list'
+import { search } from '@/core/singerAlbum'
+import { createList, removeUserList } from '@/core/list'
 import { toast } from '@/utils/tools'
+import listState from '@/store/list/state'
 
 export interface AlbumListProps {
   componentId: string
@@ -20,8 +21,6 @@ export interface AlbumListType {
   loadList: (source: LX.OnlineSource, id: string) => void
 }
 
-const LIMIT = 20
-
 const mapToAlbumItem = (item: any): ListInfoItem => ({
   id: item.id,
   name: item.name,
@@ -32,6 +31,9 @@ const mapToAlbumItem = (item: any): ListInfoItem => ({
   desc: item.publish_date || '',
 })
 
+// 获取收藏标识键
+const getCollectKey = (item: ListInfoItem) => `${item.source}__${item.id}`
+
 export default forwardRef<AlbumListType, AlbumListProps>(({ componentId, activeTab, onTabChange }, ref) => {
   const listRef = useRef<SonglistType>(null)
   const info = useSingerInfo()
@@ -39,20 +41,85 @@ export default forwardRef<AlbumListType, AlbumListProps>(({ componentId, activeT
   const pageRef = useRef(1)
   const maxPageRef = useRef(0)
   const sourceRef = useRef<LX.OnlineSource>('kw')
+  const singerIdRef = useRef('')
 
-  const handleCollect = (item: ListInfoItem) => {
-    createList({ name: item.name })
-    toast(`已创建歌单：${item.name}`)
-  }
+  // 收藏状态管理
+  const [collectedSet, setCollectedSet] = useState<Set<string>>(() => {
+    const set = new Set<string>()
+    for (const list of listState.userList) {
+      if (list.sourceListId) {
+        set.add(list.sourceListId)
+      }
+    }
+    return set
+  })
+
+  const handleCollect = useCallback((item: ListInfoItem) => {
+    const collectKey = getCollectKey(item)
+    if (collectedSet.has(collectKey)) {
+      // 取消收藏：找到对应的歌单并删除
+      const targetList = listState.userList.find(l => l.sourceListId === collectKey)
+      if (targetList) {
+        removeUserList([targetList.id]).then(() => {
+          setCollectedSet(prev => {
+            const next = new Set(prev)
+            next.delete(collectKey)
+            return next
+          })
+          toast(`已取消收藏：${item.name}`)
+        }).catch((err) => {
+          console.error('[AlbumList] removeUserList error:', err)
+          toast('取消收藏失败')
+        })
+      }
+    } else {
+      // 收藏：创建歌单
+      createList({
+        name: item.name,
+        source: item.source as LX.OnlineSource,
+        sourceListId: collectKey,
+      }).then(() => {
+        setCollectedSet(prev => {
+          const next = new Set(prev)
+          next.add(collectKey)
+          return next
+        })
+        toast(`已创建歌单：${item.name}`)
+      }).catch((err) => {
+        console.error('[AlbumList] createList error:', err)
+        toast('收藏失败')
+      })
+    }
+  }, [collectedSet])
+
+  // 监听歌单列表变化，同步收藏状态
+  useEffect(() => {
+    const handleUpdate = (allList: any[]) => {
+      // allList[0]=defaultList, allList[1]=loveList, 其余为userList
+      const userList = allList.slice(2) as LX.List.UserListInfo[]
+      const set = new Set<string>()
+      for (const list of userList) {
+        if (list.sourceListId) {
+          set.add(list.sourceListId)
+        }
+      }
+      setCollectedSet(set)
+    }
+    global.state_event.on('mylistUpdated', handleUpdate)
+    return () => {
+      global.state_event.off('mylistUpdated', handleUpdate)
+    }
+  }, [])
 
   useImperativeHandle(ref, () => ({
-    loadList(source, _id) {
+    loadList(source, id) {
       sourceRef.current = source
+      singerIdRef.current = id
       pageRef.current = 1
       maxPageRef.current = 0
       listRef.current?.setList([], false)
       listRef.current?.setStatus('loading')
-      fetchAlbumList(info.name, source, 1).then((result) => {
+      search(id, info.name, source, 1).then((result) => {
         if (isUnmountedRef.current) return
         const mappedList = result.list.map(mapToAlbumItem)
         maxPageRef.current = result.allPage
@@ -65,57 +132,6 @@ export default forwardRef<AlbumListType, AlbumListProps>(({ componentId, activeT
       })
     },
   }), [info.name])
-
-  const fetchAlbumList = async (singerName: string, source: LX.OnlineSource, page: number): Promise<{ list: any[], allPage: number }> => {
-    const sdk = musicSdk[source]
-    if (!sdk) throw new Error('Source not found: ' + source)
-
-    const FETCH_TIMEOUT = 15000
-    const withTimeout = <T,>(promise: Promise<T>, ms: number, msg: string): Promise<T> => {
-      return Promise.race([
-        promise,
-        new Promise<T>((_, reject) => setTimeout(() => reject(new Error(msg)), ms)),
-      ])
-    }
-
-    // 优先使用 singer.getSingerAlbumList API（按歌手ID获取专辑）
-    const hasSingerAlbumApi = !!(sdk.singer?.getSingerAlbumList)
-
-    if (hasSingerAlbumApi) {
-      try {
-        const result = await withTimeout(
-          sdk.singer.getSingerAlbumList(info.id, page, LIMIT),
-          FETCH_TIMEOUT,
-          `Singer album API timeout for source: ${source}`
-        )
-        if (result) {
-          return {
-            list: result.albums || [],
-            allPage: result.allPage || Math.ceil((result.total || 0) / LIMIT) || 1,
-          }
-        }
-      } catch (err: any) {
-        console.log(`[SingerDetail] singer album API failed, falling back to albumSearch: ${err?.message || err}`)
-      }
-    }
-
-    // 降级：使用 albumSearch 按歌手名称搜索专辑
-    if (!sdk?.albumSearch) throw new Error('albumSearch not supported for source: ' + source)
-    const result = await withTimeout(
-      sdk.albumSearch.search(singerName, page, LIMIT),
-      FETCH_TIMEOUT,
-      `albumSearch timeout for source: ${source}`
-    )
-    // 过滤出与歌手名匹配的专辑
-    const filteredList = (result.list || []).filter((item: any) => {
-      const singer = (item.singer || item.author || '').toLowerCase()
-      return singer.includes(singerName.toLowerCase())
-    })
-    return {
-      list: filteredList,
-      allPage: result.allPage || 1,
-    }
-  }
 
   const handleOpenDetail = (item: ListInfoItem, _index: number) => {
     navigations.pushAlbumDetailScreen(commonState.componentIds.singerDetail!, {
@@ -132,7 +148,7 @@ export default forwardRef<AlbumListType, AlbumListProps>(({ componentId, activeT
   const handleRefresh: SonglistProps['onRefresh'] = () => {
     pageRef.current = 1
     listRef.current?.setStatus('refreshing')
-    fetchAlbumList(info.name, sourceRef.current, 1).then((result) => {
+    search(singerIdRef.current, info.name, sourceRef.current, 1, true).then((result) => {
       if (isUnmountedRef.current) return
       const mappedList = result.list.map(mapToAlbumItem)
       maxPageRef.current = result.allPage
@@ -149,7 +165,7 @@ export default forwardRef<AlbumListType, AlbumListProps>(({ componentId, activeT
       return
     }
     listRef.current?.setStatus('loading')
-    fetchAlbumList(info.name, sourceRef.current, nextPage).then((result) => {
+    search(singerIdRef.current, info.name, sourceRef.current, nextPage).then((result) => {
       if (isUnmountedRef.current) return
       pageRef.current = nextPage
       maxPageRef.current = result.allPage
@@ -171,6 +187,7 @@ export default forwardRef<AlbumListType, AlbumListProps>(({ componentId, activeT
     onLoadMore={handleLoadMore}
     onOpenDetail={handleOpenDetail}
     onCollect={handleCollect}
+    collectedSet={collectedSet}
     ListHeaderComponent={header}
   />
 })

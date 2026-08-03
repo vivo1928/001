@@ -9,6 +9,7 @@ import { setComponentId } from '@/core/common'
 import { COMPONENT_IDS } from '@/config/constant'
 import PlayerBar from '@/components/player/PlayerBar'
 import { SingerInfoContext, type SingerDetailInfo, type SingerTabType } from './state'
+import { search as searchAlbum } from '@/core/singerAlbum'
 
 export default ({ componentId, info }: { componentId: string, info: SingerDetailInfo }) => {
   const musicListRef = useRef<MusicListType>(null)
@@ -22,6 +23,8 @@ export default ({ componentId, info }: { componentId: string, info: SingerDetail
 
     if (info && info.source && info.id) {
       musicListRef.current?.loadList(info.source, info.id)
+      // 后台预加载专辑缓存，切换到专辑选项卡时可直接使用缓存，无需等待API请求
+      searchAlbum(info.id, info.name, info.source, 1).catch(() => {})
     }
 
     return () => {

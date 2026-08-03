@@ -10,6 +10,7 @@ export interface SonglistProps {
   onLoadMore: ListProps['onLoadMore']
   onOpenDetail?: (item: ListInfoItem, index: number) => void
   onCollect?: (item: ListInfoItem) => void
+  collectedSet?: Set<string>
   ListHeaderComponent?: ListProps['ListHeaderComponent']
 }
 export interface SonglistType {
@@ -22,6 +23,7 @@ export default forwardRef<SonglistType, SonglistProps>(({
   onLoadMore,
   onOpenDetail,
   onCollect,
+  collectedSet,
   ListHeaderComponent,
 }, ref) => {
   const listRef = useRef<ListType>(null)
@@ -51,6 +53,7 @@ export default forwardRef<SonglistType, SonglistProps>(({
       onLoadMore={onLoadMore}
       onOpenDetail={handleOpenDetail}
       onCollect={onCollect}
+      collectedSet={collectedSet}
       ListHeaderComponent={ListHeaderComponent}
     />
   )
