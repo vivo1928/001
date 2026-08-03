@@ -41,6 +41,7 @@ export default ({ item, activeId, index, longPressIndex, onBoundChange, onShowMe
       style={{ ...styles.button, backgroundColor: index == longPressIndex ? theme['c-button-background-active'] : undefined }}
       key={item.id} onLongPress={setPosition}
       onPress={() => { onBoundChange(item) }}
+      accessibilityLabel={item.name}
     >
       {
         active

@@ -27,10 +27,10 @@ export default memo(({ onPlayAll }: ActionBarProps) => {
 
   return (
     <View style={styles.container}>
-      <Button onPress={handlePlayAll} style={styles.controlBtn}>
+      <Button onPress={handlePlayAll} style={styles.controlBtn} accessibilityLabel={t('play_all')}>
         <Text style={{ ...styles.controlBtnText, color: theme['c-button-font'] }}>{t('play_all')}</Text>
       </Button>
-      <Button onPress={back} style={styles.controlBtn}>
+      <Button onPress={back} style={styles.controlBtn} accessibilityLabel={t('back')}>
         <Text style={{ ...styles.controlBtnText, color: theme['c-button-font'] }}>{t('back')}</Text>
       </Button>
     </View>

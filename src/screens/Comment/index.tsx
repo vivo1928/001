@@ -138,7 +138,7 @@ export default memo(({ componentId }: {
             {tabs.map(({ id, label }) => <HeaderItem id={id} label={label} key={id} isActive={activeId == id} onPress={toggleTab} />)}
           </View>
           <View>
-            <TouchableOpacity onPress={refreshComment} style={{ ...styles.btn, width: BAR_HEIGHT }}>
+            <TouchableOpacity onPress={refreshComment} style={{ ...styles.btn, width: BAR_HEIGHT }} accessibilityLabel={t('refresh')}>
               <Icon name="available_updates" size={20} color={theme['c-600']} />
             </TouchableOpacity>
           </View>

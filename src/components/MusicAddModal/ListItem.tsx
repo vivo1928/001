@@ -28,6 +28,7 @@ export default ({ listInfo, onPress, musicInfo, width }: {
       <Button
         style={{ ...styles.button, backgroundColor: theme['c-button-background'], borderColor: theme['c-primary-light-400-alpha-300'], opacity: isExists ? 0.4 : 1 }}
         onPress={handlePress}
+        accessibilityLabel={listInfo.name}
       >
         <Text numberOfLines={1} size={14} color={theme['c-button-font']}>{listInfo.name}</Text>
       </Button>

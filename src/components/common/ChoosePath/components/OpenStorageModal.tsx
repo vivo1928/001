@@ -151,7 +151,7 @@ export default forwardRef<OpenDirModalType, { onOpenDir: (dir: string) => Promis
                   <Button style={styles.pathBtn} onPress={() => inputRef.current?.setPath(path)}>
                     <Text size={12}>{path}</Text>
                   </Button>
-                  <Button style={styles.removeBtn} onPress={() => { removeSelectStoragePath(path) }}>
+                  <Button style={styles.removeBtn} onPress={() => { removeSelectStoragePath(path) }} accessibilityLabel={global.i18n.t('delete')}>
                     <Icon color={theme['c-font-label']} name="close" size={12} />
                   </Button>
                 </View>

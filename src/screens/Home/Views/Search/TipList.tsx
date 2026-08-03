@@ -98,7 +98,7 @@ export default forwardRef<TipListType, TipListProps>(({ onSearch }, ref) => {
 
   const renderItem: SearchTipListProps['renderItem'] = ({ item, index }) => {
     return (
-      <Button style={styles.item} onPress={() => { onSearch(item) }} key={index}>
+      <Button style={styles.item} onPress={() => { onSearch(item) }} key={index} accessibilityLabel={item}>
         <Text numberOfLines={1}>{item}</Text>
       </Button>
     )

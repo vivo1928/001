@@ -6,6 +6,7 @@ import { type Lines } from 'lrc-file-parser'
 import { useTheme } from '@/store/theme/hook'
 import { BorderWidths } from '@/theme'
 import { formatPlayTime2 } from '@/utils'
+import { useI18n } from '@/lang'
 import { Icon } from '@/components/common/Icon'
 
 
@@ -24,6 +25,7 @@ const ANIMATION_DURATION = 300
 
 export default forwardRef<PlayLineType, PlayLineProps>(({ onPlayLine }, ref) => {
   const theme = useTheme()
+  const t = useI18n()
   const [scrollInfo, setScrollInfo] = useState<NativeSyntheticEvent<NativeScrollEvent>['nativeEvent'] | null>(null)
   const [listLayoutInfo, setListLayoutInfo] = useState<{ spaceHeight: number, lineHeights: number[] }>({ spaceHeight: 0, lineHeights: [] })
   const [lyricLines, setLyricLines] = useState<Lines>([])
@@ -85,7 +87,7 @@ export default forwardRef<PlayLineType, PlayLineProps>(({ onPlayLine }, ref) => 
       <Text style={styles.label} color={theme['c-primary-font']} size={13}>{timeLabel}</Text>
       <View style={styles.lineContent}>
         <View style={{ ...styles.line, borderBottomColor: theme['c-primary-alpha-700'] }} />
-        <TouchableOpacity style={styles.button} onPress={handlePlayLine}>
+        <TouchableOpacity style={styles.button} onPress={handlePlayLine} accessibilityLabel={t('play')}>
           <Icon name="play" color={theme['c-button-font']} size={18} />
         </TouchableOpacity>
       </View>

@@ -25,7 +25,8 @@ const ListItem = ({ keyword, onSearch }: {
 }) => {
   const theme = useTheme()
   return (
-    <Button style={{ ...styles.button, backgroundColor: theme['c-button-background'] }} onPress={() => { onSearch(keyword) }}>
+    <Button style={{ ...styles.button, backgroundColor: theme['c-button-background'] }} onPress={() => { onSearch(keyword) }}
+      accessibilityLabel={keyword}>
       <Text color={theme['c-button-font']} size={13}>{keyword}</Text>
     </Button>
   )

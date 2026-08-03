@@ -72,10 +72,10 @@ const ListItem = memo(({ info, index, onRemove, onPlay, selectedList, onPress }:
         <Text style={styles.listItemLabelText} size={13} color={theme['c-300']}>{info.musicInfo.interval}</Text>
       </View>
       <View style={styles.listItemBtns}>
-        <Button style={styles.listItemBtn} onPress={() => { onPlay(info) }}>
+        <Button style={styles.listItemBtn} onPress={() => { onPlay(info) }} accessibilityLabel={global.i18n.t('play')}>
           <Icon name="play-outline" style={{ color: theme['c-button-font'] }} size={18} />
         </Button>
-        <Button style={styles.listItemBtn} onPress={() => { onRemove(index) }}>
+        <Button style={styles.listItemBtn} onPress={() => { onRemove(index) }} accessibilityLabel={global.i18n.t('delete')}>
           <Icon name="remove" style={{ color: theme['c-button-font'] }} size={18} />
         </Button>
       </View>
