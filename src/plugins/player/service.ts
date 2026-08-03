@@ -89,6 +89,11 @@ const registerPlaybackService = async() => {
       const newTime = Math.min(duration, currentTime + (interval as number || 10))
       await TrackPlayer.seekTo(newTime)
       global.app_event.setProgress(newTime)
+      // 防止 seek 后 TrackPlayer 意外停止播放
+      const state = await TrackPlayer.getState()
+      if (state !== TPState.Playing && state !== TPState.Buffering) {
+        await TrackPlayer.play()
+      }
     } finally {
       isJumping = false
     }
@@ -102,6 +107,11 @@ const registerPlaybackService = async() => {
       const newTime = Math.max(0, currentTime - (interval as number || 10))
       await TrackPlayer.seekTo(newTime)
       global.app_event.setProgress(newTime)
+      // 防止 seek 后 TrackPlayer 意外停止播放
+      const state = await TrackPlayer.getState()
+      if (state !== TPState.Playing && state !== TPState.Buffering) {
+        await TrackPlayer.play()
+      }
     } finally {
       isJumping = false
     }

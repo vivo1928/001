@@ -21,10 +21,12 @@ export default memo(({ item, index, width, showSource, onPress }: {
   const handlePress = () => {
     onPress(item, index)
   }
+  const accessibilityDesc = item.author ? ` · ${item.author}` : ''
+  const accessibilitySource = item.source ? ` · ${item.source}` : ''
   return (
     item.source
       ? (
-          <TouchableOpacity activeOpacity={0.5} onPress={handlePress} accessibilityLabel={item.name} style={{ ...styles.listItem, width: itemWidth }}>
+          <TouchableOpacity activeOpacity={0.5} onPress={handlePress} accessibilityLabel={`${item.name}${accessibilityDesc}${accessibilitySource}`} style={{ ...styles.listItem, width: itemWidth }}>
             <View style={{ ...styles.listItemImg, backgroundColor: theme['c-content-background'] }}>
               <Image url={item.img} nativeID={`${NAV_SHEAR_NATIVE_IDS.songlistDetail_pic}_from_${item.id}`} style={{ width: itemWidth, height: itemWidth, borderRadius: 4 }} />
               { showSource ? <Text style={styles.sourceLabel} size={9} color="#fff" >{item.source}</Text> : null }
