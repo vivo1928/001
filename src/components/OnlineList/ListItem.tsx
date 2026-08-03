@@ -9,6 +9,7 @@ import { useTheme } from '@/store/theme/hook'
 import { scaleSizeH } from '@/utils/pixelRatio'
 import { LIST_ITEM_HEIGHT } from '@/config/constant'
 import { createStyle, type RowInfo } from '@/utils/tools'
+import Checkbox from '@/components/common/Checkbox'
 
 export const ITEM_HEIGHT = scaleSizeH(LIST_ITEM_HEIGHT)
 
@@ -65,6 +66,17 @@ export default memo(({ item, index, showSource, onPress, onLongPress, onShowMenu
       <TouchableOpacity style={styles.listItemLeft} onPress={() => { onPress(item, index) }} onLongPress={() => { onLongPress(item, index) }}
         accessible={true}
         accessibilityLabel={(index + 1) + ' ' + item.name + ' ' + singer + (tagInfo.text ? ' ' + tagInfo.text : '') + (isSelected ? ' 已选中' : '')}>
+        {hideMoreButton
+          ? (
+            <View style={styles.checkboxWrap}>
+              <Checkbox
+                status={isSelected ? 'checked' : 'unchecked'}
+                tintColors={{ true: theme['c-primary'], false: theme['c-300'] }}
+                size={0.65}
+              />
+            </View>
+          )
+          : null}
         <Text style={styles.sn} size={13} color={theme['c-300']}>{index + 1}</Text>
         <View style={styles.itemInfo}>
           <Text numberOfLines={1}>{item.name}</Text>
@@ -114,6 +126,11 @@ const styles = createStyle({
     flexShrink: 1,
     flexDirection: 'row',
     alignItems: 'center',
+  },
+  checkboxWrap: {
+    width: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   sn: {
     width: 38,

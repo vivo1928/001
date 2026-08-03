@@ -125,12 +125,14 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId }, ref) 
     downloadQualityRef.current?.show(list[0], {
       showFileSize: false,
       onSelect: (quality) => {
-        startBatchDownload(list, quality)
+        // 传入歌单名作为子目录
+        const subDir = info.name || undefined
+        startBatchDownload(list, quality, subDir)
       },
     })
   }
 
-  const startBatchDownload = (list: LX.Music.MusicInfoOnline[], quality: LX.Quality) => {
+  const startBatchDownload = (list: LX.Music.MusicInfoOnline[], quality: LX.Quality, subDir?: string) => {
     const total = list.length
     downloadProgressRef.current?.show(global.i18n.t('download_batch'), {
       onCancel: () => {
@@ -139,7 +141,7 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId }, ref) 
       },
     })
 
-    const taskIds = downloadManager.addBatchToQueue(list, quality)
+    const taskIds = downloadManager.addBatchToQueue(list, quality, subDir)
     const allTasks = downloadManager.getQueue().filter(t => taskIds.includes(t.id))
     const failedSongs: Array<{ name: string, singer: string, error?: string }> = []
 
@@ -195,7 +197,7 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId }, ref) 
                 downloadProgressRef.current?.close()
               },
             })
-            const retryIds = downloadManager.addBatchToQueue(retryList, quality)
+            const retryIds = downloadManager.addBatchToQueue(retryList, quality, subDir)
             const retryTasks = downloadManager.getQueue().filter(t => retryIds.includes(t.id))
             allTasks.push(...retryTasks)
 
@@ -218,6 +220,7 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId }, ref) 
                           finalFailed.some(f => f.name === item.name && f.singer === item.singer),
                         ),
                         quality,
+                        subDir,
                       )
                     },
                     onCancel: () => {},

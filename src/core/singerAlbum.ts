@@ -109,7 +109,7 @@ export const clearCache = (singerId: string, source: LX.OnlineSource) => {
 }
 
 /**
- * 获取专辑的歌曲列表（第一页）
+ * 获取专辑的歌曲列表（全部页面）
  * 用于收藏专辑时自动填充歌曲到歌单
  * @param id 专辑ID
  * @param source 源
@@ -129,18 +129,54 @@ export const getAlbumSongs = async(id: string, source: LX.OnlineSource, albumNam
   }
 
   try {
-    const result = await withTimeout(
+    // 先获取第一页，获取总页数
+    const page1Result = await withTimeout(
       getDetail.call(albumApi, id, 1, undefined, albumName, singerName),
       ALBUM_SONG_TIMEOUT,
       `Album API timeout for source: ${source}`,
     )
 
-    if (!result || !result.list || result.list.length === 0) {
+    if (!page1Result || !page1Result.list || page1Result.list.length === 0) {
       console.warn(`[singerAlbum] Album API returned empty list for source: ${source}, id: ${id}`)
       return []
     }
 
-    return result.list.map(s => toNewMusicInfo(s) as LX.Music.MusicInfoOnline)
+    const allSongs = page1Result.list.map(s => toNewMusicInfo(s) as LX.Music.MusicInfoOnline)
+    const allPage = page1Result.allPage || 1
+    const total = page1Result.total || 0
+
+    // 如果只有一页，直接返回
+    if (allPage <= 1) return allSongs
+
+    // 获取剩余页面的歌曲
+    const remainingPages: number[] = []
+    for (let p = 2; p <= allPage; p++) {
+      remainingPages.push(p)
+    }
+
+    const pageResults = await Promise.allSettled(
+      remainingPages.map(page =>
+        withTimeout(
+          getDetail.call(albumApi, id, page, undefined, albumName, singerName),
+          ALBUM_SONG_TIMEOUT,
+          `Album API timeout for source: ${source}, page: ${page}`,
+        ).then(result => {
+          if (result?.list?.length) {
+            return result.list.map(s => toNewMusicInfo(s) as LX.Music.MusicInfoOnline)
+          }
+          return [] as LX.Music.MusicInfoOnline[]
+        }),
+      ),
+    )
+
+    for (const result of pageResults) {
+      if (result.status === 'fulfilled' && result.value.length > 0) {
+        allSongs.push(...result.value)
+      }
+    }
+
+    console.log(`[singerAlbum] getAlbumSongs: total=${total}, fetched=${allSongs.length}, allPage=${allPage}`)
+    return allSongs
   } catch (err: any) {
     console.warn(`[singerAlbum] getAlbumSongs error: ${err?.message || err}`)
     return []

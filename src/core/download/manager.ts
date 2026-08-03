@@ -47,6 +47,15 @@ const sanitizeFileName = (name: string): string => {
 // 基础下载目录：公共目录/音乐下载
 const BASE_DOWNLOAD_DIR = `${externalStorageDirectoryPath}/音乐下载`
 
+// 最大重试次数
+const MAX_RETRIES = 3
+// 下载超时（毫秒）
+const DOWNLOAD_TIMEOUT = 60000
+// 连接超时（毫秒）
+const CONNECTION_TIMEOUT = 15000
+// 重试延迟基数（毫秒）
+const RETRY_BASE_DELAY = 1000
+
 // ---------------------------------------------------------------------------
 // 公开类型
 // ---------------------------------------------------------------------------
@@ -62,6 +71,7 @@ export interface DownloadTask {
   fileName: string
   error?: string
   subDir?: string // 子目录名（歌单/专辑名）
+  retryCount?: number // 当前重试次数
 }
 
 /** 下载进度回调 */
@@ -82,6 +92,7 @@ class DownloadManager {
   private currentJobId: number | null = null
   private currentTaskId: string | null = null
   private readonly downloadDir: string
+  private abortController: AbortController | null = null
 
   constructor(
     onProgress: DownloadProgressCallback = () => {},
@@ -130,6 +141,7 @@ class DownloadManager {
       filePath,
       fileName,
       subDir,
+      retryCount: 0,
     }
 
     this.queue.push(task)
@@ -222,6 +234,7 @@ class DownloadManager {
     task.status = 'waiting'
     task.progress = 0
     task.error = undefined
+    task.retryCount = 0
 
     void this.processQueue()
   }
@@ -265,21 +278,46 @@ class DownloadManager {
     try {
       await this.downloadSingleTask(nextTask)
     } catch (error: any) {
-      // 任务已被取消（cancelTask 中已处理）
+      // 任务已被取消
       if (nextTask.status !== 'downloading') return
 
       const errorMessage = error?.message ?? String(error)
       console.error('[DownloadManager] download failed:', nextTask.id, errorMessage)
-      nextTask.status = 'failed'
       nextTask.error = errorMessage
+
+      // 自动重试（最多 MAX_RETRIES 次）
+      if (errorMessage !== 'cancelled' && (nextTask.retryCount ?? 0) < MAX_RETRIES) {
+        nextTask.retryCount = (nextTask.retryCount ?? 0) + 1
+        const delay = RETRY_BASE_DELAY * Math.pow(2, nextTask.retryCount - 1)
+        console.log(`[DownloadManager] retry ${nextTask.retryCount}/${MAX_RETRIES} for task ${nextTask.id} after ${delay}ms`)
+        nextTask.status = 'waiting'
+        nextTask.progress = 0
+        this.isProcessing = false
+        this.currentTaskId = null
+        // 延迟后重试
+        await new Promise(resolve => setTimeout(resolve, delay))
+        void this.processQueue()
+        return
+      }
+
+      nextTask.status = 'failed'
       this.onComplete(nextTask.id, false, nextTask.error)
     } finally {
-      this.currentTaskId = null
+      if (this.currentTaskId === nextTask.id) {
+        this.currentTaskId = null
+      }
       this.currentJobId = null
       this.isProcessing = false
       // 递归处理下一个等待中的任务
       void this.processQueue()
     }
+  }
+
+  /**
+   * 等待指定时间
+   */
+  private delay(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms))
   }
 
   /**
@@ -298,27 +336,59 @@ class DownloadManager {
       await mkdir(this.downloadDir)
     }
 
-    // 2. 通过 handleGetOnlineMusicUrl 获取下载 URL
-    const { url } = await handleGetOnlineMusicUrl({
-      musicInfo: task.musicInfo,
-      quality: task.quality,
-      onToggleSource: () => {
-        // 下载场景暂时不处理源切换页面通知
-      },
-      isRefresh: false,
-      allowToggleSource: true,
-    })
-
-    if (!url) {
-      throw new Error('获取下载链接失败')
+    // 2. 通过 handleGetOnlineMusicUrl 获取下载 URL（首次尝试）
+    let url: string
+    try {
+      const urlResult = await handleGetOnlineMusicUrl({
+        musicInfo: task.musicInfo,
+        quality: task.quality,
+        onToggleSource: () => {
+          // 下载场景暂时不处理源切换页面通知
+        },
+        isRefresh: false,
+        allowToggleSource: true,
+      })
+      url = urlResult.url
+    } catch (err: any) {
+      // 首次获取 URL 失败，尝试刷新后再获取一次
+      console.log(`[DownloadManager] first URL fetch failed, retrying with refresh: ${err?.message || err}`)
+      try {
+        const urlResult = await handleGetOnlineMusicUrl({
+          musicInfo: task.musicInfo,
+          quality: task.quality,
+          onToggleSource: () => {},
+          isRefresh: true,
+          allowToggleSource: true,
+        })
+        url = urlResult.url
+      } catch (err2: any) {
+        throw new Error(`获取下载链接失败: ${err2?.message || err?.message || '未知错误'}`)
+      }
     }
 
-    // 3. 发起下载
+    if (!url) {
+      throw new Error('获取下载链接失败：链接为空')
+    }
+
+    // 3. 检查文件是否已存在，如果存在则跳过
+    const fileExists = await existsFile(task.filePath).catch(() => false)
+    if (fileExists) {
+      console.log(`[DownloadManager] file already exists, skipping: ${task.filePath}`)
+      task.status = 'completed'
+      task.progress = 100
+      this.onProgress(task.id, 100)
+      this.onComplete(task.id, true)
+      return
+    }
+
+    // 4. 发起下载（带超时控制）
     const result = downloadFile(url, task.filePath, {
       headers: {
         'User-Agent':
           'Mozilla/5.0 (Linux; Android 10; Pixel 3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/79.0.3945.79 Mobile Safari/537.36',
       },
+      connectionTimeout: CONNECTION_TIMEOUT,
+      readTimeout: DOWNLOAD_TIMEOUT,
       progress: (res: RNFS.DownloadProgressCallbackResult) => {
         // 下载过程中再次检查任务是否已被取消
         if (task.status !== 'downloading') return
@@ -347,8 +417,19 @@ class DownloadManager {
     // 再次检查任务是否已被取消
     if (task.status !== 'downloading') return
 
-    // 4. 检查下载结果
+    // 5. 检查下载结果
     if (downloadResult.statusCode === 200) {
+      // 验证文件是否真的存在且大于0字节
+      const fileStat = await existsFile(task.filePath).catch(() => false)
+      if (!fileStat) {
+        throw new Error('下载完成但文件不存在')
+      }
+      task.status = 'completed'
+      task.progress = 100
+      this.onProgress(task.id, 100)
+      this.onComplete(task.id, true)
+    } else if (downloadResult.statusCode === 304) {
+      // 文件未修改，视为已存在（缓存命中）
       task.status = 'completed'
       task.progress = 100
       this.onProgress(task.id, 100)

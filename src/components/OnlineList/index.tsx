@@ -317,6 +317,7 @@ export default forwardRef<OnlineListType, OnlineListProps>(({
                       startBatchDownload(
                         list.filter((_, i) => finalFailed.some(f => f.name === list[i].name && f.singer === list[i].singer)),
                         quality,
+                        subDir,
                       )
                     },
                     onCancel: () => {},

@@ -79,7 +79,15 @@ const List = forwardRef<ListType, ListProps>(({
     setList(list, isAppend, showSource) {
       setList(list)
       setShowSource(showSource)
-      if (!isAppend && selectedListRef.current.length) setSelectedList(selectedListRef.current = [])
+      if (!isAppend) {
+        // 切换列表时自动取消多选模式
+        if (selectedListRef.current.length) setSelectedList(selectedListRef.current = [])
+        if (isMultiSelectModeRef.current) {
+          isMultiSelectModeRef.current = false
+          prevSelectIndexRef.current = -1
+          setVisibleMultiSelect(false)
+        }
+      }
     },
     setIsMultiSelectMode(isMultiSelectMode) {
       isMultiSelectModeRef.current = isMultiSelectMode

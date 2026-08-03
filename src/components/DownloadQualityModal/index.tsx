@@ -1,4 +1,4 @@
-import { useRef, useImperativeHandle, forwardRef, useState } from 'react'
+import { useRef, useImperativeHandle, forwardRef, useState, useCallback } from 'react'
 import { View, TouchableHighlight, ScrollView } from 'react-native'
 import Dialog, { type DialogType } from '@/components/common/Dialog'
 import { createStyle } from '@/utils/tools'
@@ -24,7 +24,6 @@ export interface DownloadQualityModalType {
 
 export default forwardRef<DownloadQualityModalType>((_props, ref) => {
   const dialogRef = useRef<DialogType>(null)
-  const [visible, setVisible] = useState(false)
   const [musicInfo, setMusicInfo] = useState<LX.Music.MusicInfoOnline | null>(null)
   const [onSelect, setOnSelect] = useState<((quality: LX.Quality) => void) | null>(null)
   const [showFileSize, setShowFileSize] = useState(false)
@@ -36,21 +35,19 @@ export default forwardRef<DownloadQualityModalType>((_props, ref) => {
       setMusicInfo(musicInfo)
       setOnSelect(() => options.onSelect)
       setShowFileSize(options.showFileSize ?? false)
-      if (visible) {
+      // 始终先渲染 Dialog 再显示
+      requestAnimationFrame(() => {
         dialogRef.current?.setVisible(true)
-      } else {
-        setVisible(true)
-        requestAnimationFrame(() => {
-          dialogRef.current?.setVisible(true)
-        })
-      }
+      })
     },
   }))
 
-  const handleSelect = (quality: LX.Quality) => {
-    onSelect?.(quality)
-    dialogRef.current?.setVisible(false)
-  }
+  const handleSelect = useCallback((quality: LX.Quality) => {
+    requestAnimationFrame(() => {
+      onSelect?.(quality)
+      dialogRef.current?.setVisible(false)
+    })
+  }, [onSelect])
 
   const getFileSize = (quality: LX.Quality): string | null => {
     if (!musicInfo || !showFileSize) return null
@@ -70,40 +67,36 @@ export default forwardRef<DownloadQualityModalType>((_props, ref) => {
   }
 
   return (
-    visible && musicInfo
-      ? (
-        <Dialog ref={dialogRef} title={t('download_quality_title')} closeBtn={true}>
-          <ScrollView style={styles.list}>
-            {
-              getAvailableQualities().map(quality => {
-                const size = getFileSize(quality)
-                return (
-                  <TouchableHighlight
-                    key={quality}
-                    style={styles.item}
-                    underlayColor={theme['c-primary-dark-200-alpha-600']}
-                    onPress={() => handleSelect(quality)}
-                    accessibilityRole="button"
-                    accessibilityLabel={t(QUALITY_MAP[quality] as any)}
-                  >
-                    <View style={styles.itemContent}>
-                      <Text size={14} color={theme['c-font']}>{t(QUALITY_MAP[quality] as any)}</Text>
-                      {size
-                        ? (
-                            <Text size={12} color={theme['c-font-label']} style={styles.fileSize}>
-                              {t('download_file_size', { size })}
-                            </Text>
-                          )
-                        : null}
-                    </View>
-                  </TouchableHighlight>
-                )
-              })
-            }
-          </ScrollView>
-        </Dialog>
-      )
-      : null
+    <Dialog ref={dialogRef} title={t('download_quality_title')} closeBtn={true} keyHide={true} bgHide={true}>
+      <ScrollView style={styles.list}>
+        {
+          musicInfo && getAvailableQualities().map(quality => {
+            const size = getFileSize(quality)
+            return (
+              <TouchableHighlight
+                key={quality}
+                style={styles.item}
+                underlayColor={theme['c-primary-dark-200-alpha-600']}
+                onPress={() => handleSelect(quality)}
+                accessibilityRole="button"
+                accessibilityLabel={t(QUALITY_MAP[quality] as any)}
+              >
+                <View style={styles.itemContent}>
+                  <Text size={14} color={theme['c-font']}>{t(QUALITY_MAP[quality] as any)}</Text>
+                  {size
+                    ? (
+                        <Text size={12} color={theme['c-font-label']} style={styles.fileSize}>
+                          {t('download_file_size', { size })}
+                        </Text>
+                      )
+                    : null}
+                </View>
+              </TouchableHighlight>
+            )
+          })
+        }
+      </ScrollView>
+    </Dialog>
   )
 })
 

@@ -142,16 +142,18 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId, activeT
     downloadQualityRef.current?.show(list[0], {
       showFileSize: false,
       onSelect: (quality) => {
-        startProgressiveDownload(list, quality)
+        // 传入歌手名作为子目录
+        const subDir = info.name || undefined
+        startProgressiveDownload(list, quality, subDir)
       },
     })
   }
 
-  const startProgressiveDownload = (initialList: LX.Music.MusicInfoOnline[], quality: LX.Quality) => {
+  const startProgressiveDownload = (initialList: LX.Music.MusicInfoOnline[], quality: LX.Quality, subDir?: string) => {
     const { id, maxPage, page, total } = singerDetailState.listDetailInfo
     // 如果只有一页，直接用现有逻辑
     if (page >= maxPage) {
-      startBatchDownload(initialList, quality)
+      startBatchDownload(initialList, quality, subDir)
       return
     }
 
@@ -167,7 +169,7 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId, activeT
     })
 
     // 先添加当前页的歌曲到队列，开始下载
-    const taskIds = downloadManager.addBatchToQueue(initialList, quality)
+    const taskIds = downloadManager.addBatchToQueue(initialList, quality, subDir)
     const allTasks: DownloadTask[] = downloadManager.getQueue().filter(t => taskIds.includes(t.id))
     const failedSongs: Array<{ name: string, singer: string, error?: string }> = []
     let totalAdded = initialList.length
@@ -251,7 +253,7 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId, activeT
         listRef.current?.setList([...currentList, ...newSongs], true)
 
         // 添加新歌曲到下载队列
-        const newTaskIds = downloadManager.addBatchToQueue(newSongs, quality)
+        const newTaskIds = downloadManager.addBatchToQueue(newSongs, quality, subDir)
         const newTasks = downloadManager.getQueue().filter(t => newTaskIds.includes(t.id))
         allTasks.push(...newTasks)
         totalAdded = allTasks.length
@@ -291,7 +293,7 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId, activeT
               downloadProgressRef.current?.close()
             },
           })
-          const retryIds = downloadManager.addBatchToQueue(retryList, quality)
+          const retryIds = downloadManager.addBatchToQueue(retryList, quality, subDir)
           const retryTasks = downloadManager.getQueue().filter(t => retryIds.includes(t.id))
           allTasks.push(...retryTasks)
           totalAdded = allTasks.length
@@ -316,6 +318,7 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId, activeT
                         finalFailed.some(f => f.name === item.name && f.singer === item.singer),
                       ),
                       quality,
+                      subDir,
                     )
                   },
                   onCancel: () => {},
@@ -340,7 +343,7 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId, activeT
   }
 
   // 原有的批量下载逻辑（用于单页情况）
-  const startBatchDownload = (list: LX.Music.MusicInfoOnline[], quality: LX.Quality) => {
+  const startBatchDownload = (list: LX.Music.MusicInfoOnline[], quality: LX.Quality, subDir?: string) => {
     const total = list.length
     downloadProgressRef.current?.show(global.i18n.t('download_batch'), {
       onCancel: () => {
@@ -349,7 +352,7 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId, activeT
       },
     })
 
-    const taskIds = downloadManager.addBatchToQueue(list, quality)
+    const taskIds = downloadManager.addBatchToQueue(list, quality, subDir)
     const allTasks = downloadManager.getQueue().filter(t => taskIds.includes(t.id))
     const failedSongs: Array<{ name: string, singer: string, error?: string }> = []
 
@@ -404,7 +407,7 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId, activeT
                 downloadProgressRef.current?.close()
               },
             })
-            const retryIds = downloadManager.addBatchToQueue(retryList, quality)
+            const retryIds = downloadManager.addBatchToQueue(retryList, quality, subDir)
             const retryTasks = downloadManager.getQueue().filter(t => retryIds.includes(t.id))
             allTasks.push(...retryTasks)
 
@@ -427,6 +430,7 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId, activeT
                           finalFailed.some(f => f.name === item.name && f.singer === item.singer),
                         ),
                         quality,
+                        subDir,
                       )
                     },
                     onCancel: () => {},
