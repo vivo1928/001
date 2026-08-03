@@ -55,9 +55,7 @@ const ListItem = memo(({ item, index, activeId, onPress, onShowMenu }: {
       }
       { fetching ? <Loading color={active ? theme['c-primary-font'] : theme['c-font']} style={styles.loading} /> : null }
       <TouchableOpacity style={styles.listName} onPress={handlePress}
-        accessibilityLabel={item.name}
-        accessibilityRole="button"
-        accessibilityState={{ selected: active }}>
+        accessibilityLabel={item.name}>
         <Text numberOfLines={1} color={active ? theme['c-primary-font'] : theme['c-font']}>{item.name}</Text>
       </TouchableOpacity>
       <TouchableOpacity onPress={handleShowMenu} ref={moreButtonRef} style={styles.listMoreBtn}
