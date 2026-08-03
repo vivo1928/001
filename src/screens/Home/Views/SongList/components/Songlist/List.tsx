@@ -21,6 +21,7 @@ export interface ListProps {
   onRefresh: () => void
   onLoadMore: () => void
   onOpenDetail: (item: ListInfoItem, index: number) => void
+  onCollect?: (item: ListInfoItem) => void
   ListHeaderComponent?: React.ReactElement
 }
 export type Status = 'loading' | 'refreshing' | 'end' | 'error' | 'idle'
@@ -30,7 +31,7 @@ export interface ListType {
   setStatus: (val: Status) => void
 }
 
-export default forwardRef<ListType, ListProps>(({ onRefresh, onLoadMore, onOpenDetail, ListHeaderComponent }, ref) => {
+export default forwardRef<ListType, ListProps>(({ onRefresh, onLoadMore, onOpenDetail, onCollect, ListHeaderComponent }, ref) => {
   const flatListRef = useRef<FlatList>(null)
   const [currentList, setList] = useState<ListInfoItem[]>([])
   const [showSource, setShowSource] = useState(false)
@@ -61,6 +62,7 @@ export default forwardRef<ListType, ListProps>(({ onRefresh, onLoadMore, onOpenD
       width={rowInfo.width}
       showSource={showSource}
       onPress={onOpenDetail}
+      onCollect={onCollect}
     />
   )
   const getkey: FlatListType['keyExtractor'] = item => item.id

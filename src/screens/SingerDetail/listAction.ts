@@ -1,45 +1,45 @@
-import { setTempList, addListMusics } from '@/core/list'
+import { setTempList } from '@/core/list'
 import { playList } from '@/core/player/player'
+import { getListDetail, getListDetailAll } from '@/core/singerDetail'
 import { LIST_IDS } from '@/config/constant'
-import settingState from '@/store/setting/state'
-import { getListMusicSync } from '@/utils/listManage'
+import listState from '@/store/list/state'
 
-const getListId = (id: string, source: LX.OnlineSource) => `${source}__${id}`
+const getListId = (id: string) => `singer__${id}`
 
 /**
- * 播放单首歌曲 - 使用与默认 OnlineList 完全相同的逻辑：
- * 将歌曲添加到默认列表，然后从默认列表播放
+ * 播放歌手歌曲 - 完全匹配排行榜模式
+ * 1. 立即用当前已加载列表创建临时歌单并播放
+ * 2. 后台加载全部歌曲，加载完成后替换临时歌单
  */
-export const handlePlay = (musicInfo: LX.Music.MusicInfoOnline) => {
-  console.log(`[SingerDetail] handlePlay single: id=${musicInfo.id} name=${musicInfo.name}`)
-  void addListMusics(LIST_IDS.DEFAULT, [musicInfo], settingState.setting['list.addMusicLocationType']).then(() => {
-    const index = getListMusicSync(LIST_IDS.DEFAULT).findIndex(m => m.id == musicInfo.id)
-    if (index < 0) {
-      console.warn(`[SingerDetail] handlePlay: song not found in DEFAULT list after add`)
-      return
+export const handlePlay = async(id: string, list?: LX.Music.MusicInfoOnline[], index = 0) => {
+  let isPlayingList = false
+  const listId = getListId(id)
+  if (!list?.length) list = (await getListDetail(id, 1)).list
+  if (list?.length) {
+    await setTempList(listId, [...list])
+    void playList(LIST_IDS.TEMP, index)
+    isPlayingList = true
+  }
+  const fullList = await getListDetailAll(id)
+  if (!fullList.length) return
+  if (isPlayingList) {
+    if (listState.tempListMeta.id == listId) {
+      await setTempList(listId, [...fullList])
     }
-    void playList(LIST_IDS.DEFAULT, index)
-  })
+  } else {
+    await setTempList(listId, [...fullList])
+    void playList(LIST_IDS.TEMP, index)
+  }
 }
 
 /**
- * 播放全部歌曲 - 将整个列表存入临时列表，然后从临时列表播放
+ * 播放全部歌曲 - 将当前已加载的列表存入临时列表播放
  */
 export const handlePlayAll = async(id: string, source: LX.OnlineSource, list: LX.Music.MusicInfoOnline[], index = 0) => {
-  console.log(`[SingerDetail] handlePlayAll: id=${id} source=${source} list.length=${list?.length} index=${index}`)
-  if (!list?.length) {
-    console.warn('[SingerDetail] handlePlayAll: list is empty')
-    return
-  }
-  if (index < 0 || index >= list.length) {
-    console.warn(`[SingerDetail] handlePlayAll: index ${index} out of bounds (list.length=${list.length})`)
-    return
-  }
-
-  const listId = getListId(id, source)
+  if (!list?.length) return
+  const listId = getListId(id)
   try {
     await setTempList(listId, [...list])
-    console.log(`[SingerDetail] handlePlayAll: setTempList done, calling playList for song: ${list[index]?.name}`)
     void playList(LIST_IDS.TEMP, index)
   } catch (err: any) {
     console.error(`[SingerDetail] handlePlayAll error: ${err?.message || err}`)

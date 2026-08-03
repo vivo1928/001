@@ -77,6 +77,7 @@ const registerPlaybackService = async() => {
   })
 
   TrackPlayer.addEventListener(TPEvent.RemoteSeek, async({ position }) => {
+    // setProgress 已在 playProgress.ts 中通过事件监听处理 seek 后的 play() 调用
     global.app_event.setProgress(position as number)
   })
 

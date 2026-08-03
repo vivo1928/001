@@ -9,17 +9,23 @@ import { useTheme } from '@/store/theme/hook'
 import Image from '@/components/common/Image'
 
 const gap = scaleSizeW(15)
-export default memo(({ item, index, width, showSource, onPress }: {
+export default memo(({ item, index, width, showSource, onPress, onCollect }: {
   item: ListInfoItem
   index: number
   showSource: boolean
   width: number
   onPress: (item: ListInfoItem, index: number) => void
+  onCollect?: (item: ListInfoItem) => void
 }) => {
   const theme = useTheme()
   const itemWidth = width - gap
   const handlePress = () => {
     onPress(item, index)
+  }
+  const handleCollect = () => {
+    if (onCollect) {
+      onCollect(item)
+    }
   }
   const accessibilityDesc = item.author ? ` · ${item.author}` : ''
   const accessibilitySource = showSource && item.source ? ` · ${item.source}` : ''
@@ -30,6 +36,17 @@ export default memo(({ item, index, width, showSource, onPress }: {
             <View style={{ ...styles.listItemImg, backgroundColor: theme['c-content-background'] }}>
               <Image url={item.img} nativeID={`${NAV_SHEAR_NATIVE_IDS.songlistDetail_pic}_from_${item.id}`} style={{ width: itemWidth, height: itemWidth, borderRadius: 4 }} />
               { showSource ? <Text style={styles.sourceLabel} size={9} color="#fff" >{item.source}</Text> : null }
+              { onCollect ? (
+                <TouchableOpacity
+                  activeOpacity={0.6}
+                  onPress={handleCollect}
+                  style={styles.collectButton}
+                  hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
+                  accessibilityLabel="收藏"
+                >
+                  <Text size={14} color="#fff" style={styles.collectIcon}>+</Text>
+                </TouchableOpacity>
+              ) : null }
             </View>
             <Text style={styles.listItemTitle} numberOfLines={ 2 }>{item.name}</Text>
           </TouchableOpacity>
@@ -72,6 +89,22 @@ const styles = createStyle({
     right: 0,
     borderBottomLeftRadius: 3,
     backgroundColor: 'rgba(0, 0, 0, 0.3)',
+  },
+  collectButton: {
+    position: 'absolute',
+    bottom: 4,
+    right: 4,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  collectIcon: {
+    lineHeight: 16,
+    textAlign: 'center',
+    fontWeight: 'bold',
   },
   listItemTitle: {
     fontSize: 12,

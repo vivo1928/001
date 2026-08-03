@@ -6,6 +6,8 @@ import searchAlbumState, { type Source } from '@/store/search/album/state'
 import { navigations } from '@/navigation'
 import commonState from '@/store/common/state'
 import { type ListInfoItem } from '@/store/songlist/state'
+import { createList } from '@/core/list'
+import { toast } from '@/utils/tools'
 
 export interface AlbumListType {
   loadList: (text: string, source: Source) => void
@@ -36,6 +38,11 @@ export default forwardRef<AlbumListType, {}>((props, ref) => {
       publish_date: item.desc,
       song_count: item.play_count ? parseInt(item.play_count) : undefined,
     })
+  }
+
+  const handleCollect = (item: ListInfoItem) => {
+    createList({ name: item.name })
+    toast(`已创建歌单：${item.name}`)
   }
 
   const loadList = async (text: string, source: Source) => {
@@ -111,5 +118,6 @@ export default forwardRef<AlbumListType, {}>((props, ref) => {
     onRefresh={handleRefresh}
     onLoadMore={handleLoadMore}
     onOpenDetail={handleOpenDetail}
+    onCollect={handleCollect}
   />
 })

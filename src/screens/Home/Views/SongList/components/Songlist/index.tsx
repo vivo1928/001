@@ -9,6 +9,7 @@ export interface SonglistProps {
   onRefresh: ListProps['onRefresh']
   onLoadMore: ListProps['onLoadMore']
   onOpenDetail?: (item: ListInfoItem, index: number) => void
+  onCollect?: (item: ListInfoItem) => void
   ListHeaderComponent?: ListProps['ListHeaderComponent']
 }
 export interface SonglistType {
@@ -20,6 +21,7 @@ export default forwardRef<SonglistType, SonglistProps>(({
   onRefresh,
   onLoadMore,
   onOpenDetail,
+  onCollect,
   ListHeaderComponent,
 }, ref) => {
   const listRef = useRef<ListType>(null)
@@ -48,6 +50,7 @@ export default forwardRef<SonglistType, SonglistProps>(({
       onRefresh={onRefresh}
       onLoadMore={onLoadMore}
       onOpenDetail={handleOpenDetail}
+      onCollect={onCollect}
       ListHeaderComponent={ListHeaderComponent}
     />
   )

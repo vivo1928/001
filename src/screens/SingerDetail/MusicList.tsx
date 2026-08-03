@@ -4,6 +4,7 @@ import Header, { type HeaderType } from './Header'
 import { useSingerInfo, type SingerTabType } from './state'
 import { clearListDetail, getListDetail, setListDetail, setListDetailInfo } from '@/core/singerDetail'
 import singerDetailState from '@/store/singerDetail/state'
+import singerDetailActions from '@/store/singerDetail/action'
 import { handlePlay, handlePlayAll } from './listAction'
 
 export interface MusicListProps {
@@ -33,34 +34,36 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId, activeT
 
   useImperativeHandle(ref, () => ({
     async loadList(source, id) {
-      clearListDetail()
+      const compositeId = `${source}__${id}`
       const listDetailInfo = singerDetailState.listDetailInfo
       listRef.current?.setList([])
-      if (listDetailInfo.id == id && listDetailInfo.source == source && listDetailInfo.list.length) {
+      if (listDetailInfo.id == compositeId && listDetailInfo.source == source && listDetailInfo.list.length) {
         requestAnimationFrame(() => {
           listRef.current?.setList(listDetailInfo.list)
-          listRef.current?.setStatus(listDetailInfo.maxPage <= 1 ? 'end' : 'idle')
         })
       } else {
         listRef.current?.setStatus('loading')
         const page = 1
-        setListDetailInfo(source, id)
+        setListDetailInfo(compositeId)
+        singerDetailActions.setSingerName(info.name || '')
+        singerDetailActions.setSingerInfo(null)
         headerRef.current?.setInfo({
           name: info.name || '',
           desc: buildDesc(info),
           imgUrl: info.img,
         })
-        return getListDetail(source, id, info.name || '', page).then((result) => {
-          const listDetail = setListDetail(result, id, page)
+        return getListDetail(compositeId, page).then((listDetail) => {
+          const result = setListDetail(listDetail, compositeId, page)
           if (isUnmountedRef.current) return
           requestAnimationFrame(() => {
             // 用 API 返回的歌手简介更新 Header
+            const singerInfo = singerDetailState.singerInfo
             headerRef.current?.setInfo({
-              name: result.singerInfo?.name || info.name || '',
-              desc: buildDesc({ ...info, ...result.singerInfo }),
-              imgUrl: result.singerInfo?.img || info.img,
+              name: singerInfo?.name || info.name || '',
+              desc: buildDesc({ ...info, ...singerInfo }),
+              imgUrl: singerInfo?.img || info.img,
             })
-            listRef.current?.setList(listDetail.list)
+            listRef.current?.setList(result.list)
             listRef.current?.setStatus(singerDetailState.listDetailInfo.maxPage <= page ? 'end' : 'idle')
           })
         }).catch(() => {
@@ -69,7 +72,7 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId, activeT
         })
       }
     },
-  }))
+  }), [])
 
   useEffect(() => {
     isUnmountedRef.current = false
@@ -79,26 +82,28 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId, activeT
   }, [])
 
   const handlePlayList: OnlineListProps['onPlayList'] = (index) => {
-    const list = listRef.current?.getList()
+    const listDetailInfo = singerDetailState.listDetailInfo
+    const list = listDetailInfo.list
     if (!list || !list[index]) {
       console.warn(`[SingerDetail] handlePlayList: invalid index=${index} list.length=${list?.length ?? 'N/A'}`)
       return
     }
-    void handlePlay(list[index])
+    // 匹配排行榜模式：传入 id、当前列表、索引
+    void handlePlay(listDetailInfo.id, list, index)
   }
   const handlePlayAllSongs = () => {
-    const list = listRef.current?.getList()
+    const list = singerDetailState.listDetailInfo.list
     if (!list?.length) return
     void handlePlayAll(info.id, info.source, list)
   }
   const handleRefresh: OnlineListProps['onRefresh'] = () => {
     const page = 1
     listRef.current?.setStatus('refreshing')
-    getListDetail(singerDetailState.listDetailInfo.source!, singerDetailState.listDetailInfo.id, info.name || '', page).then((result) => {
-      const listDetail = setListDetail(result, singerDetailState.listDetailInfo.id, page)
+    getListDetail(singerDetailState.listDetailInfo.id, page, true).then((listDetail) => {
+      const result = setListDetail(listDetail, singerDetailState.listDetailInfo.id, page)
       if (isUnmountedRef.current) return
       requestAnimationFrame(() => {
-        listRef.current?.setList(listDetail.list)
+        listRef.current?.setList(result.list)
         listRef.current?.setStatus(singerDetailState.listDetailInfo.maxPage <= page ? 'end' : 'idle')
       })
     }).catch(() => {
@@ -109,10 +114,10 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId, activeT
   const handleLoadMore: OnlineListProps['onLoadMore'] = () => {
     listRef.current?.setStatus('loading')
     const page = singerDetailState.listDetailInfo.list.length ? singerDetailState.listDetailInfo.page + 1 : 1
-    getListDetail(singerDetailState.listDetailInfo.source!, singerDetailState.listDetailInfo.id, info.name || '', page).then((result) => {
-      const listDetail = setListDetail(result, singerDetailState.listDetailInfo.id, page)
+    getListDetail(singerDetailState.listDetailInfo.id, page).then((listDetail) => {
+      const result = setListDetail(listDetail, singerDetailState.listDetailInfo.id, page)
       if (isUnmountedRef.current) return
-      listRef.current?.setList(listDetail.list, true)
+      listRef.current?.setList(result.list, true)
       listRef.current?.setStatus(singerDetailState.listDetailInfo.maxPage <= page ? 'end' : 'idle')
     }).catch(() => {
       if (singerDetailState.listDetailInfo.list.length && page == 1) clearListDetail()

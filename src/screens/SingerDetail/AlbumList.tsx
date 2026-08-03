@@ -7,6 +7,8 @@ import { type ListInfoItem } from '@/store/songlist/state'
 import { useSingerInfo, type SingerTabType } from './state'
 import Header from './Header'
 import musicSdk from '@/utils/musicSdk'
+import { createList } from '@/core/list'
+import { toast } from '@/utils/tools'
 
 export interface AlbumListProps {
   componentId: string
@@ -37,6 +39,11 @@ export default forwardRef<AlbumListType, AlbumListProps>(({ componentId, activeT
   const pageRef = useRef(1)
   const maxPageRef = useRef(0)
   const sourceRef = useRef<LX.OnlineSource>('kw')
+
+  const handleCollect = (item: ListInfoItem) => {
+    createList({ name: item.name })
+    toast(`已创建歌单：${item.name}`)
+  }
 
   useImperativeHandle(ref, () => ({
     loadList(source, _id) {
@@ -163,6 +170,7 @@ export default forwardRef<AlbumListType, AlbumListProps>(({ componentId, activeT
     onRefresh={handleRefresh}
     onLoadMore={handleLoadMore}
     onOpenDetail={handleOpenDetail}
+    onCollect={handleCollect}
     ListHeaderComponent={header}
   />
 })

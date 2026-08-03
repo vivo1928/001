@@ -58,7 +58,7 @@ export default forwardRef<HeaderType, HeaderProps>(({ componentId, onPlayAll, ac
           </View>
         </View>
       </View>
-      <ActionBar onPlayAll={onPlayAll} />
+      { activeTab === 'song' ? <ActionBar onPlayAll={onPlayAll} /> : null }
       {/* 选项卡 */}
       <View style={styles.tabBar}>
         {TAB_LIST.map(tab => (

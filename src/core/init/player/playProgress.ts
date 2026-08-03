@@ -25,6 +25,7 @@ export default () => {
   // const updateMusicInfo = useCommit('list', 'updateMusicInfo')
 
   let updateTimeout: number | null = null
+  let seekPlayTimer: number | null = null
 
   let isScreenOn = true
 
@@ -74,21 +75,25 @@ export default () => {
 
   const setProgress = (time: number, maxTime?: number) => {
     if (!playerState.musicInfo.id) return
-    // console.log('setProgress', time, maxTime)
     setNowPlayTime(time)
-    void setCurrentTime(time).then(async() => {
-      // 防止 seek 后 TrackPlayer 意外停止播放（如快速连续拖动进度条导致静音）
-      if (playerState.isPlay) {
-        try {
-          const state = await TrackPlayer.getState()
-          if (state !== TPState.Playing && state !== TPState.Buffering) {
-            await TrackPlayer.play()
-          }
-        } catch (e) {
-          // ignore
-        }
+
+    const wasPlaying = playerState.isPlay
+
+    // 执行 seek
+    void setCurrentTime(time)
+
+    // ExoPlayer seek bug: seek 后可能静音但时间进度继续走
+    // 状态检查不可靠（ExoPlayer 可能报告 Playing 但无音频输出）
+    // 强制延迟重新调用 play() 重新初始化音频解码器
+    if (wasPlaying) {
+      if (seekPlayTimer) {
+        BackgroundTimer.clearTimeout(seekPlayTimer)
       }
-    })
+      seekPlayTimer = BackgroundTimer.setTimeout(() => {
+        seekPlayTimer = null
+        TrackPlayer.play().catch(() => {})
+      }, 50)
+    }
 
     if (maxTime != null) setMaxplayTime(maxTime)
 
