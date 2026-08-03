@@ -116,17 +116,28 @@ export default forwardRef<MultipleModeBarType, MultipleModeBarProps>(({ onSelect
     return (
       <Animated.View style={animaStyle}>
         <View style={styles.switchBtn}>
-          <Button onPress={() => { onSwitchMode('single') }} style={{ ...styles.btn, backgroundColor: selectMode == 'single' ? theme['c-button-background'] : 'rgba(0,0,0,0)' }}>
+          <Button onPress={() => { onSwitchMode('single') }} style={{ ...styles.btn, backgroundColor: selectMode == 'single' ? theme['c-button-background'] : 'rgba(0,0,0,0)' }}
+            accessibilityLabel={global.i18n.t('list_select_single')}
+            accessibilityRole="button"
+            accessibilityState={{ selected: selectMode == 'single' }}>
             <Text color={theme['c-button-font']}>{global.i18n.t('list_select_single')}</Text>
           </Button>
-          <Button onPress={() => { onSwitchMode('range') }} style={{ ...styles.btn, backgroundColor: selectMode == 'range' ? theme['c-button-background'] : 'rgba(0,0,0,0)' }}>
+          <Button onPress={() => { onSwitchMode('range') }} style={{ ...styles.btn, backgroundColor: selectMode == 'range' ? theme['c-button-background'] : 'rgba(0,0,0,0)' }}
+            accessibilityLabel={global.i18n.t('list_select_range')}
+            accessibilityRole="button"
+            accessibilityState={{ selected: selectMode == 'range' }}>
             <Text color={theme['c-button-font']}>{global.i18n.t('list_select_range')}</Text>
           </Button>
         </View>
-        <TouchableOpacity onPress={handleSelectAll} style={styles.btn}>
+        <TouchableOpacity onPress={handleSelectAll} style={styles.btn}
+          accessibilityLabel={global.i18n.t(isSelectAll ? 'list_select_unall' : 'list_select_all')}
+          accessibilityRole="button"
+          accessibilityState={{ selected: isSelectAll }}>
           <Text color={theme['c-button-font']}>{global.i18n.t(isSelectAll ? 'list_select_unall' : 'list_select_all')}</Text>
         </TouchableOpacity>
-        <TouchableOpacity onPress={onExitSelectMode} style={styles.btn}>
+        <TouchableOpacity onPress={onExitSelectMode} style={styles.btn}
+          accessibilityLabel={global.i18n.t('list_select_cancel')}
+          accessibilityRole="button">
           <Text color={theme['c-button-font']}>{global.i18n.t('list_select_cancel')}</Text>
         </TouchableOpacity>
       </Animated.View>

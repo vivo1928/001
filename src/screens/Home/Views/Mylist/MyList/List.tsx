@@ -4,6 +4,7 @@ import { View, TouchableOpacity, FlatList, type NativeScrollEvent, type NativeSy
 import { Icon } from '@/components/common/Icon'
 
 import { useTheme } from '@/store/theme/hook'
+import { useI18n } from '@/lang'
 import { useActiveListId, useListFetching, useMyList } from '@/store/list/hook'
 import { createStyle } from '@/utils/tools'
 import { LIST_SCROLL_POSITION_KEY } from '@/config/constant'
@@ -26,6 +27,7 @@ const ListItem = memo(({ item, index, activeId, onPress, onShowMenu }: {
   onShowMenu: (item: LX.List.MyListInfo, index: number, position: { x: number, y: number, w: number, h: number }) => void
 }) => {
   const theme = useTheme()
+  const t = useI18n()
   const moreButtonRef = useRef<TouchableOpacity>(null)
   const fetching = useListFetching(item.id)
 
@@ -52,10 +54,15 @@ const ListItem = memo(({ item, index, activeId, onPress, onShowMenu }: {
           : null
       }
       { fetching ? <Loading color={active ? theme['c-primary-font'] : theme['c-font']} style={styles.loading} /> : null }
-      <TouchableOpacity style={styles.listName} onPress={handlePress}>
+      <TouchableOpacity style={styles.listName} onPress={handlePress}
+        accessibilityLabel={item.name}
+        accessibilityRole="button"
+        accessibilityState={{ selected: active }}>
         <Text numberOfLines={1} color={active ? theme['c-primary-font'] : theme['c-font']}>{item.name}</Text>
       </TouchableOpacity>
-      <TouchableOpacity onPress={handleShowMenu} ref={moreButtonRef} style={styles.listMoreBtn}>
+      <TouchableOpacity onPress={handleShowMenu} ref={moreButtonRef} style={styles.listMoreBtn}
+        accessibilityLabel={t('more_options')}
+        accessibilityRole="button">
         <Icon name="dots-vertical" color={theme['c-350']} size={12} />
       </TouchableOpacity>
     </View>
