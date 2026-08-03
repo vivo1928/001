@@ -569,5 +569,8 @@
   "version_title_latest": "🎉 The current version is already the latest 🎊",
   "version_title_new": "🌟 New version found 🌟",
   "version_title_unknown": "❓ Failed to get the latest version information ❓",
-  "version_title_update": "🚀 App update 🚀"
+  "version_title_update": "🚀 App update 🚀",
+  "download_storage_permission_title": "Storage Permission Required",
+  "download_storage_permission_denied": "Storage permission is required to download songs. Please allow storage access in system settings.",
+  "open_settings": "Open Settings"
 }

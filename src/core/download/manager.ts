@@ -7,6 +7,7 @@ import {
   existsFile,
   externalStorageDirectoryPath,
 } from '@/utils/fs'
+import { requestStoragePermission } from '@/utils/permissions'
 
 /**
  * 音质到文件扩展名的映射表
@@ -324,6 +325,12 @@ class DownloadManager {
    * 执行单个文件的下载流程
    */
   private async downloadSingleTask(task: DownloadTask): Promise<void> {
+    // 0. 申请存储权限（写入公共目录需要）
+    const granted = await requestStoragePermission()
+    if (!granted) {
+      throw new Error('未获得存储权限，无法下载歌曲，请在系统设置中允许存储访问')
+    }
+
     // 1. 确保下载目录存在（含子目录）
     const targetDir = task.subDir ? `${this.downloadDir}/${sanitizeFileName(task.subDir)}` : this.downloadDir
     const dirExists = await existsFile(targetDir).catch(() => false)

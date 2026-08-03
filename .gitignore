@@ -66,3 +66,6 @@ buck-out/
 
 # testing
 /coverage
+
+# Local build output
+/产物/

@@ -1,5 +1,5 @@
 import { useRef, forwardRef, useImperativeHandle, useCallback } from 'react'
-import { View } from 'react-native'
+import { View, Linking } from 'react-native'
 // import LoadingMask, { LoadingMaskType } from '@/components/common/LoadingMask'
 import List, { type ListProps, type ListType, type Status, type RowInfoType } from './List'
 import ListMenu, { type ListMenuType, type Position, type SelectInfo } from './ListMenu'
@@ -10,8 +10,10 @@ import DownloadQualityModal, { type DownloadQualityModalType } from '@/component
 import DownloadProgressModal, { type DownloadProgressModalType } from '@/components/DownloadProgressModal'
 import DownloadFailedModal, { type DownloadFailedModalType } from '@/components/DownloadFailedModal'
 import RangeSelectModal, { type RangeSelectModalType } from '@/components/RangeSelectModal'
+import ConfirmAlert, { type ConfirmAlertType } from '@/components/common/ConfirmAlert'
 import { handleDislikeMusic, handlePlay, handlePlayLater, handleShare, handleShowMusicSourceDetail } from './listAction'
 import { createStyle } from '@/utils/tools'
+import { requestStoragePermission } from '@/utils/permissions'
 import DownloadManager, { type DownloadTask } from '@/core/download/manager'
 
 export interface OnlineListProps {
@@ -64,6 +66,7 @@ export default forwardRef<OnlineListType, OnlineListProps>(({
   const downloadProgressRef = useRef<DownloadProgressModalType>(null)
   const downloadFailedRef = useRef<DownloadFailedModalType>(null)
   const rangeSelectRef = useRef<RangeSelectModalType>(null)
+  const confirmAlertRef = useRef<ConfirmAlertType>(null)
   // const loadingMaskRef = useRef<LoadingMaskType>(null)
 
   // 当前正在下载的上下文
@@ -137,12 +140,19 @@ export default forwardRef<OnlineListType, OnlineListProps>(({
     downloadQualityRef.current?.show(musicInfo, {
       showFileSize: true,
       onSelect: (quality) => {
-        startSingleDownload(musicInfo, quality)
+        void startSingleDownload(musicInfo, quality)
       },
     })
   }
 
-  const startSingleDownload = (musicInfo: LX.Music.MusicInfoOnline, quality: LX.Quality) => {
+  const startSingleDownload = async(musicInfo: LX.Music.MusicInfoOnline, quality: LX.Quality) => {
+    // 下载前先申请存储权限
+    const granted = await requestStoragePermission()
+    if (!granted) {
+      confirmAlertRef.current?.setVisible(true)
+      return
+    }
+
     downloadContextRef.current = { tasks: [], quality, isBatch: false, failedSongs: [] }
     // 显示进度弹窗
     downloadProgressRef.current?.show(musicInfo.name, {
@@ -176,7 +186,7 @@ export default forwardRef<OnlineListType, OnlineListProps>(({
         downloadFailedRef.current?.show({
           message: `${musicInfo.singer} - ${musicInfo.name} 下载失败`,
           onRetry: () => {
-            startSingleDownload(musicInfo, quality)
+            void startSingleDownload(musicInfo, quality)
           },
           onCancel: () => {},
         })
@@ -200,13 +210,21 @@ export default forwardRef<OnlineListType, OnlineListProps>(({
     downloadQualityRef.current?.show(list[0], {
       showFileSize: false,
       onSelect: (quality) => {
-        startBatchDownload(list, quality, subDir)
+        void startBatchDownload(list, quality, subDir)
       },
     })
   }
 
-  const startBatchDownload = (list: LX.Music.MusicInfoOnline[], quality: LX.Quality, subDir?: string) => {
+  const startBatchDownload = async(list: LX.Music.MusicInfoOnline[], quality: LX.Quality, subDir?: string) => {
     const total = list.length
+
+    // 下载前先申请存储权限
+    const granted = await requestStoragePermission()
+    if (!granted) {
+      confirmAlertRef.current?.setVisible(true)
+      return
+    }
+
     downloadContextRef.current = {
       tasks: [],
       quality,
@@ -387,6 +405,13 @@ export default forwardRef<OnlineListType, OnlineListProps>(({
       <DownloadProgressModal ref={downloadProgressRef} />
       <DownloadFailedModal ref={downloadFailedRef} />
       <RangeSelectModal ref={rangeSelectRef} />
+      <ConfirmAlert
+        ref={confirmAlertRef}
+        title={global.i18n.t('download_storage_permission_title')}
+        text={global.i18n.t('download_storage_permission_denied')}
+        confirmText={global.i18n.t('open_settings')}
+        onConfirm={() => { void Linking.openSettings() }}
+      />
       {/* <LoadingMask ref={loadingMaskRef} /> */}
     </View>
   )
