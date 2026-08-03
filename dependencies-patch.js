@@ -108,6 +108,12 @@ const rootPath = path.join(__dirname, './')
   try {
     let file = (await fs.promises.readFile(musicManagerPath)).toString()
     for (const [fromStr, toStr] of patchs) {
+      // 检查是否已经修补过（避免 node_modules 缓存导致重复修补）
+      const alreadyPatched = file.includes('static ExoPlayer currentPlayer = null')
+      if (alreadyPatched) {
+        console.log('  MusicManager already patched, skipping all patches')
+        break
+      }
       console.log('Patching MusicManager: ' + fromStr.substring(0, 60) + '...')
       if (!file.includes(fromStr)) {
         console.warn('  WARNING: Pattern not found, skipping')
