@@ -51,6 +51,8 @@ export const search = async(text: string, page: number, sourceId: Source) => {
     listInfo.key = key
     return (musicSdk[sourceId]?.singerSearch.search(text, page, listInfo.limit) as Promise<SearchResult> ?? Promise.reject(new Error('source not found: ' + sourceId))).then((data: SearchResult) => {
       if (key != listInfo.key) return []
+      setSearchText(text)
+      setSource(sourceId)
       return setListInfo(data, page, text)
     }).catch((err: any) => {
       console.log(`[singer search] ${sourceId} error:`, err?.message || err)

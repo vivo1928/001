@@ -29,21 +29,24 @@ export default forwardRef<ListType, ListProps>(({ onSearch }, ref) => {
       if (text) {
         setShowListView(false)
         setListType(type)
-        // 直接调用对应 ref，组件已挂载无需等待
-        switch (type) {
-          case 'music':
-            musicListRef.current?.loadList(text, source as any)
-            break
-          case 'songlist':
-            songlistListRef.current?.loadList(text, source as any)
-            break
-          case 'album':
-            albumListRef.current?.loadList(text, source as any)
-            break
-          case 'singer':
-            singerListRef.current?.loadList(text, source as any)
-            break
-        }
+        // 使用 requestAnimationFrame 延迟调用，确保子组件已挂载完成
+        // 否则首次搜索时 sub-list 组件尚未渲染，ref.current 为 null，调用会被静默丢弃
+        requestAnimationFrame(() => {
+          switch (type) {
+            case 'music':
+              musicListRef.current?.loadList(text, source as any)
+              break
+            case 'songlist':
+              songlistListRef.current?.loadList(text, source as any)
+              break
+            case 'album':
+              albumListRef.current?.loadList(text, source as any)
+              break
+            case 'singer':
+              singerListRef.current?.loadList(text, source as any)
+              break
+          }
+        })
       } else {
         setShowListView(true)
         setTimeout(() => {
