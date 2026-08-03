@@ -10,7 +10,7 @@ import settingState from '@/store/setting/state'
 import { updateSetting } from '@/core/common'
 import { onScreenStateChange } from '@/utils/nativeModules/utils'
 import { AppState } from 'react-native'
-import TrackPlayer, { State as TPState } from 'react-native-track-player'
+import TrackPlayer from 'react-native-track-player'
 
 const delaySavePlayInfo = throttleBackgroundTimer(() => {
   void savePlayInfo({
@@ -83,8 +83,14 @@ export default () => {
     void setCurrentTime(time)
 
     // ExoPlayer seek bug: seek 后可能静音但时间进度继续走
-    // 状态检查不可靠（ExoPlayer 可能报告 Playing 但无音频输出）
-    // 策略：延迟后检查实际 TrackPlayer 状态，仅在需要时恢复播放
+    // 根本原因：ExoPlayer 的音频解码器管道在 seek 时被重置，
+    // 某些情况下解码器进入"无声但时间继续走"的异常状态。
+    // 此时即使 TrackPlayer.getState() 返回 Playing，也可能没有音频输出。
+    //
+    // 修复策略（基于用户意图而非播放器状态）：
+    // 1. 增加延迟到 500ms，确保 ExoPlayer 有足够时间完成 seek
+    // 2. 不检查 TrackPlayer 状态（状态检查不可靠），直接调用 play() 强制恢复
+    // 3. 连续 seek 时重置定时器，避免频繁恢复
     if (wasPlaying) {
       if (seekPlayTimer) {
         BackgroundTimer.clearTimeout(seekPlayTimer)
@@ -92,16 +98,13 @@ export default () => {
       seekPlayTimer = BackgroundTimer.setTimeout(async () => {
         seekPlayTimer = null
         try {
-          const state = await TrackPlayer.getState()
-          // 检查实际播放器状态，如果 seek 导致播放停止则恢复
-          if (state !== TPState.Playing && state !== TPState.Buffering) {
-            await TrackPlayer.play()
-          }
+          // 直接调用 play() 强制 ExoPlayer 重新激活音频解码器输出
+          // 即使 ExoPlayer 已处于 Playing 状态，调用 play() 也是安全的
+          await TrackPlayer.play()
         } catch (e) {
-          // 如果状态检查失败，尝试恢复播放
-          try { await TrackPlayer.play() } catch (_) {}
+          // 忽略错误
         }
-      }, 100)
+      }, 500)
     }
 
     if (maxTime != null) setMaxplayTime(maxTime)
