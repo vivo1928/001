@@ -79,37 +79,47 @@ export default () => {
 
     const wasPlaying = playerState.isPlay
 
-    // 执行 seek
-    void setCurrentTime(time)
+    // 取消之前的恢复定时器
+    if (seekPlayTimer) {
+      BackgroundTimer.clearTimeout(seekPlayTimer)
+      seekPlayTimer = null
+    }
 
-    // ExoPlayer seek bug: seek 后可能静音但时间进度继续走
-    // 根本原因：ExoPlayer 的音频解码器管道在 seek 时被重置，
-    // 某些情况下解码器进入"无声但时间继续走"的异常状态。
-    // 此时即使 TrackPlayer.getState() 返回 Playing，也可能没有音频输出。
-    //
-    // 修复策略（基于用户意图而非播放器状态）：
-    // 1. 增加延迟到 500ms，确保 ExoPlayer 有足够时间完成 seek
-    // 2. 不检查 TrackPlayer 状态（状态检查不可靠），直接调用 play() 强制恢复
-    // 3. 连续 seek 时重置定时器，避免频繁恢复
     if (wasPlaying) {
-      if (seekPlayTimer) {
-        BackgroundTimer.clearTimeout(seekPlayTimer)
-      }
-      seekPlayTimer = BackgroundTimer.setTimeout(async () => {
-        seekPlayTimer = null
-        try {
-          // 直接调用 play() 强制 ExoPlayer 重新激活音频解码器输出
-          // 即使 ExoPlayer 已处于 Playing 状态，调用 play() 也是安全的
-          await TrackPlayer.play()
-        } catch (e) {
-          // 忽略错误
+      // ExoPlayer seek bug 根因分析（完整链路）：
+      //
+      // 1. TrackPlayer.seekTo(time) 在 Playing 状态下被调用
+      // 2. ExoPlayer 重置音频解码器管道（AudioDecoder pipeline）
+      // 3. 解码器在某些情况下进入"输出静音但时间进度继续走"的异常状态
+      // 4. 此时 TrackPlayer.getState() 返回 Playing，但无音频输出
+      // 5. 调用 TrackPlayer.play() 是空操作（已处于 Playing 状态）
+      // 6. 解码器不会被重新初始化，音频持续静音
+      //
+      // 修复策略：先暂停 → 再 seek → 最后恢复播放
+      // 强制 ExoPlayer 经历完整状态转换：Playing → Paused → Playing
+      // 这确保解码器管道在 seek 时处于非活跃状态，seek 完成后被正确重新初始化
+      //
+      // 此模式已在 playList.ts handlePlayMusic() 中验证有效（第175-179行）
+      void TrackPlayer.pause().then(() => {
+        void setCurrentTime(time)
+        if (seekPlayTimer) {
+          BackgroundTimer.clearTimeout(seekPlayTimer)
         }
-      }, 500)
+        seekPlayTimer = BackgroundTimer.setTimeout(async () => {
+          seekPlayTimer = null
+          try {
+            await TrackPlayer.play()
+          } catch (e) {
+            // 忽略错误
+          }
+        }, 300)
+      })
+    } else {
+      // 已暂停状态，直接 seek（安全操作）
+      void setCurrentTime(time)
     }
 
     if (maxTime != null) setMaxplayTime(maxTime)
-
-    // if (!isPlay) audio.play()
   }
 
 
