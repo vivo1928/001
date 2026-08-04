@@ -180,8 +180,6 @@ class DownloadManager {
         stopDownload(this.currentJobId)
         this.currentJobId = null
       }
-      this.currentTaskId = null
-      this.isProcessing = false
       task.status = 'failed'
       task.error = 'cancelled'
     }
@@ -190,8 +188,9 @@ class DownloadManager {
     this.queue.splice(index, 1)
     this.onComplete(taskId, false, 'cancelled')
 
-    // 继续处理队列中的下一个任务
-    void this.processQueue()
+    // 不在此处手动修改 isProcessing/currentTaskId 或调用 processQueue：
+    // 正在运行的 processQueue 会在 downloadSingleTask 被中断后于 finally 中
+    // 自动清理状态并续推队列，手动干预会导致状态错乱、并发下载
   }
 
   /**
@@ -208,7 +207,6 @@ class DownloadManager {
       }
       stopDownload(this.currentJobId)
       this.currentJobId = null
-      this.currentTaskId = null
     }
 
     // 标记队列中所有等待中的任务为已取消
@@ -222,7 +220,9 @@ class DownloadManager {
     }
 
     this.queue.length = 0
-    this.isProcessing = false
+
+    // 不手动修改 isProcessing/currentTaskId：正在运行的 processQueue 会在
+    // downloadSingleTask 被中断后于 finally 中自动收尾，并发现队列为空而退出
   }
 
   /**
@@ -296,24 +296,24 @@ class DownloadManager {
         console.log(`[DownloadManager] retry ${nextTask.retryCount}/${MAX_RETRIES} for task ${nextTask.id} after ${delay}ms`)
         nextTask.status = 'waiting'
         nextTask.progress = 0
-        this.isProcessing = false
-        this.currentTaskId = null
-        // 延迟后重试
+        // 等待重试间隔（期间保持 isProcessing，防止其他调用并发启动任务），
+        // 状态清理统一交由 finally 完成
         await new Promise(resolve => setTimeout(resolve, delay))
-        void this.processQueue()
         return
       }
 
       nextTask.status = 'failed'
       this.onComplete(nextTask.id, false, nextTask.error)
     } finally {
+      // 仅当本次调用仍在处理该任务时才清理状态并续推队列，
+      // 避免与取消操作或其他 processQueue 调用产生竞态（并发下载）
       if (this.currentTaskId === nextTask.id) {
         this.currentTaskId = null
+        this.currentJobId = null
+        this.isProcessing = false
+        // 递归处理下一个等待中的任务
+        void this.processQueue()
       }
-      this.currentJobId = null
-      this.isProcessing = false
-      // 递归处理下一个等待中的任务
-      void this.processQueue()
     }
   }
 
