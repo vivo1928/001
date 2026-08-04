@@ -569,5 +569,6 @@
   "version_title_update": "🚀 軟體更新 🚀",
   "download_storage_permission_title": "需要儲存權限",
   "download_storage_permission_denied": "下載歌曲需要儲存權限，請在系統設定中允許存取儲存空間",
-  "open_settings": "前往設定"
+  "open_settings": "前往設定",
+  "download_file_size": "{size}"
 }

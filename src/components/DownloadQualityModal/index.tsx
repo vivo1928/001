@@ -79,7 +79,9 @@ export default forwardRef<DownloadQualityModalType>((_props, ref) => {
                 underlayColor={theme['c-primary-dark-200-alpha-600']}
                 onPress={() => handleSelect(quality)}
                 accessibilityRole="button"
-                accessibilityLabel={t(QUALITY_MAP[quality] as any)}
+                accessibilityLabel={size
+                  ? `${t(QUALITY_MAP[quality] as any)}，${t('download_file_size', { size })}`
+                  : t(QUALITY_MAP[quality] as any)}
               >
                 <View style={styles.itemContent}>
                   <Text size={14} color={theme['c-font']}>{t(QUALITY_MAP[quality] as any)}</Text>

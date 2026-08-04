@@ -8,6 +8,8 @@ import {
   externalStorageDirectoryPath,
 } from '@/utils/fs'
 import { requestStoragePermission } from '@/utils/permissions'
+import { formatMusicName } from '@/utils/tools'
+import settingState from '@/store/setting/state'
 
 /**
  * 音质到文件扩展名的映射表
@@ -111,12 +113,13 @@ class DownloadManager {
 
   /**
    * 获取下载文件的保存路径和文件名
-   * 文件名格式：{singer} - {name}.{ext}
+   * 文件名格式：按设置 download.fileName 决定（默认"歌名 - 歌手"）
    * 如有子目录则在基础下载目录下创建子目录
    */
   getDownloadPath(musicInfo: LX.Music.MusicInfoOnline, quality: LX.Quality, subDir?: string): { filePath: string; fileName: string } {
     const ext = getFileExt(quality)
-    const fileName = `${sanitizeFileName(musicInfo.singer)} - ${sanitizeFileName(musicInfo.name)}.${ext}`
+    const fileNameFormat = settingState.setting['download.fileName']
+    const fileName = `${sanitizeFileName(formatMusicName(fileNameFormat, musicInfo.name, musicInfo.singer))}.${ext}`
     const dir = subDir ? `${this.downloadDir}/${sanitizeFileName(subDir)}` : this.downloadDir
     const filePath = `${dir}/${fileName}`
     return { filePath, fileName }

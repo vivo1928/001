@@ -331,7 +331,7 @@ export const resetIgnoringBatteryOptimizationCheck = async() => {
 }
 
 export const formatMusicName = (format: string, name: string, singer: string) => {
-  return format.replace('歌手', singer).replace('歌名', name)
+  return format.split('歌手').join(singer).split('歌名').join(name)
 }
 
 export const shareMusic = (shareType: LX.ShareType, downloadFileName: LX.AppSetting['download.fileName'], musicInfo: LX.Music.MusicInfo) => {

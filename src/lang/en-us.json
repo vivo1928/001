@@ -572,5 +572,6 @@
   "version_title_update": "🚀 App update 🚀",
   "download_storage_permission_title": "Storage Permission Required",
   "download_storage_permission_denied": "Storage permission is required to download songs. Please allow storage access in system settings.",
-  "open_settings": "Open Settings"
+  "open_settings": "Open Settings",
+  "download_file_size": "{size}"
 }
