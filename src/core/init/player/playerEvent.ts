@@ -13,6 +13,32 @@ export default () => {
 
   let loadingTimeout: number | null = null
   let delayNextTimeout: number | null = null
+
+  // 将格式化时长（03:55 / 01:02:03）解析为秒，解析失败返回 0
+  const parseIntervalToSec = (interval?: string | null): number => {
+    if (!interval) return 0
+    const parts = interval.split(':').map(p => parseInt(p, 10))
+    if (parts.some(p => isNaN(p))) return 0
+    if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2]
+    if (parts.length === 2) return parts[0] * 60 + parts[1]
+    return parts[0] || 0
+  }
+  const getMusicInfoInterval = (musicInfo: LX.Player.PlayMusic): string | null => {
+    return 'progress' in musicInfo ? musicInfo.metadata.musicInfo.interval : musicInfo.interval
+  }
+  // 长音频（10 分钟以上）播放过程中临时 URL 更容易过期，
+  // 允许更多次自动刷新 URL 从当前位置续播；普通音频最多 2 次
+  const getMaxRetryNum = (): number => {
+    const musicInfo = playerState.playMusicInfo.musicInfo
+    if (!musicInfo) return 2
+    return parseIntervalToSec(getMusicInfoInterval(musicInfo)) >= 600 ? 5 : 2
+  }
+  const refreshUrl = (musicInfo: LX.Player.PlayMusic) => {
+    retryNum++
+    setMusicUrl(musicInfo, true)
+    setStatusText(global.i18n.t('player__refresh_url'))
+  }
+
   const startLoadingTimeout = () => {
     // console.log('start load timeout')
     clearLoadingTimeout()
@@ -23,13 +49,19 @@ export default () => {
       //   return
       // }
 
+      const musicInfo = playerState.playMusicInfo.musicInfo
       // 如果加载超时，则尝试刷新URL
       if (prevTimeoutId == playerState.musicInfo.id) {
-        prevTimeoutId = null
-        void playNext(true)
+        // 再次加载超时：若还有重试机会（长音频），继续刷新URL续播，否则切歌
+        if (musicInfo && retryNum < getMaxRetryNum()) {
+          refreshUrl(musicInfo)
+        } else {
+          prevTimeoutId = null
+          void playNext(true)
+        }
       } else {
         prevTimeoutId = playerState.musicInfo.id
-        if (playerState.playMusicInfo.musicInfo) setMusicUrl(playerState.playMusicInfo.musicInfo, true)
+        if (musicInfo && retryNum < getMaxRetryNum()) refreshUrl(musicInfo)
       }
     }, 25000)
   }
@@ -90,16 +122,14 @@ export default () => {
     if (!playerState.musicInfo.id) return
     clearLoadingTimeout()
     if (global.lx.isPlayedStop) return
-    if (playerState.playMusicInfo.musicInfo && retryNum < 2) { // 若音频URL无效则尝试刷新2次URL
-      let musicInfo = playerState.playMusicInfo.musicInfo
+    const musicInfo = playerState.playMusicInfo.musicInfo
+    if (musicInfo && retryNum < getMaxRetryNum()) { // 若音频URL无效则尝试刷新URL续播
       void getPosition().then((position) => {
         if (position) setNowPlayTime(position)
       }).finally(() => {
         // console.log(this.retryNum)
         if (playerState.playMusicInfo.musicInfo !== musicInfo) return
-        retryNum++
-        setMusicUrl(playerState.playMusicInfo.musicInfo, true)
-        setStatusText(global.i18n.t('player__refresh_url'))
+        refreshUrl(musicInfo)
       })
       return
     }
