@@ -6,6 +6,13 @@ import musicSdk from '@/utils/musicSdk'
 
 const LIMIT = 30
 const FETCH_TIMEOUT = 15000
+// 各源歌手接口单次可请求的歌曲数（mg 接口 pageSize 受限保持 30，其余源按 100）
+const SOURCE_FETCH_LIMIT: Record<string, number> = {
+  tx: 100,
+  kg: 100,
+  wy: 100,
+  mg: 30,
+}
 
 const withTimeout = <T,>(promise: Promise<T>, ms: number, msg: string): Promise<T> => {
   return Promise.race([
@@ -59,8 +66,9 @@ const getListLimit = async(source: LX.OnlineSource, singerId: string, page: numb
 
   if (hasSingerApi) {
     try {
+      const fetchLimit = SOURCE_FETCH_LIMIT[source] || 100
       result = await withTimeout(
-        sdk.singer.getSingerSongList(singerId, sourcePage + 1, LIMIT),
+        sdk.singer.getSingerSongList(singerId, sourcePage + 1, fetchLimit),
         FETCH_TIMEOUT,
         `Singer API timeout for source: ${source}`,
       )
