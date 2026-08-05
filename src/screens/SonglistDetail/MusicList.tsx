@@ -1,6 +1,6 @@
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef } from 'react'
 import OnlineList, { type OnlineListType, type OnlineListProps } from '@/components/OnlineList'
-import { clearListDetail, getListDetail, setListDetail, setListDetailInfo } from '@/core/songlist'
+import { clearListDetail, getListDetail, getListDetailAll, setListDetail, setListDetailInfo } from '@/core/songlist'
 import songlistState from '@/store/songlist/state'
 import { handlePlay } from './listAction'
 import Header, { type HeaderType } from './Header'
@@ -118,18 +118,38 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId }, ref) 
     })
   }
 
-  const handleBatchDownload = () => {
+  const handleBatchDownload = async () => {
     const list = songlistState.listDetailInfo.list
     if (!list?.length) return
-    // 显示音质选择（不显示文件大小）
-    downloadQualityRef.current?.show(list[0], {
-      showFileSize: false,
-      onSelect: (quality) => {
-        // 传入歌单名作为子目录
-        const subDir = info.name || undefined
-        startBatchDownload(list, quality, subDir)
+    const { id, source } = songlistState.listDetailInfo
+    // 先显示加载中
+    downloadProgressRef.current?.show(global.i18n.t('download_batch'), {
+      onCancel: () => {
+        downloadManager.cancelAll()
+        downloadProgressRef.current?.close()
       },
     })
+    try {
+      const fullList = await getListDetailAll(source, id)
+      downloadProgressRef.current?.close()
+      downloadQualityRef.current?.show(fullList[0], {
+        showFileSize: false,
+        onSelect: (quality) => {
+          const subDir = info.name || undefined
+          startBatchDownload(fullList, quality, subDir)
+        },
+      })
+    } catch {
+      downloadProgressRef.current?.close()
+      // 降级：使用当前已加载列表
+      downloadQualityRef.current?.show(list[0], {
+        showFileSize: false,
+        onSelect: (quality) => {
+          const subDir = info.name || undefined
+          startBatchDownload(list, quality, subDir)
+        },
+      })
+    }
   }
 
   const startBatchDownload = (list: LX.Music.MusicInfoOnline[], quality: LX.Quality, subDir?: string) => {
