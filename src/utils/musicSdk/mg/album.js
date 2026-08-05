@@ -3,13 +3,15 @@ import { filterMusicInfoList } from './musicInfo'
 import { formatPlayCount } from '../../index'
 
 export default {
+  limit_song: 30,
+
   /**
    * 通过AlbumId获取专辑
    * @param {*} id
    * @param {*} page
    */
   async getAlbumDetail(id, page = 1) {
-    const list = await createHttpFetch(`https://app.c.nf.migu.cn/MIGUM2.0/v1.0/content/queryAlbumSong?albumId=${id}&pageNo=${page}`)
+    const list = await createHttpFetch(`https://app.c.nf.migu.cn/MIGUM2.0/v1.0/content/queryAlbumSong?albumId=${id}&pageNo=${page}&pageSize=${this.limit_song}`)
     if (!list.songList) return Promise.reject(new Error('Get album list error.'))
 
     const songList = filterMusicInfoList(list.songList)
@@ -18,7 +20,7 @@ export default {
     return {
       list: songList || [],
       page,
-      limit: listInfo.total,
+      limit: this.limit_song,
       total: listInfo.total,
       source: 'mg',
       info: {

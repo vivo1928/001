@@ -142,8 +142,10 @@ export const getAlbumSongs = async(id: string, source: LX.OnlineSource, albumNam
     }
 
     const allSongs = page1Result.list.map(s => toNewMusicInfo(s) as LX.Music.MusicInfoOnline)
-    const allPage = page1Result.allPage || 1
-    const total = page1Result.total || 0
+    const total = page1Result.total || allSongs.length
+    const limit = page1Result.limit || allSongs.length
+    // 多数音源接口不返回 allPage，需按 total/limit 计算总页数（与 getListDetailAll 保持一致）
+    const allPage = page1Result.allPage || (total > limit ? Math.ceil(total / limit) : 1)
 
     // 如果只有一页，直接返回
     if (allPage <= 1) return allSongs

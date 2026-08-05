@@ -18,7 +18,6 @@ export interface MusicListType {
   loadList: (source: LX.OnlineSource, id: string) => void
 }
 
-const LIMIT = 30
 const FETCH_TIMEOUT = 15000
 const downloadManager = new DownloadManager()
 
@@ -78,7 +77,8 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId }, ref) 
     return {
       list: result.list.map(s => toNewMusicInfo(s) as LX.Music.MusicInfoOnline),
       total: result.total || 0,
-      allPage: result.allPage || Math.ceil((result.total || 0) / LIMIT),
+      // 多数音源接口不返回 allPage，需按源接口的 total/limit 计算总页数，不能使用前端本地 LIMIT
+      allPage: result.allPage || Math.ceil((result.total || result.list.length) / (result.limit || result.list.length)),
       info: result.info,
     }
   }
