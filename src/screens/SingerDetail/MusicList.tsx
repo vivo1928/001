@@ -134,6 +134,40 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId, activeT
     })
   }
 
+  const handleBatchDownload = async () => {
+    const list = singerDetailState.listDetailInfo.list
+    if (!list?.length) return
+    const { id } = singerDetailState.listDetailInfo
+    // 先显示加载中
+    downloadProgressRef.current?.show(global.i18n.t('download_batch'), {
+      onCancel: () => {
+        downloadManager.cancelAll()
+        downloadProgressRef.current?.close()
+      },
+    })
+    try {
+      const fullList = await getListDetailAll(id)
+      downloadProgressRef.current?.close()
+      downloadQualityRef.current?.show(fullList[0], {
+        showFileSize: false,
+        onSelect: (quality) => {
+          const subDir = info.name || undefined
+          startBatchDownload(fullList, quality, subDir)
+        },
+      })
+    } catch {
+      downloadProgressRef.current?.close()
+      // 降级：使用当前已加载列表
+      downloadQualityRef.current?.show(list[0], {
+        showFileSize: false,
+        onSelect: (quality) => {
+          const subDir = info.name || undefined
+          startBatchDownload(list, quality, subDir)
+        },
+      })
+    }
+  }
+
   // 原有的批量下载逻辑（用于单页情况）
   const startBatchDownload = (list: LX.Music.MusicInfoOnline[], quality: LX.Quality, subDir?: string) => {
     const total = list.length
