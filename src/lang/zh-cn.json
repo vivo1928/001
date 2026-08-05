@@ -603,6 +603,7 @@
   "download_select_all": "全选",
   "download_select_none": "取消全选",
   "download_multi_select": "多选模式",
+  "download_multi_select_exit": "已退出多选模式",
   "download_pause": "暂停下载",
   "download_resume": "继续下载",
   "download_storage_permission_title": "需要存储权限",

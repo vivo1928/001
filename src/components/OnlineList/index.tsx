@@ -1,5 +1,5 @@
-import { useRef, forwardRef, useImperativeHandle, useCallback } from 'react'
-import { View, Linking } from 'react-native'
+import { useRef, forwardRef, useImperativeHandle, useCallback, useEffect } from 'react'
+import { View, Linking, AccessibilityInfo } from 'react-native'
 // import LoadingMask, { LoadingMaskType } from '@/components/common/LoadingMask'
 import List, { type ListProps, type ListType, type Status, type RowInfoType } from './List'
 import ListMenu, { type ListMenuType, type Position, type SelectInfo } from './ListMenu'
@@ -14,6 +14,7 @@ import ConfirmAlert, { type ConfirmAlertType } from '@/components/common/Confirm
 import { handleDislikeMusic, handlePlay, handlePlayLater, handleShare, handleShowMusicSourceDetail } from './listAction'
 import { createStyle } from '@/utils/tools'
 import { requestStoragePermission } from '@/utils/permissions'
+import { useBackHandler } from '@/utils/hooks/useBackHandler'
 import DownloadManager, { type DownloadTask } from '@/core/download/manager'
 
 export interface OnlineListProps {
@@ -100,15 +101,15 @@ export default forwardRef<OnlineListType, OnlineListProps>(({
   }))
 
   // ============ 多选模式 ============
-  const hancelMultiSelect = () => {
+  const hancelMultiSelect = useCallback(() => {
     multipleModeBarRef.current?.show()
     listRef.current?.setIsMultiSelectMode(true)
-  }
-  const hancelSwitchSelectMode = (mode: SelectMode) => {
+  }, [])
+  const hancelSwitchSelectMode = useCallback((mode: SelectMode) => {
     multipleModeBarRef.current?.setSwitchMode(mode)
     listRef.current?.setSelectMode(mode)
-  }
-  const handleRangeSelect = () => {
+  }, [])
+  const handleRangeSelect = useCallback(() => {
     const list = listRef.current?.getList() ?? []
     if (list.length === 0) return
     rangeSelectRef.current?.show(list.length, {
@@ -118,11 +119,34 @@ export default forwardRef<OnlineListType, OnlineListProps>(({
         listRef.current?.selectRange(selected)
       },
     })
-  }
-  const hancelExitSelect = () => {
+  }, [])
+  const hancelExitSelect = useCallback(() => {
     multipleModeBarRef.current?.exitSelectMode()
     listRef.current?.setIsMultiSelectMode(false)
-  }
+    // 无障碍播报：已退出多选模式
+    AccessibilityInfo.announceForAccessibility(
+      global.i18n.t('download_multi_select_exit') || '已退出多选模式',
+    )
+  }, [])
+
+  // 多选模式下按返回键退出多选模式，而不是返回上一级
+  useBackHandler(useCallback(() => {
+    if (!listRef.current?.isMultiSelectMode()) return false
+    hancelExitSelect()
+    return true
+  }, [hancelExitSelect]))
+
+  // 切换首页模块（排行榜/歌单等）时自动退出多选模式
+  useEffect(() => {
+    const handleHomePageChange = () => {
+      if (!listRef.current?.isMultiSelectMode()) return
+      hancelExitSelect()
+    }
+    global.state_event.on('homePageChange', handleHomePageChange)
+    return () => {
+      global.state_event.off('homePageChange', handleHomePageChange)
+    }
+  }, [hancelExitSelect])
 
   const showMenu = (musicInfo: LX.Music.MusicInfoOnline, index: number, position: Position) => {
     listMenuRef.current?.show({

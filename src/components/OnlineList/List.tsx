@@ -35,6 +35,7 @@ export interface ListProps {
 export interface ListType {
   setList: (list: LX.Music.MusicInfoOnline[], isAppend: boolean, showSource: boolean) => void
   setIsMultiSelectMode: (isMultiSelectMode: boolean) => void
+  isMultiSelectMode: () => boolean
   setSelectMode: (mode: SelectMode) => void
   selectAll: (isAll: boolean) => void
   selectRange: (list: LX.Music.MusicInfoOnline[]) => void
@@ -96,6 +97,9 @@ const List = forwardRef<ListType, ListProps>(({
         handleUpdateSelectedList([])
       }
       setVisibleMultiSelect(isMultiSelectMode)
+    },
+    isMultiSelectMode() {
+      return isMultiSelectModeRef.current
     },
     setSelectMode(mode) {
       selectModeRef.current = mode
