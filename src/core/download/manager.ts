@@ -325,6 +325,43 @@ class DownloadManager {
   }
 
   /**
+   * 获取下载 URL（首次失败时刷新重试）
+   * 音源降级时按实际生效音质更新任务的扩展名，
+   * 避免出现"标签显示无损、实际是降级音质"的格式不匹配
+   */
+  private async fetchDownloadUrl(task: DownloadTask): Promise<string> {
+    const fetchUrl = async(isRefresh: boolean): Promise<string> => {
+      const urlResult = await handleGetOnlineMusicUrl({
+        musicInfo: task.musicInfo,
+        quality: task.quality,
+        onToggleSource: () => {},
+        isRefresh,
+        allowToggleSource: true,
+      })
+      const actualQuality = urlResult.quality || task.quality
+      if (actualQuality !== task.quality) {
+        task.quality = actualQuality
+        const path = this.getDownloadPath(task.musicInfo, actualQuality, task.subDir)
+        task.filePath = path.filePath
+        task.fileName = path.fileName
+      }
+      return urlResult.url
+    }
+
+    try {
+      return await fetchUrl(false)
+    } catch (err: any) {
+      // 首次获取 URL 失败，尝试刷新后再获取一次
+      console.log(`[DownloadManager] first URL fetch failed, retrying with refresh: ${err?.message || err}`)
+      try {
+        return await fetchUrl(true)
+      } catch (err2: any) {
+        throw new Error(`获取下载链接失败: ${err2?.message || err?.message || '未知错误'}`)
+      }
+    }
+  }
+
+  /**
    * 执行单个文件的下载流程
    */
   private async downloadSingleTask(task: DownloadTask): Promise<void> {
@@ -346,36 +383,8 @@ class DownloadManager {
       await mkdir(this.downloadDir)
     }
 
-    // 2. 通过 handleGetOnlineMusicUrl 获取下载 URL（首次尝试）
-    let url: string
-    try {
-      const urlResult = await handleGetOnlineMusicUrl({
-        musicInfo: task.musicInfo,
-        quality: task.quality,
-        onToggleSource: () => {
-          // 下载场景暂时不处理源切换页面通知
-        },
-        isRefresh: false,
-        allowToggleSource: true,
-      })
-      url = urlResult.url
-    } catch (err: any) {
-      // 首次获取 URL 失败，尝试刷新后再获取一次
-      console.log(`[DownloadManager] first URL fetch failed, retrying with refresh: ${err?.message || err}`)
-      try {
-        const urlResult = await handleGetOnlineMusicUrl({
-          musicInfo: task.musicInfo,
-          quality: task.quality,
-          onToggleSource: () => {},
-          isRefresh: true,
-          allowToggleSource: true,
-        })
-        url = urlResult.url
-      } catch (err2: any) {
-        throw new Error(`获取下载链接失败: ${err2?.message || err?.message || '未知错误'}`)
-      }
-    }
-
+    // 2. 获取下载 URL（失败时自动刷新重试），并同步实际生效音质
+    const url = await this.fetchDownloadUrl(task)
     if (!url) {
       throw new Error('获取下载链接失败：链接为空')
     }
