@@ -1,4 +1,5 @@
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef } from 'react'
+import { Alert } from 'react-native'
 import OnlineList, { type OnlineListType, type OnlineListProps } from '@/components/OnlineList'
 import Header, { type HeaderType } from './Header'
 import { useSingerInfo, type SingerTabType } from './state'
@@ -138,16 +139,14 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId, activeT
     const list = singerDetailState.listDetailInfo.list
     if (!list?.length) return
     const { id } = singerDetailState.listDetailInfo
-    // 先显示加载中
-    downloadProgressRef.current?.show(global.i18n.t('download_batch'), {
+    // 先显示获取歌曲数量中
+    downloadProgressRef.current?.show(global.i18n.t('download_getting_song_count'), {
       onCancel: () => {
         downloadManager.cancelAll()
         downloadProgressRef.current?.close()
       },
     })
-    try {
-      const fullList = await getListDetailAll(id)
-      downloadProgressRef.current?.close()
+    const showQualityPicker = (fullList: LX.Music.MusicInfoOnline[]) => {
       downloadQualityRef.current?.show(fullList[0], {
         showFileSize: false,
         onSelect: (quality) => {
@@ -155,6 +154,23 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId, activeT
           startBatchDownload(fullList, quality, subDir)
         },
       })
+    }
+    try {
+      const result = await getListDetailAll(id)
+      downloadProgressRef.current?.close()
+      if (!result.isComplete) {
+        // 获取不完整，提示后由用户决定是否继续
+        Alert.alert(
+          global.i18n.t('download_get_incomplete_title'),
+          global.i18n.t('download_get_incomplete_desc', { total: result.total, fetched: result.list.length }),
+          [
+            { text: global.i18n.t('cancel'), style: 'cancel' },
+            { text: global.i18n.t('agree'), onPress: () => showQualityPicker(result.list) },
+          ],
+        )
+        return
+      }
+      showQualityPicker(result.list)
     } catch {
       downloadProgressRef.current?.close()
       // 降级：使用当前已加载列表

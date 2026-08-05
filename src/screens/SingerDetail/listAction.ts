@@ -21,13 +21,13 @@ export const handlePlay = async(id: string, list?: LX.Music.MusicInfoOnline[], i
     isPlayingList = true
   }
   const fullList = await getListDetailAll(id)
-  if (!fullList.length) return
+  if (!fullList.list.length) return
   if (isPlayingList) {
     if (listState.tempListMeta.id == listId) {
-      await setTempList(listId, [...fullList])
+      await setTempList(listId, [...fullList.list])
     }
   } else {
-    await setTempList(listId, [...fullList])
+    await setTempList(listId, [...fullList.list])
     void playList(LIST_IDS.TEMP, index)
   }
 }
