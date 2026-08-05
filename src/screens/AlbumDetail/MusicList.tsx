@@ -193,17 +193,51 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId }, ref) 
     })
   }
 
-  const handleBatchDownload = () => {
+  const fetchAllAlbumSongs = async (): Promise<LX.Music.MusicInfoOnline[]> => {
+    const { page, maxPage } = listInfoRef.current
+    if (page >= maxPage) {
+      return listInfoRef.current.list
+    }
+    const allSongs = [...listInfoRef.current.list]
+    for (let p = page + 1; p <= maxPage; p++) {
+      const result = await fetchList(info.id, p)
+      allSongs.push(...result.list)
+    }
+    return allSongs
+  }
+
+  const handleBatchDownload = async () => {
     const list = listRef.current?.getList()
     if (!list?.length) return
-    downloadQualityRef.current?.show(list[0], {
-      showFileSize: false,
-      onSelect: (quality) => {
-        // 传入专辑名作为子目录
-        const subDir = info.name || undefined
-        startBatchDownload(list, quality, subDir)
+    // 先显示加载中
+    downloadProgressRef.current?.show(global.i18n.t('download_batch'), {
+      onCancel: () => {
+        downloadManager.cancelAll()
+        downloadProgressRef.current?.close()
       },
     })
+    try {
+      const fullList = await fetchAllAlbumSongs()
+      downloadProgressRef.current?.close()
+      downloadQualityRef.current?.show(fullList[0], {
+        showFileSize: false,
+        onSelect: (quality) => {
+          // 传入专辑名作为子目录
+          const subDir = info.name || undefined
+          startBatchDownload(fullList, quality, subDir)
+        },
+      })
+    } catch {
+      downloadProgressRef.current?.close()
+      // 降级：使用当前已加载列表
+      downloadQualityRef.current?.show(list[0], {
+        showFileSize: false,
+        onSelect: (quality) => {
+          const subDir = info.name || undefined
+          startBatchDownload(list, quality, subDir)
+        },
+      })
+    }
   }
 
   const startBatchDownload = (list: LX.Music.MusicInfoOnline[], quality: LX.Quality, subDir?: string) => {
