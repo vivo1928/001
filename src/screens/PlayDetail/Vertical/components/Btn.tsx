@@ -6,15 +6,17 @@ import { HEADER_HEIGHT as _HEADER_HEIGHT } from '@/config/constant'
 
 export const HEADER_HEIGHT = scaleSizeH(_HEADER_HEIGHT)
 
-export default ({ icon, color, onPress, accessibilityLabel }: {
+export default ({ icon, color, onPress, onLongPress, accessibilityLabel, accessibilityState }: {
   icon: string
   color?: string
   onPress: () => void
+  onLongPress?: () => void
   accessibilityLabel?: string
+  accessibilityState?: object
 }) => {
   return (
-    <TouchableOpacity onPress={onPress} style={{ ...styles.button, width: HEADER_HEIGHT }}
-      accessibilityLabel={accessibilityLabel} accessibilityRole="button">
+    <TouchableOpacity onPress={onPress} onLongPress={onLongPress} style={{ ...styles.button, width: HEADER_HEIGHT }}
+      accessibilityLabel={accessibilityLabel} accessibilityRole="button" accessibilityState={accessibilityState}>
       <Icon name={icon} color={color} size={18} />
     </TouchableOpacity>
   )
