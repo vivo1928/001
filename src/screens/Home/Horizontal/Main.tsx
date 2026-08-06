@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { AccessibilityInfo } from 'react-native'
 import Search from '../Views/Search'
 import SongList from '../Views/SongList'
 import Mylist from '../Views/Mylist'
@@ -14,6 +15,8 @@ const Main = () => {
     const handleUpdate = (id: CommonState['navActiveId']) => {
       requestAnimationFrame(() => {
         setId(id)
+        // 切换页面时播报页面名称（与竖屏一致）
+        AccessibilityInfo.announceForAccessibility(global.i18n.t(id))
       })
     }
     global.state_event.on('navActiveIdUpdated', handleUpdate)
