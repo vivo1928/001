@@ -54,10 +54,11 @@ public class EqualizerAudioProcessor implements AudioProcessor {
 
     @Override
     public boolean isActive() {
-        // 恒返回 true：让均衡器处理器常驻音频链，避免播放中因开关均衡器触发
-        // AudioSink/解码器管线重建（重建会产生卡顿与变调）。
-        // 均衡器关闭时由 queueInput 内部透传（原样输出），不改变采样/声道。
-        return true;
+        // 均衡器关闭时返回 false，让 ExoPlayer 走标准无处理器的音频路径，
+        // 避免关闭均衡器后仍强制走软件处理链（恒 active）导致播放卡顿。
+        // 开关均衡器不会运行时重建播放管线（offload 始终禁用），
+        // 仅在均衡器开启状态下本处理器才参与音频处理。
+        return equalizer.isEnabled();
     }
 
     @Override
@@ -68,10 +69,19 @@ public class EqualizerAudioProcessor implements AudioProcessor {
         if (remaining == 0) return;
 
         if (!equalizer.isEnabled()) {
-            // 均衡器未启用时，直接透传：设置输出为输入缓冲区从position到limit
-            // 我们需要让输出缓冲区从当前position开始
-            outputBuffer = input.slice();
+            // 均衡器未启用时透传。不能直接返回 input 的切片视图：
+            // 其底层存储会被 ExoPlayer 复用覆盖，必须拷贝到自有缓冲区。
+            if (pendingOutputBuffer == null || pendingOutputBuffer.capacity() < remaining) {
+                pendingOutputBuffer = ByteBuffer.allocateDirect(remaining).order(ByteOrder.LITTLE_ENDIAN);
+            }
+            pendingOutputBuffer.clear();
+            input.limit(limit);
+            input.position(position);
+            pendingOutputBuffer.put(input);
             input.position(limit);
+            pendingOutputBuffer.position(0);
+            pendingOutputBuffer.limit(remaining);
+            outputBuffer = pendingOutputBuffer;
             return;
         }
 
