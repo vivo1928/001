@@ -62,6 +62,10 @@ const rootPath = path.join(__dirname, './')
 
   const patchs = [
     [
+      'boolean shouldEnableAudioOffload = options.getBoolean("audioOffload", true);',
+      '// 均衡器软件处理器常驻音频链（EqualizerAudioProcessor.isActive 恒 true），\n        // 必须禁用硬件 offload（offload 会绕过 AudioProcessor 链导致均衡器失效），\n        // 且运行时切换 offload 会重建解码/输出管线产生卡顿与变调，故始终禁用\n        boolean shouldEnableAudioOffload = false;',
+    ],
+    [
       'import androidx.media3.exoplayer.DefaultRenderersFactory;',
       'import androidx.media3.exoplayer.DefaultRenderersFactory;\nimport cn.toside.music.mobile.equalizer.EqRenderersFactory;',
     ],

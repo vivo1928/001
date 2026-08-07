@@ -13,8 +13,6 @@ import com.facebook.react.bridge.ReadableArray;
 import com.facebook.react.bridge.WritableArray;
 import com.facebook.react.bridge.WritableMap;
 
-import com.guichaguri.trackplayer.service.MusicManager;
-
 /**
  * React Native 均衡器原生模块
  * 提供软件均衡器控制接口，兼容所有 Android 设备
@@ -45,22 +43,13 @@ public class EqualizerModule extends ReactContextBaseJavaModule {
 
     /**
      * 启用/禁用均衡器
+     * 注意：不在运行时切换硬件 offload。均衡器处理器常驻音频链（isActive 恒 true），
+     * 关闭时内部透传，避免播放中重建解码器/输出管线导致卡顿与变调。
      */
     @ReactMethod
     public void setEnabled(boolean enabled, Promise promise) {
         try {
             equalizer.setEnabled(enabled);
-            // 均衡器启用时禁用音频offload（offload绕过AudioProcessor链）
-            // 禁用时恢复用户原始设置
-            try {
-                if (enabled) {
-                    MusicManager.setAudioOffloadEnabled(false);
-                } else {
-                    MusicManager.restoreOriginalAudioOffload();
-                }
-            } catch (Throwable t) {
-                Log.w(TAG, "Failed to set audio offload: " + t.getMessage());
-            }
             promise.resolve(null);
         } catch (Exception e) {
             Log.e(TAG, "setEnabled error", e);
