@@ -45,11 +45,12 @@ android-release:
   before_script:
     - *setup
   script:
-    - echo "$KEYSTORE_BASE64" | base64 --decode > android/app/keystore.jks
-    - sed -i 's/org.gradle.jvmargs=.*/org.gradle.jvmargs=-Xmx8g -XX:MaxMetaspaceSize=512m/' android/gradle.properties
-    - cd android
-    - chmod +x gradlew
-    - ./gradlew assembleRelease --init-script init.gradle \
+    - |
+      echo "$KEYSTORE_BASE64" | base64 --decode > android/app/keystore.jks
+      sed -i 's/org.gradle.jvmargs=.*/org.gradle.jvmargs=-Xmx8g -XX:MaxMetaspaceSize=512m/' android/gradle.properties
+      cd android
+      chmod +x gradlew
+      ./gradlew assembleRelease --init-script init.gradle \
         -PMYAPP_UPLOAD_STORE_FILE='keystore.jks' \
         -PMYAPP_UPLOAD_KEY_ALIAS="$KEYSTORE_KEY_ALIAS" \
         -PMYAPP_UPLOAD_STORE_PASSWORD="$KEYSTORE_STORE_PASSWORD" \
