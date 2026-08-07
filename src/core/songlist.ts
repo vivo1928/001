@@ -10,6 +10,19 @@ type CacheValue = LimitDetailCache | ListInfo
 
 const cache = new Map<string, CacheValue>()
 const LIST_LOAD_LIMIT = 30
+// 全量拉取超时（毫秒）
+const FETCH_TIMEOUT = 15000
+
+const withTimeout = async <T,>(promise: Promise<T>, ms: number, msg: string): Promise<T> => {
+  return Promise.race([
+    promise,
+    new Promise<T>((_resolve, reject) => {
+      setTimeout(() => {
+        reject(new Error(msg))
+      }, ms)
+    }),
+  ])
+}
 
 
 /**
@@ -187,35 +200,83 @@ export const getListDetail = async(id: string, source: LX.OnlineSource, page: nu
 
 /**
  * 获取歌单内全部歌曲
+ * 独立全量拉取：按源接口分页大小直接请求，分批并发获取剩余页，失败页自动重试一次
+ * @param source 源
  * @param id 歌单id
- * @param source 歌单源
- * @param isRefresh 是否跳过缓存
- * @returns
+ * @param isRefresh 兼容参数，无需缓存
+ * @returns 全部歌曲列表
  */
 export const getListDetailAll = async(source: LX.OnlineSource, id: string, isRefresh = false): Promise<LX.Music.MusicInfoOnline[]> => {
-  // console.log(tabId)
-  const listKey = `sdetail__${source}__${id}`
-  let listCache = cache.get(listKey) as LimitDetailCache
-  if (!listCache || isRefresh) {
-    cache.set(listKey, listCache = new Map())
+  const sdk = musicSdk[source]
+  if (!sdk) throw new Error('source not found: ' + source)
+  const songList = sdk.songList
+  if (!songList) throw new Error('songList not supported for source: ' + source)
+
+  const PAGES_PER_BATCH = 6
+  const MAX_RETRY = 1
+
+  const fetchPage = async(sourcePage: number): Promise<{ list: any[], total: number, limit: number }> => {
+    const r = await withTimeout(
+      songList.getListDetail(id, sourcePage) as Promise<{ list?: any[], total?: number, limit?: number }>,
+      FETCH_TIMEOUT,
+      `songlist fetch timeout for source: ${source}, page: ${sourcePage}`,
+    )
+    if (!r?.list) throw new Error(`songlist returned empty list, page: ${sourcePage}`)
+    return { list: r.list, total: r.total ?? 0, limit: r.limit ?? LIST_LOAD_LIMIT }
   }
 
-  const loadData = async(page: number): Promise<ListDetailInfo> => {
-    const pageKey = `sdetail__${source}__${id}__${page}`
-    let pageCache = listCache.get(pageKey) as DetailPageCache
-    if (pageCache) return pageCache.data
-    return getListDetailLimit(source, id, page)
+  const firstPage = await fetchPage(1)
+  const allSongs: any[] = firstPage.list
+  const maxSourcePage = Math.ceil(firstPage.total / firstPage.limit)
+  if (maxSourcePage <= 1) {
+    return deduplicationList(allSongs.map(m => toNewMusicInfo(m)) as LX.Music.MusicInfoOnline[])
   }
-  return loadData(1).then(async result => {
-    if (result.total <= result.limit) return result.list
 
-    let maxPage = Math.ceil(result.total / result.limit)
-    const loadDetail = async(loadPage = 2): Promise<LX.Music.MusicInfoOnline[]> => {
-      return loadPage == maxPage
-        ? loadData(loadPage).then(result => result.list)
-        // eslint-disable-next-line @typescript-eslint/promise-function-async
-        : loadData(loadPage).then(result1 => loadDetail(++loadPage).then(result2 => [...result1.list, ...result2]))
+  const pages = Array.from({ length: maxSourcePage - 1 }, (_, i) => i + 2)
+  const failedPages: number[] = []
+  const collect = async(pageList: number[]) => {
+    const results = await Promise.allSettled(pageList.map(async p => {
+      try {
+        const r = await fetchPage(p)
+        return { page: p, list: r.list }
+      } catch (err) {
+        console.warn(`[songlist] fetch page ${p} failed: ${err instanceof Error ? err.message : String(err)}`)
+        return { page: p, list: null }
+      }
+    }))
+    for (const r of results) {
+      if (r.status === 'fulfilled' && r.value.list) {
+        for (const item of r.value.list) allSongs.push(item)
+      } else if (r.status === 'fulfilled' && !r.value.list) failedPages.push(r.value.page)
     }
-    return loadDetail().then(result2 => [...result.list, ...result2])
-  }).then(list => deduplicationList(list))
+  }
+
+  for (let i = 0; i < pages.length; i += PAGES_PER_BATCH) {
+    await collect(pages.slice(i, i + PAGES_PER_BATCH))
+  }
+
+  // 失败页重试一次
+  const retryFailed: number[] = []
+  for (let attempt = 0; attempt <= MAX_RETRY && failedPages.length; attempt++) {
+    const current = [...failedPages]
+    failedPages.length = 0
+    const results = await Promise.allSettled(current.map(async p => {
+      try {
+        const r = await fetchPage(p)
+        return { page: p, list: r.list }
+      } catch {
+        return { page: p, list: null }
+      }
+    }))
+    for (const r of results) {
+      if (r.status === 'fulfilled' && r.value.list) {
+        for (const item of r.value.list) allSongs.push(item)
+      } else if (r.status === 'fulfilled' && !r.value.list) retryFailed.push(r.value.page)
+    }
+  }
+  if (retryFailed.length) {
+    console.warn(`[songlist] pages still failed after retry: ${retryFailed.join(',')}, total=${firstPage.total}`)
+  }
+
+  return deduplicationList(allSongs.map(m => toNewMusicInfo(m)) as LX.Music.MusicInfoOnline[])
 }

@@ -251,6 +251,15 @@ class DownloadManager {
   }
 
   /**
+   * 获取指定任务 id 在队列中的实时任务对象（非拷贝），
+   * 调用方可据此读取任务的最新状态（status/progress 会随下载过程实时更新）
+   */
+  getTasksByIds(taskIds: string[]): DownloadTask[] {
+    const ids = new Set(taskIds)
+    return this.queue.filter((t) => ids.has(t.id))
+  }
+
+  /**
    * 获取队列中各状态的任务数量统计
    */
   getStats(): { total: number; completed: number; failed: number; downloading: number } {
@@ -259,6 +268,20 @@ class DownloadManager {
       completed: this.queue.filter((t) => t.status === 'completed').length,
       failed: this.queue.filter((t) => t.status === 'failed').length,
       downloading: this.queue.filter((t) => t.status === 'downloading').length,
+    }
+  }
+
+  /**
+   * 按指定的任务 id 子集统计完成情况（实时状态），
+   * 用于批量下载的进度与完成判定，避免被全局队列中其他批次的任务干扰
+   */
+  getBatchStats(taskIds: string[]): { total: number, completed: number, failed: number, downloading: number } {
+    const tasks = this.getTasksByIds(taskIds)
+    return {
+      total: tasks.length,
+      completed: tasks.filter((t) => t.status === 'completed').length,
+      failed: tasks.filter((t) => t.status === 'failed').length,
+      downloading: tasks.filter((t) => t.status === 'downloading').length,
     }
   }
 

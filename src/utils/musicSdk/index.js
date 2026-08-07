@@ -60,9 +60,8 @@ export const searchMusic = async({ name, singer, source: s, limit = 25 }) => {
   const trimStr = str => typeof str == 'string' ? str.trim() : str
   const musicName = trimStr(name)
   const tasks = []
-  const excludeSource = ['xm']
   for (const source of sources.sources) {
-    if (!sources[source.id].musicSearch || source.id == s || excludeSource.includes(source.id)) continue
+    if (!sources[source.id].musicSearch || source.id == s) continue
     tasks.push(sources[source.id].musicSearch.search(`${musicName} ${singer || ''}`.trim(), 1, limit).catch(_ => null))
   }
   return (await Promise.all(tasks)).filter(s => s)

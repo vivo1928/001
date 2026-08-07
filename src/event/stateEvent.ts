@@ -118,6 +118,10 @@ export class StateEvent extends Event {
     this.emit('navActiveIdUpdated', id)
   }
 
+  homePageChange() {
+    this.emit('homePageChange')
+  }
+
   sourceNamesUpdated(names: CommonState['sourceNames']) {
     this.emit('sourceNamesUpdated', names)
   }

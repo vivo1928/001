@@ -8,7 +8,7 @@ import { useListInfo } from './state'
 import DownloadQualityModal, { type DownloadQualityModalType } from '@/components/DownloadQualityModal'
 import DownloadProgressModal, { type DownloadProgressModalType } from '@/components/DownloadProgressModal'
 import DownloadFailedModal, { type DownloadFailedModalType } from '@/components/DownloadFailedModal'
-import DownloadManager, { type DownloadTask } from '@/core/download/manager'
+import DownloadManager from '@/core/download/manager'
 
 export interface MusicListProps {
   componentId: string
@@ -118,7 +118,7 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId }, ref) 
     })
   }
 
-  const handleBatchDownload = async () => {
+  const handleBatchDownload = async() => {
     const list = songlistState.listDetailInfo.list
     if (!list?.length) return
     const { id, source } = songlistState.listDetailInfo
@@ -154,31 +154,41 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId }, ref) 
 
   const startBatchDownload = (list: LX.Music.MusicInfoOnline[], quality: LX.Quality, subDir?: string) => {
     const total = list.length
+
+    const originalOnProgress = downloadManager['onProgress']
+    const originalOnComplete = downloadManager['onComplete']
+    const restoreCallbacks = () => {
+      downloadManager['onProgress'] = originalOnProgress
+      downloadManager['onComplete'] = originalOnComplete
+    }
+
     downloadProgressRef.current?.show(global.i18n.t('download_batch'), {
       onCancel: () => {
         downloadManager.cancelAll()
         downloadProgressRef.current?.close()
+        restoreCallbacks()
       },
     })
 
     const taskIds = downloadManager.addBatchToQueue(list, quality, subDir)
-    const allTasks = downloadManager.getQueue().filter(t => taskIds.includes(t.id))
+    const allTasks = downloadManager.getTasksByIds(taskIds)
     const failedSongs: Array<{ name: string, singer: string, error?: string }> = []
 
+    const getBatchStats = () => downloadManager.getBatchStats(taskIds)
+    const doneCountOf = (stats: ReturnType<typeof getBatchStats>) => stats.completed + stats.failed
+
     // 设置进度回调
-    const originalOnProgress = downloadManager['onProgress']
     downloadManager['onProgress'] = (id, progress) => {
-      const stats = downloadManager.getStats()
-      const doneCount = stats.completed + stats.failed
-      const currentSong = doneCount + 1
+      const stats = getBatchStats()
+      const doneCount = doneCountOf(stats)
+      const currentSong = Math.min(doneCount + 1, total)
       downloadProgressRef.current?.updateProgress(
-        total > 0 ? Math.round((doneCount / total) * 100) : 0,
+        total > 0 ? Math.min(Math.round((doneCount / total) * 100), 100) : 0,
         `${global.i18n.t('download_current_progress', { current: currentSong, total })} ${progress}%`,
       )
     }
 
     // 设置完成回调
-    const originalOnComplete = downloadManager['onComplete']
     downloadManager['onComplete'] = (id, success, error) => {
       const task = allTasks.find(t => t.id === id)
       if (!task) return
@@ -190,8 +200,8 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId }, ref) 
         })
       }
 
-      const stats = downloadManager.getStats()
-      const doneCount = stats.completed + stats.failed
+      const stats = getBatchStats()
+      const doneCount = doneCountOf(stats)
 
       if (doneCount < total) {
         const currentSong = doneCount + 1
@@ -215,22 +225,23 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId }, ref) 
               onCancel: () => {
                 downloadManager.cancelAll()
                 downloadProgressRef.current?.close()
+                restoreCallbacks()
               },
             })
             const retryIds = downloadManager.addBatchToQueue(retryList, quality, subDir)
-            const retryTasks = downloadManager.getQueue().filter(t => retryIds.includes(t.id))
-            allTasks.push(...retryTasks)
+            taskIds.push(...retryIds)
+            allTasks.push(...downloadManager.getTasksByIds(retryIds))
 
             const retryOnComplete = downloadManager['onComplete']
             downloadManager['onComplete'] = (retryId, retrySuccess, retryError) => {
-              const retryStats = downloadManager.getStats()
-              if (retryStats.completed + retryStats.failed >= allTasks.length) {
+              const retryStats = getBatchStats()
+              if (doneCountOf(retryStats) >= taskIds.length) {
                 downloadProgressRef.current?.close()
                 const finalFailed = failedSongs.filter(f => {
-                  const retryTask = allTasks.find(t =>
-                    t.musicInfo.name === f.name && t.musicInfo.singer === f.singer && t.status === 'failed',
-                  )
-                  return retryTask != null
+                  const idx = retryList.findIndex(item => item.name === f.name && item.singer === f.singer)
+                  if (idx === -1) return false
+                  const retryTask = downloadManager.getTasksByIds([retryIds[idx]])[0]
+                  return retryTask ? retryTask.status === 'failed' : false
                 })
                 if (finalFailed.length > 0) {
                   downloadFailedRef.current?.showFailedSongs(finalFailed, {
@@ -247,14 +258,14 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId }, ref) 
                   })
                 }
                 downloadManager['onComplete'] = retryOnComplete
+                restoreCallbacks()
               }
             }
             return
           }
         }
 
-        downloadManager['onProgress'] = originalOnProgress
-        downloadManager['onComplete'] = originalOnComplete
+        restoreCallbacks()
       }
     }
   }

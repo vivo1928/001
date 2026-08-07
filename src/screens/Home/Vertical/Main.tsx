@@ -231,7 +231,7 @@ const Main = () => {
       setNavActiveId(indexMap[activeIndexRef.current])
     }
     // 切换页面时通知列表退出多选模式
-    global.state_event.emit('homePageChange')
+    global.state_event.homePageChange()
     // 切换页面时播报页面名称
     AccessibilityInfo.announceForAccessibility(global.i18n.t(pageNameKeys[activeIndexRef.current]))
   }, [])

@@ -71,6 +71,14 @@ const diffCurrentMusicInfo = (curMusicInfo: LX.Music.MusicInfo | LX.Download.Lis
   return createGettingUrlId(curMusicInfo) != global.lx.gettingUrlId || curMusicInfo.id != playerState.playMusicInfo.musicInfo?.id || playerState.isPlay
 }
 
+/**
+ * 仅判断目标歌曲是否已切换/过期（不含播放状态）
+ * 用于在获取到 URL 后判断是否仍应使用该结果，避免播放中刷新 URL 的结果被丢弃
+ */
+const isCurrentMusicInfoChanged = (curMusicInfo: LX.Music.MusicInfo | LX.Download.ListItem): boolean => {
+  return createGettingUrlId(curMusicInfo) != global.lx.gettingUrlId || curMusicInfo.id != playerState.playMusicInfo.musicInfo?.id
+}
+
 let cancelDelayRetry: (() => void) | null = null
 const delayRetry = async(musicInfo: LX.Music.MusicInfo | LX.Download.ListItem, isRefresh = false): Promise<string | null> => {
   // if (cancelDelayRetry) cancelDelayRetry()
@@ -115,13 +123,13 @@ const getMusicPlayUrl = async(musicInfo: LX.Music.MusicInfo | LX.Download.ListIt
       },
     })
   }).then(url => {
-    if (global.lx.isPlayedStop || diffCurrentMusicInfo(musicInfo)) return null
+    if (global.lx.isPlayedStop || isCurrentMusicInfoChanged(musicInfo)) return null
 
     return url
   }).catch(async err => {
     // console.log('err', err.message)
     if (global.lx.isPlayedStop ||
-      diffCurrentMusicInfo(musicInfo) ||
+      isCurrentMusicInfoChanged(musicInfo) ||
       err.message == requestMsg.cancelRequest) return null
 
     if (err.message == requestMsg.tooManyRequests) return delayRetry(musicInfo, isRefresh)
@@ -272,9 +280,12 @@ const handlePlay = async() => {
  */
 export const playListById = async(listId: string, id: string) => {
   const prevListId = playerState.playInfo.playerListId
-  setPlayListId(listId)
   const musicInfo = getList(listId).find(m => m.id == id)
-  if (!musicInfo) return
+  if (!musicInfo) {
+    if (prevListId != listId) setPlayListId(prevListId)
+    return
+  }
+  setPlayListId(listId)
   setPlayMusicInfo(listId, musicInfo)
   if (settingState.setting['player.isAutoCleanPlayedList'] || prevListId != listId) clearPlayedList()
   clearTempPlayeList()

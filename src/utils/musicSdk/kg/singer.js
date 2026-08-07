@@ -18,8 +18,8 @@ const ALL_HOSTS = SINGER_HOSTS.flatMap(h => [`https://${h}`, `http://${h}`])
 async function fetchWithFallback(hosts, buildUrl, timeoutMs = 4000, retryCount = 1) {
   const TOTAL_TIMEOUT = 12000
 
-  const tryFetch = async (): Promise<any> => {
-    const errors: string[] = []
+  const tryFetch = async () => {
+    const errors = []
 
     // 并行发射所有主机，Promise.race 竞速取优
     const results = await Promise.allSettled(

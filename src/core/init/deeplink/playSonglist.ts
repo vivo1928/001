@@ -28,7 +28,7 @@ const playSongListDetail = async(source: LX.OnlineSource, link: string, playInde
   }
   list = await getListDetailAll(source, id)
   if (isPlayingList) {
-    if (listState.tempListMeta.id == id) await setTempList(playListId, list)
+    if (listState.tempListMeta.id == playListId) await setTempList(playListId, list)
   } else {
     await setTempList(playListId, list)
     await playList(LIST_IDS.TEMP, getListPlayIndex(list, playIndex))

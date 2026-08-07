@@ -41,18 +41,22 @@ export default {
     return rawList.map(item => {
       item = item.baseInfo.simpleSongData
 
+      const privilege = item.privilege
+      // 无版权/权限数据时跳过该歌曲
+      if (!privilege) return null
+
       const types = []
       const _types = {}
       let size
 
-      if (item.privilege.maxBrLevel == 'hires') {
+      if (privilege.maxBrLevel == 'hires') {
         size = item.hr ? sizeFormate(item.hr.size) : null
         types.push({ type: 'flac24bit', size })
         _types.flac24bit = {
           size,
         }
       }
-      switch (item.privilege.maxbr) {
+      switch (privilege.maxbr) {
         case 999000:
           size = item.sq ? sizeFormate(item.sq.size) : null
           types.push({ type: 'flac', size })
@@ -91,7 +95,7 @@ export default {
         _types,
         typeUrl: {},
       }
-    })
+    }).filter(Boolean)
   },
   search(str, page = 1, limit, retryNum = 0) {
     if (++retryNum > 3) return Promise.reject(new Error('try max num'))

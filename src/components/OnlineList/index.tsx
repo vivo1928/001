@@ -256,33 +256,42 @@ export default forwardRef<OnlineListType, OnlineListProps>(({
       failedSongs: [],
     }
 
+    // 恢复默认回调
+    const originalOnProgress = downloadManager['onProgress']
+    const originalOnComplete = downloadManager['onComplete']
+    const restoreCallbacks = () => {
+      downloadManager['onProgress'] = originalOnProgress
+      downloadManager['onComplete'] = originalOnComplete
+    }
+
     // 显示进度弹窗
     downloadProgressRef.current?.show(global.i18n.t('download_batch'), {
       onCancel: () => {
+        downloadContextRef.current.failedSongs = []
         downloadManager.cancelAll()
         downloadProgressRef.current?.close()
-        downloadContextRef.current.failedSongs = []
+        restoreCallbacks()
       },
     })
 
     // 添加所有任务到队列
     const taskIds = downloadManager.addBatchToQueue(list, quality, subDir)
-    const allTasks = downloadManager.getQueue().filter(t => taskIds.includes(t.id))
+    const allTasks = downloadManager.getTasksByIds(taskIds)
     downloadContextRef.current.tasks = allTasks
 
-    let completedCount = 0
-    let failedCount = 0
     const failedSongs: Array<{ name: string, singer: string, error?: string }> = []
+    // 本批次统计（含重试任务），避免被全局队列中其他批次干扰
+    const getBatchStats = () => downloadManager.getBatchStats(taskIds)
+    const doneCountOf = (stats: ReturnType<typeof getBatchStats>) => stats.completed + stats.failed
+    const getFailedIds = () => allTasks.filter(t => t.status === 'failed').map(t => t.id)
 
     // 设置进度回调
-    const originalOnProgress = downloadManager['onProgress']
     downloadManager['onProgress'] = (id, progress) => {
       const task = allTasks.find(t => t.id === id)
       if (!task) return
       task.progress = progress
-      const currentCompleted = downloadManager.getStats().completed
-      const currentFailed = downloadManager.getStats().failed
-      const doneCount = currentCompleted + currentFailed
+      const stats = getBatchStats()
+      const doneCount = doneCountOf(stats)
       const currentSong = doneCount + 1
       downloadProgressRef.current?.updateProgress(
         total > 0 ? Math.round((doneCount / total) * 100) : 0,
@@ -291,14 +300,10 @@ export default forwardRef<OnlineListType, OnlineListProps>(({
     }
 
     // 设置完成回调
-    const originalOnComplete = downloadManager['onComplete']
     downloadManager['onComplete'] = (id, success, error) => {
       const task = allTasks.find(t => t.id === id)
       if (!task) return
-      if (success) {
-        completedCount++
-      } else if (error !== 'cancelled') {
-        failedCount++
+      if (!success && error !== 'cancelled') {
         failedSongs.push({
           name: task.musicInfo.name,
           singer: task.musicInfo.singer,
@@ -306,8 +311,8 @@ export default forwardRef<OnlineListType, OnlineListProps>(({
         })
       }
 
-      const stats = downloadManager.getStats()
-      const doneCount = stats.completed + stats.failed
+      const stats = getBatchStats()
+      const doneCount = doneCountOf(stats)
       const totalProgress = total > 0 ? Math.round((doneCount / total) * 100) : 0
 
       if (doneCount < total) {
@@ -323,34 +328,36 @@ export default forwardRef<OnlineListType, OnlineListProps>(({
         downloadProgressRef.current?.close()
 
         // 如果有失败的任务，尝试重试一次
-        if (failedSongs.length > 0) {
+        const failedIds = getFailedIds()
+        if (failedSongs.length > 0 && failedIds.length > 0) {
           // 先重试失败的歌曲
           const retryList = list.filter((_, i) => failedSongs.some(f => f.name === list[i].name && f.singer === list[i].singer))
           if (retryList.length > 0) {
             // 更新进度
             downloadProgressRef.current?.show(global.i18n.t('download_batch'), {
               onCancel: () => {
+                downloadContextRef.current.failedSongs = []
                 downloadManager.cancelAll()
                 downloadProgressRef.current?.close()
+                restoreCallbacks()
               },
             })
             // 重试失败的歌曲
             const retryIds = downloadManager.addBatchToQueue(retryList, quality, subDir)
-            const retryTasks = downloadManager.getQueue().filter(t => retryIds.includes(t.id))
-            allTasks.push(...retryTasks)
+            taskIds.push(...retryIds)
+            allTasks.push(...downloadManager.getTasksByIds(retryIds))
 
-            // 重试完成后检查最终结果
+            // 重试完成后检查最终结果（仅依据重试任务的实时状态判定，避免原始失败任务干扰）
             const retryOnComplete = downloadManager['onComplete']
             downloadManager['onComplete'] = (retryId, retrySuccess, retryError) => {
-              const retryStats = downloadManager.getStats()
-              if (retryStats.completed + retryStats.failed >= allTasks.length) {
+              const retryStats = getBatchStats()
+              if (doneCountOf(retryStats) >= taskIds.length) {
                 downloadProgressRef.current?.close()
-                // 检查最终失败列表
                 const finalFailed = failedSongs.filter(f => {
-                  const retryTask = allTasks.find(t =>
-                    t.musicInfo.name === f.name && t.musicInfo.singer === f.singer && t.status === 'failed',
-                  )
-                  return retryTask != null
+                  const idx = retryList.findIndex(item => item.name === f.name && item.singer === f.singer)
+                  if (idx === -1) return false
+                  const retryTask = downloadManager.getTasksByIds([retryIds[idx]])[0]
+                  return retryTask ? retryTask.status === 'failed' : false
                 })
                 if (finalFailed.length > 0) {
                   downloadFailedRef.current?.showFailedSongs(finalFailed, {
@@ -366,6 +373,7 @@ export default forwardRef<OnlineListType, OnlineListProps>(({
                   })
                 }
                 downloadManager['onComplete'] = retryOnComplete
+                restoreCallbacks()
               }
             }
             return
@@ -374,8 +382,7 @@ export default forwardRef<OnlineListType, OnlineListProps>(({
 
         // 没有失败，全部完成
         // 恢复回调
-        downloadManager['onProgress'] = originalOnProgress
-        downloadManager['onComplete'] = originalOnComplete
+        restoreCallbacks()
       }
     }
   }

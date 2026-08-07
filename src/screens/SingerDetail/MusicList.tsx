@@ -23,7 +23,7 @@ export interface MusicListType {
 }
 
 // 构建歌手简介文本
-const buildDesc = (info: { name?: string; song_count?: number; album_count?: number; desc?: string; img?: string }): string => {
+const buildDesc = (info: { name?: string, song_count?: number, album_count?: number, desc?: string, img?: string }): string => {
   if (info.desc) return info.desc
   const parts: string[] = []
   if (info.song_count) parts.push(`${info.song_count} 首歌曲`)
@@ -94,7 +94,7 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId, activeT
   const handlePlayList: OnlineListProps['onPlayList'] = (index) => {
     const listDetailInfo = singerDetailState.listDetailInfo
     const list = listDetailInfo.list
-    if (!list || !list[index]) {
+    if (!list?.[index]) {
       console.warn(`[SingerDetail] handlePlayList: invalid index=${index} list.length=${list?.length ?? 'N/A'}`)
       return
     }
@@ -135,7 +135,7 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId, activeT
     })
   }
 
-  const handleBatchDownload = async () => {
+  const handleBatchDownload = async() => {
     const list = singerDetailState.listDetailInfo.list
     if (!list?.length) return
     const { id } = singerDetailState.listDetailInfo
@@ -165,7 +165,7 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId, activeT
           global.i18n.t('download_get_incomplete_desc', { total: result.total, fetched: result.list.length }),
           [
             { text: global.i18n.t('cancel'), style: 'cancel' },
-            { text: global.i18n.t('agree'), onPress: () => showQualityPicker(result.list) },
+            { text: global.i18n.t('agree'), onPress: () => { showQualityPicker(result.list) } },
           ],
         )
         return
@@ -187,31 +187,41 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId, activeT
   // 原有的批量下载逻辑（用于单页情况）
   const startBatchDownload = (list: LX.Music.MusicInfoOnline[], quality: LX.Quality, subDir?: string) => {
     const total = list.length
+
+    const originalOnProgress = downloadManager['onProgress']
+    const originalOnComplete = downloadManager['onComplete']
+    const restoreCallbacks = () => {
+      downloadManager['onProgress'] = originalOnProgress
+      downloadManager['onComplete'] = originalOnComplete
+    }
+
     downloadProgressRef.current?.show(global.i18n.t('download_batch'), {
       onCancel: () => {
         downloadManager.cancelAll()
         downloadProgressRef.current?.close()
+        restoreCallbacks()
       },
     })
 
     const taskIds = downloadManager.addBatchToQueue(list, quality, subDir)
-    const allTasks = downloadManager.getQueue().filter(t => taskIds.includes(t.id))
+    const allTasks = downloadManager.getTasksByIds(taskIds)
     const failedSongs: Array<{ name: string, singer: string, error?: string }> = []
 
+    const getBatchStats = () => downloadManager.getBatchStats(taskIds)
+    const doneCountOf = (stats: ReturnType<typeof getBatchStats>) => stats.completed + stats.failed
+
     // 设置进度回调
-    const originalOnProgress = downloadManager['onProgress']
     downloadManager['onProgress'] = (id, progress) => {
-      const stats = downloadManager.getStats()
-      const doneCount = stats.completed + stats.failed
-      const currentSong = doneCount + 1
+      const stats = getBatchStats()
+      const doneCount = doneCountOf(stats)
+      const currentSong = Math.min(doneCount + 1, total)
       downloadProgressRef.current?.updateProgress(
-        total > 0 ? Math.round((doneCount / total) * 100) : 0,
+        total > 0 ? Math.min(Math.round((doneCount / total) * 100), 100) : 0,
         `${global.i18n.t('download_current_progress', { current: currentSong, total })} ${progress}%`,
       )
     }
 
     // 设置完成回调
-    const originalOnComplete = downloadManager['onComplete']
     downloadManager['onComplete'] = (id, success, error) => {
       const task = allTasks.find(t => t.id === id)
       if (!task) return
@@ -223,8 +233,8 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId, activeT
         })
       }
 
-      const stats = downloadManager.getStats()
-      const doneCount = stats.completed + stats.failed
+      const stats = getBatchStats()
+      const doneCount = doneCountOf(stats)
 
       if (doneCount < total) {
         downloadProgressRef.current?.updateProgress(
@@ -247,22 +257,23 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId, activeT
               onCancel: () => {
                 downloadManager.cancelAll()
                 downloadProgressRef.current?.close()
+                restoreCallbacks()
               },
             })
             const retryIds = downloadManager.addBatchToQueue(retryList, quality, subDir)
-            const retryTasks = downloadManager.getQueue().filter(t => retryIds.includes(t.id))
-            allTasks.push(...retryTasks)
+            taskIds.push(...retryIds)
+            allTasks.push(...downloadManager.getTasksByIds(retryIds))
 
             const retryOnComplete = downloadManager['onComplete']
             downloadManager['onComplete'] = (retryId, retrySuccess, retryError) => {
-              const retryStats = downloadManager.getStats()
-              if (retryStats.completed + retryStats.failed >= allTasks.length) {
+              const retryStats = getBatchStats()
+              if (doneCountOf(retryStats) >= taskIds.length) {
                 downloadProgressRef.current?.close()
                 const finalFailed = failedSongs.filter(f => {
-                  const retryTask = allTasks.find(t =>
-                    t.musicInfo.name === f.name && t.musicInfo.singer === f.singer && t.status === 'failed',
-                  )
-                  return retryTask != null
+                  const idx = retryList.findIndex(item => item.name === f.name && item.singer === f.singer)
+                  if (idx === -1) return false
+                  const retryTask = downloadManager.getTasksByIds([retryIds[idx]])[0]
+                  return retryTask ? retryTask.status === 'failed' : false
                 })
                 if (finalFailed.length > 0) {
                   downloadFailedRef.current?.showFailedSongs(finalFailed, {
@@ -279,14 +290,14 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId, activeT
                   })
                 }
                 downloadManager['onComplete'] = retryOnComplete
+                restoreCallbacks()
               }
             }
             return
           }
         }
 
-        downloadManager['onProgress'] = originalOnProgress
-        downloadManager['onComplete'] = originalOnComplete
+        restoreCallbacks()
       }
     }
   }
