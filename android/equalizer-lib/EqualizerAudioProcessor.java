@@ -54,11 +54,11 @@ public class EqualizerAudioProcessor implements AudioProcessor {
 
     @Override
     public boolean isActive() {
-        // 均衡器关闭时返回 false，让 ExoPlayer 走标准无处理器的音频路径，
-        // 避免关闭均衡器后仍强制走软件处理链（恒 active）导致播放卡顿。
-        // 开关均衡器不会运行时重建播放管线（offload 始终禁用），
-        // 仅在均衡器开启状态下本处理器才参与音频处理。
-        return equalizer.isEnabled();
+        // 恒返回 true：让均衡器处理器常驻音频链，AudioTrack 配置恒定，
+        // 避免关闭均衡器时 isActive 翻转触发 media3 反复重建 AudioTrack
+        // 导致一卡一卡。均衡器关闭时由 queueInput 内部透传（安全拷贝），
+        // 不改变采样/声道，音质无损。
+        return true;
     }
 
     @Override
