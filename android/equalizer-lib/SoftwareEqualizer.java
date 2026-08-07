@@ -26,6 +26,9 @@ public class SoftwareEqualizer {
     private static final double Q = 0.707; // ~1/sqrt(2), peaking EQ 推荐 Q 值，减少共振峰值
     // 参考 VLC: EQZ_IN_FACTOR = 0.25f (-12dB)，更大的预衰减让多频段叠加时有更多 headroom
     private static final float PRE_GAIN = 0.25f; // -12dB 预衰减，防止多频段叠加时削波
+    // 预衰减补偿：恢复被预衰减削去的整体音量（1/PRE_GAIN = +12dB），
+    // 使均衡器全频段 0dB 时输出音量与关闭均衡器一致，避免整体音量下降
+    private static final float PRE_GAIN_COMP = 1.0f / PRE_GAIN;
 
     // Preamp 输出增益补偿 (线性倍率)，默认 1.0 = 0dB
     private float preamp = 1.0f;
@@ -184,6 +187,10 @@ public class SoftwareEqualizer {
                 right = rightFilters[b].process(right);
             }
 
+            // 补偿预衰减，恢复整体音量
+            left *= PRE_GAIN_COMP;
+            right *= PRE_GAIN_COMP;
+
             // Preamp 输出增益补偿
             left *= preampLocal;
             right *= preampLocal;
@@ -215,6 +222,7 @@ public class SoftwareEqualizer {
             for (BiquadFilter f : leftFilters) {
                 sample = f.process(sample);
             }
+            sample *= PRE_GAIN_COMP;
             sample *= preampLocal;
             sample = (float)Math.tanh(sample);
             sample = applyLimiter(sample);
@@ -238,6 +246,9 @@ public class SoftwareEqualizer {
                 left = leftFilters[b].process(left);
                 right = rightFilters[b].process(right);
             }
+
+            left *= PRE_GAIN_COMP;
+            right *= PRE_GAIN_COMP;
 
             left *= preampLocal;
             right *= preampLocal;
@@ -274,6 +285,9 @@ public class SoftwareEqualizer {
                 l = leftFilters[b].process(l);
                 r = rightFilters[b].process(r);
             }
+
+            l *= PRE_GAIN_COMP;
+            r *= PRE_GAIN_COMP;
 
             l *= preampLocal;
             r *= preampLocal;
