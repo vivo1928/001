@@ -11,25 +11,54 @@ cache:
     - .gradle/
     - android/.gradle/
 
+.setup: &setup
+  - node --version
+  - npm --version
+  - java -version
+  - echo "y" | sdkmanager "platforms;android-36" "build-tools;35.0.0" 2>/dev/null || true
+  - git config --global url."https://github.com/".insteadOf "ssh://git@github.com/"
+  - git config --global url."https://github.com/".insteadOf "git@github.com:"
+  - export GIT_TERMINAL_PROMPT=0
+  - npm ci
+  - node dependencies-patch.js
+
 android-build:
   stage: build
   image: reactnativecommunity/react-native-android:latest
   timeout: 3h
   before_script:
-    - node --version
-    - npm --version
-    - java -version
-    - echo "y" | sdkmanager "platforms;android-36" "build-tools;35.0.0" 2>/dev/null || true
-    - git config --global url."https://github.com/".insteadOf "ssh://git@github.com/"
-    - git config --global url."https://github.com/".insteadOf "git@github.com:"
-    - export GIT_TERMINAL_PROMPT=0
-    - npm ci
+    - *setup
   script:
     - cd android
     - chmod +x gradlew
     - ./gradlew assembleDebug --init-script init.gradle --no-daemon
   artifacts:
-    name: "apk-${CI_COMMIT_REF_SLUG}-${CI_COMMIT_SHORT_SHA}"
+    name: "apk-debug-${CI_COMMIT_REF_SLUG}-${CI_COMMIT_SHORT_SHA}"
     paths:
       - android/app/build/outputs/apk/debug/*.apk
+    expire_in: 30 days
+
+android-release:
+  stage: build
+  image: reactnativecommunity/react-native-android:latest
+  timeout: 3h
+  before_script:
+    - *setup
+  script:
+    - echo "$KEYSTORE_BASE64" | base64 --decode > android/app/keystore.jks
+    - sed -i 's/org.gradle.jvmargs=.*/org.gradle.jvmargs=-Xmx8g -XX:MaxMetaspaceSize=512m/' android/gradle.properties
+    - cd android
+    - chmod +x gradlew
+    - ./gradlew assembleRelease --init-script init.gradle \
+        -PMYAPP_UPLOAD_STORE_FILE='keystore.jks' \
+        -PMYAPP_UPLOAD_KEY_ALIAS="$KEYSTORE_KEY_ALIAS" \
+        -PMYAPP_UPLOAD_STORE_PASSWORD="$KEYSTORE_STORE_PASSWORD" \
+        -PMYAPP_UPLOAD_KEY_PASSWORD="$KEYSTORE_KEY_PASSWORD" \
+        --no-daemon
+  after_script:
+    - rm -f android/app/keystore.jks
+  artifacts:
+    name: "apk-release-${CI_COMMIT_REF_SLUG}-${CI_COMMIT_SHORT_SHA}"
+    paths:
+      - android/app/build/outputs/apk/release/*.apk
     expire_in: 30 days
