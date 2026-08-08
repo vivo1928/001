@@ -43,6 +43,29 @@ public class EqRenderersFactory extends DefaultRenderersFactory {
                 .setAudioProcessors(processors)
                 .setEnableFloatOutput(enableFloatOutput)
                 .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams)
+                .setAudioTrackBufferSizeProvider(
+                    (minBufferSizeInBytes,
+                     encoding,
+                     outputMode,
+                     pcmFrameSize,
+                     sampleRate,
+                     bitrate,
+                     maxAudioTrackPlaybackSpeed) -> {
+                        if (outputMode == DefaultAudioSink.OUTPUT_MODE_PCM) {
+                            // media3 默认 PCM 缓冲上限仅 750ms，音频写入节奏抖动时
+                            // 容易触发 AudioTrack underrun 导致偶发"顿一下"。
+                            // 提升到 1.5s 缓冲吸收写入抖动，减少欠载卡顿。
+                            long targetUs = 1_500_000L;
+                            long bufferSize = (long) sampleRate * pcmFrameSize
+                                    * targetUs / 1_000_000L;
+                            long result = Math.max(minBufferSizeInBytes, bufferSize);
+                            if (result > Integer.MAX_VALUE) {
+                                return Integer.MAX_VALUE;
+                            }
+                            return (int) result;
+                        }
+                        return minBufferSizeInBytes;
+                    })
                 .build();
     }
 }
