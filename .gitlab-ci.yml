@@ -25,7 +25,7 @@ cache:
 android-build:
   stage: build
   image: reactnativecommunity/react-native-android:latest
-  timeout: 3h
+  timeout: 4h
   before_script:
     - *setup
   script:
@@ -41,13 +41,13 @@ android-build:
 android-release:
   stage: build
   image: reactnativecommunity/react-native-android:latest
-  timeout: 3h
+  timeout: 4h
   before_script:
     - *setup
   script:
     - |
       echo "$KEYSTORE_BASE64" | base64 --decode > android/app/keystore.jks
-      sed -i 's/org.gradle.jvmargs=.*/org.gradle.jvmargs=-Xmx8g -XX:MaxMetaspaceSize=512m/' android/gradle.properties
+      sed -i 's/org.gradle.jvmargs=.*/org.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=512m/' android/gradle.properties
       cd android
       chmod +x gradlew
       ./gradlew assembleRelease --init-script init.gradle \
