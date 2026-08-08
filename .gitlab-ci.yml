@@ -26,6 +26,8 @@ android-build:
   stage: build
   image: reactnativecommunity/react-native-android:latest
   timeout: 4h
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_TAG == null'
   before_script:
     - *setup
   script:
@@ -42,6 +44,8 @@ android-release:
   stage: build
   image: reactnativecommunity/react-native-android:latest
   timeout: 4h
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_TAG == null'
   before_script:
     - *setup
   script:
