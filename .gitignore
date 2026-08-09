@@ -69,3 +69,6 @@ buck-out/
 
 # Local build output
 /产物/
+
+# Local knowledge base (keep local only, do not commit)
+/.monkeycode/
