@@ -1,5 +1,5 @@
-import { useMemo, useRef, useState, forwardRef, useImperativeHandle } from 'react'
-import { FlatList, type FlatListProps, RefreshControl, View, Vibration, AccessibilityInfo } from 'react-native'
+import { useMemo, useRef, useState, forwardRef, useImperativeHandle, useCallback, useEffect } from 'react'
+import { FlatList, type FlatListProps, RefreshControl, View, Vibration, AccessibilityInfo, PanResponder, type GestureResponderEvent, type NativeScrollEvent, type NativeSyntheticEvent, type LayoutChangeEvent } from 'react-native'
 
 // import { useMusicList } from '@/store/list/hook'
 import ListItem, { ITEM_HEIGHT } from './ListItem'
@@ -73,6 +73,14 @@ const List = forwardRef<ListType, ListProps>(({
   const rowInfo = useRef(getRowInfo(rowType))
   const isShowAlbumName = useSettingValue('list.isShowAlbumName')
   const isShowInterval = useSettingValue('list.isShowInterval')
+  // 拖拽多选相关
+  const isDraggingRef = useRef(false)
+  const dragStartIndexRef = useRef(-1)
+  const dragLastIndexRef = useRef(-1)
+  const listContainerRef = useRef<View>(null)
+  const scrollOffsetRef = useRef(0)
+  const containerRectRef = useRef({ x: 0, y: 0, width: 0, height: 0 })
+  const headerHeightRef = useRef(0)
   // const currentListIdRef = useRef('')
   // console.log('render music list')
 
@@ -88,6 +96,11 @@ const List = forwardRef<ListType, ListProps>(({
           prevSelectIndexRef.current = -1
           setVisibleMultiSelect(false)
         }
+        // 重置拖拽状态
+        stopEdgeScroll()
+        isDraggingRef.current = false
+        dragStartIndexRef.current = -1
+        dragLastIndexRef.current = -1
       }
     },
     setIsMultiSelectMode(isMultiSelectMode) {
@@ -95,6 +108,11 @@ const List = forwardRef<ListType, ListProps>(({
       if (!isMultiSelectMode) {
         prevSelectIndexRef.current = -1
         handleUpdateSelectedList([])
+        // 重置拖拽状态
+        stopEdgeScroll()
+        isDraggingRef.current = false
+        dragStartIndexRef.current = -1
+        dragLastIndexRef.current = -1
       }
       setVisibleMultiSelect(isMultiSelectMode)
     },
@@ -187,8 +205,11 @@ const List = forwardRef<ListType, ListProps>(({
   }
 
   const handleLongPress = (item: LX.Music.MusicInfoOnline, index: number) => {
-    if (isMultiSelectModeRef.current) return
     prevSelectIndexRef.current = index
+    dragStartIndexRef.current = index
+    dragLastIndexRef.current = index
+    isDraggingRef.current = true
+    if (isMultiSelectModeRef.current) return
     handleUpdateSelectedList([item])
     onMuiltSelectMode()
     // 震动反馈
@@ -198,6 +219,139 @@ const List = forwardRef<ListType, ListProps>(({
       global.i18n.t('download_multi_select') || '已进入多选模式',
     )
   }
+
+  // 更新拖拽选中状态（index 为列表项序号）
+  const handleDragSelect = useCallback((index: number) => {
+    if (!isMultiSelectModeRef.current || !isDraggingRef.current) return
+    if (index < 0) return
+    const startIndex = dragStartIndexRef.current
+    const currentIndex = Math.min(index, currentList.length - 1)
+    if (currentIndex === dragLastIndexRef.current) return
+    dragLastIndexRef.current = currentIndex
+
+    let newSelectedList: LX.Music.MusicInfoOnline[]
+    if (currentIndex >= startIndex) {
+      newSelectedList = currentList.slice(startIndex, currentIndex + 1)
+    } else {
+      newSelectedList = currentList.slice(currentIndex, startIndex + 1)
+    }
+    handleUpdateSelectedList(newSelectedList)
+  }, [currentList, handleUpdateSelectedList])
+
+  // 根据屏幕坐标计算列表项索引
+  const getIndexByPage = useCallback((pageX: number, pageY: number) => {
+    const rect = containerRectRef.current
+    if (rect.width <= 0) return -1
+    const contentY = scrollOffsetRef.current + (pageY - rect.y) - headerHeightRef.current
+    const rowNum = rowInfo.current.rowNum ?? 1
+    const rowIndex = Math.max(0, Math.floor(contentY / ITEM_HEIGHT))
+    const colIndex = rowNum > 1
+      ? Math.max(0, Math.min(Math.floor((pageX - rect.x) / (rect.width / rowNum)), rowNum - 1))
+      : 0
+    const index = rowIndex * rowNum + colIndex
+    return Math.min(index, currentList.length - 1)
+  }, [currentList.length])
+
+  // 测量列表容器在屏幕中的位置
+  const measureContainer = useCallback(() => {
+    listContainerRef.current?.measureInWindow((x, y, width, height) => {
+      containerRectRef.current = { x, y, width, height }
+    })
+  }, [])
+
+  // 容器布局变化时重新测量
+  const handleContainerLayout = useCallback(() => {
+    measureContainer()
+  }, [measureContainer])
+
+  // 边缘自动滚动
+  const edgeScrollStateRef = useRef<-1 | 0 | 1>(0)
+  const edgeScrollRAFRef = useRef<number | null>(null)
+  const lastTouchRef = useRef({ pageX: 0, pageY: 0 })
+  const stopEdgeScroll = useCallback(() => {
+    edgeScrollStateRef.current = 0
+    if (edgeScrollRAFRef.current != null) {
+      cancelAnimationFrame(edgeScrollRAFRef.current)
+      edgeScrollRAFRef.current = null
+    }
+  }, [])
+  const runEdgeScroll = useCallback(() => {
+    if (edgeScrollStateRef.current == 0 || !isDraggingRef.current) return
+    const nextOffset = Math.max(0, scrollOffsetRef.current + edgeScrollStateRef.current * ITEM_HEIGHT * 0.5)
+    scrollOffsetRef.current = nextOffset
+    flatListRef.current?.scrollToOffset({ offset: nextOffset, animated: false })
+    handleDragSelect(getIndexByPage(lastTouchRef.current.pageX, lastTouchRef.current.pageY))
+    edgeScrollRAFRef.current = requestAnimationFrame(runEdgeScroll)
+  }, [getIndexByPage, handleDragSelect])
+  const updateEdgeScroll = useCallback((pageX: number, pageY: number) => {
+    const rect = containerRectRef.current
+    if (rect.height <= 0) return
+    const edge = ITEM_HEIGHT
+    let state: -1 | 0 | 1 = 0
+    if (pageY < rect.y + edge) state = -1
+    else if (pageY > rect.y + rect.height - edge) state = 1
+    if (state != edgeScrollStateRef.current) {
+      stopEdgeScroll()
+      edgeScrollStateRef.current = state
+      if (state != 0) edgeScrollRAFRef.current = requestAnimationFrame(runEdgeScroll)
+    }
+  }, [runEdgeScroll, stopEdgeScroll])
+
+  // 创建 PanResponder 用于拖拽多选
+  const createPanResponder = useCallback(() => {
+    return PanResponder.create({
+      // 在子组件没有明确声明捕获前，拒绝作为响应者
+      startShouldSetPanResponder: () => false,
+      // 在子组件没有明确声明捕获前，拒绝作为响应者
+      startShouldSetPanResponderCapture: () => false,
+      // 拖拽开始后捕获移动事件
+      moveShouldSetPanResponderCapture: () => {
+        return isMultiSelectModeRef.current && isDraggingRef.current
+      },
+      onPanResponderGrant: (e: GestureResponderEvent) => {
+        measureContainer()
+        lastTouchRef.current = { pageX: e.nativeEvent.pageX, pageY: e.nativeEvent.pageY }
+      },
+      onPanResponderMove: (e: GestureResponderEvent) => {
+        if (!isMultiSelectModeRef.current || !isDraggingRef.current) return
+        lastTouchRef.current = { pageX: e.nativeEvent.pageX, pageY: e.nativeEvent.pageY }
+        handleDragSelect(getIndexByPage(e.nativeEvent.pageX, e.nativeEvent.pageY))
+        updateEdgeScroll(e.nativeEvent.pageX, e.nativeEvent.pageY)
+      },
+      onPanResponderRelease: () => {
+        stopEdgeScroll()
+        isDraggingRef.current = false
+      },
+      onPanResponderTerminate: () => {
+        stopEdgeScroll()
+        isDraggingRef.current = false
+      },
+    })
+  }, [getIndexByPage, handleDragSelect, measureContainer, stopEdgeScroll, updateEdgeScroll])
+
+  // 触摸结束（含未发生移动的长按抬起）时重置拖拽状态
+  const handleTouchEnd = useCallback(() => {
+    stopEdgeScroll()
+    isDraggingRef.current = false
+  }, [stopEdgeScroll])
+
+  // 初始化 PanResponder
+  const panResponder = useMemo(createPanResponder, [createPanResponder])
+
+  // 记录滚动位置
+  const handleScroll = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    scrollOffsetRef.current = e.nativeEvent.contentOffset.y
+  }, [])
+  // 记录表头高度
+  const handleHeaderLayout = useCallback((e: LayoutChangeEvent) => {
+    headerHeightRef.current = e.nativeEvent.layout.height
+  }, [])
+
+  // 组件卸载时清理拖拽状态
+  useEffect(() => () => {
+    stopEdgeScroll()
+    isDraggingRef.current = false
+  }, [stopEdgeScroll])
 
   const handleLoadMore = () => {
     if (status != 'idle') return
@@ -256,31 +410,35 @@ const List = forwardRef<ListType, ListProps>(({
   }, [onLoadMore, status, visibleMultiSelect])
 
   return (
-    <FlatList
-      ref={flatListRef}
-      style={styles.list}
-      data={currentList}
-      extraData={status}
-      numColumns={rowInfo.current.rowNum}
-      horizontal={false}
-      maxToRenderPerBatch={4}
-      // updateCellsBatchingPeriod={80}
-      windowSize={5}
-      removeClippedSubviews={false}
-      initialNumToRender={12}
-      renderItem={renderItem}
-      keyExtractor={getkey}
-      getItemLayout={getItemLayout}
-      // onRefresh={onRefresh}
-      // refreshing={refreshing}
-      onEndReachedThreshold={0.5}
-      onEndReached={handleLoadMore}
-      maintainVisibleContentPosition={{ minIndexForVisible: 0, autoscrollToTopThreshold: 10 }}
-      progressViewOffset={progressViewOffset}
-      ListHeaderComponent={ListHeaderComponent}
-      refreshControl={refreshControl}
-      ListFooterComponent={footerComponent}
-    />
+    <View ref={listContainerRef} onLayout={handleContainerLayout} onTouchEnd={handleTouchEnd} onTouchCancel={handleTouchEnd} style={styles.container} {...panResponder.panHandlers}>
+      <FlatList
+        ref={flatListRef}
+        style={styles.list}
+        data={currentList}
+        extraData={status}
+        numColumns={rowInfo.current.rowNum}
+        horizontal={false}
+        maxToRenderPerBatch={4}
+        // updateCellsBatchingPeriod={80}
+        windowSize={5}
+        removeClippedSubviews={false}
+        initialNumToRender={12}
+        renderItem={renderItem}
+        keyExtractor={getkey}
+        getItemLayout={getItemLayout}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
+        // onRefresh={onRefresh}
+        // refreshing={refreshing}
+        onEndReachedThreshold={0.5}
+        onEndReached={handleLoadMore}
+        maintainVisibleContentPosition={{ minIndexForVisible: 0, autoscrollToTopThreshold: 10 }}
+        progressViewOffset={progressViewOffset}
+        ListHeaderComponent={ListHeaderComponent ? <View onLayout={handleHeaderLayout}>{ListHeaderComponent}</View> : null}
+        refreshControl={refreshControl}
+        ListFooterComponent={footerComponent}
+      />
+    </View>
   )
 })
 
