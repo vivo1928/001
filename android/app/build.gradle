@@ -109,6 +109,11 @@ android {
     compileSdk rootProject.ext.compileSdkVersion
 
     namespace "cn.toside.music.mobile"
+    packagingOptions {
+        jniLibs {
+            useLegacyPackaging true
+        }
+    }
     defaultConfig {
         applicationId "cn.toside.music.mobile"
         minSdkVersion rootProject.ext.minSdkVersion
