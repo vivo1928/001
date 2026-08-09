@@ -1,0 +1,19 @@
+name: 'Upload Artifact'
+description: 'Upload APK artifacts'
+
+runs:
+  using: composite
+  steps:
+    - name: Upload Artifact arm64-v8a
+      if: env.PACKAGE_TYPE != 'Android_5'
+      uses: actions/upload-artifact@v4
+      with:
+        name: app-v${{ env.PACKAGE_VERSION }}-arm64-v8a-release
+        path: android/app/build/outputs/apk/release/lx-music-mobile-v${{ env.PACKAGE_VERSION }}-arm64-v8a.apk
+
+    - name: Upload Artifact universal
+      if: env.PACKAGE_TYPE != 'Android_SL'
+      uses: actions/upload-artifact@v4
+      with:
+        name: app-v${{ env.PACKAGE_VERSION }}-universal-release
+        path: android/app/build/outputs/apk/release/lx-music-mobile-v${{ env.PACKAGE_VERSION }}-universal.apk

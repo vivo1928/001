@@ -1,0 +1,84 @@
+import { sortInsert, similar } from '@/utils/common'
+
+import type { InitState, SearchListInfo, Source } from './state'
+import state from './state'
+
+export interface SearchResult {
+  list: SearchListInfo['list']
+  limit: number
+  total: number
+  source: LX.OnlineSource
+  allPage: number
+}
+
+const handleSortList = (list: SearchListInfo['list'], keyword: string) => {
+  let arr: any[] = []
+  for (const item of list) {
+    sortInsert(arr, {
+      num: similar(keyword, item.name),
+      data: item,
+    })
+  }
+  return arr.map(item => item.data).reverse()
+}
+
+let maxTotals: Partial<Record<LX.OnlineSource, number>> = {}
+
+const setLists = (results: SearchResult[], page: number, text: string): SearchListInfo['list'] => {
+  let totals = []
+  let limit = 0
+  let list = [] as SearchListInfo['list']
+  for (const source of results) {
+    list.push(...source.list)
+    totals.push(source.total)
+    maxTotals[source.source] = source.total
+    state.maxPages[source.source] = source.allPage
+    limit = Math.max(source.limit, limit)
+  }
+
+  let listInfo = state.listInfos.all
+  const total = Math.max(0, ...totals)
+  if (page == 1 || (total && list.length)) listInfo.total = total
+  else listInfo.total = limit * page
+  listInfo.page = page
+  list = handleSortList(list, text)
+  listInfo.list = page > 1 ? [...listInfo.list, ...list] : list
+  state.source = 'all'
+  return listInfo.list
+}
+
+const setList = (datas: SearchResult, page: number, text: string): SearchListInfo['list'] => {
+  let listInfo = state.listInfos[datas.source]!
+  listInfo.list = page == 1 ? datas.list : [...listInfo.list, ...datas.list]
+  if (page == 1 || (datas.total && datas.list.length)) listInfo.total = datas.total
+  else listInfo.total = datas.limit * page
+  listInfo.page = page
+  listInfo.limit = datas.limit
+  state.maxPages[datas.source] = datas.allPage
+  state.source = datas.source
+  return listInfo.list
+}
+
+export default {
+  setSource(source: InitState['source']) {
+    state.source = source
+  },
+  setSearchText(searchText: InitState['searchText']) {
+    state.searchText = searchText
+  },
+  setListInfo(result: SearchResult | SearchResult[], page: number, text: string) {
+    if (Array.isArray(result)) {
+      return setLists(result, page, text)
+    } else {
+      return setList(result, page, text)
+    }
+  },
+  clearListInfo(sourceId: Source) {
+    let listInfo = state.listInfos[sourceId]!
+    listInfo.page = 1
+    listInfo.limit = 20
+    listInfo.total = 0
+    listInfo.list = []
+    listInfo.key = null
+  },
+}

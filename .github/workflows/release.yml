@@ -1,0 +1,55 @@
+name: Build
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  Android:
+    name: Android
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out git repository
+        uses: actions/checkout@v4
+
+      - name: Setup Env
+        uses: ./.github/actions/setup
+
+      - name: Apply dependency patches
+        shell: bash
+        run: node dependencies-patch.js
+
+      - name: Set Gradle heap to 8GB
+        run: |
+          sed -i 's/org.gradle.jvmargs=.*/org.gradle.jvmargs=-Xmx8g -XX:MaxMetaspaceSize=512m/' android/gradle.properties
+
+      - name: Build Packages
+        env:
+          DISABLE_SVG: 1
+        shell: bash
+        run: |
+          cd android
+          echo "${{ secrets.KEYSTORE_STORE_FILE_BASE64 }}" | base64 --decode > app/keystore.jks
+          ./gradlew assembleRelease -PMYAPP_UPLOAD_STORE_FILE='keystore.jks' -PMYAPP_UPLOAD_KEY_ALIAS='${{ secrets.KEYSTORE_KEY_ALIAS }}' -PMYAPP_UPLOAD_STORE_PASSWORD='${{ secrets.KEYSTORE_PASSWORD }}' -PMYAPP_UPLOAD_KEY_PASSWORD='${{ secrets.KEYSTORE_KEY_PASSWORD }}' --no-daemon
+          rm -f app/keystore.jks
+
+      - name: Get package version
+        run: |
+          PACKAGE_VERSION=$(node -p "require('./package.json').version")
+          echo "PACKAGE_VERSION=$PACKAGE_VERSION" >> $GITHUB_ENV
+
+      - name: Generate file MD5
+        run: |
+          cd android/app/build/outputs/apk/release
+          md5sum *.apk
+
+      - name: Upload Artifact
+        uses: ./.github/actions/upload-artifact
+        env:
+          PACKAGE_VERSION: ${{ env.PACKAGE_VERSION }}
