@@ -75,7 +75,7 @@ const MenuItem = ({ id, icon, onPress }: {
   const label = t(id)
 
   return activeId == id
-    ? <View style={styles.menuItem} accessibilityLabel={label} accessibilityState={{ selected: true }}>
+    ? <View style={styles.menuItem} accessible accessibilityLabel={label} accessibilityState={{ selected: true }}>
         <View style={styles.iconContent}>
           <Icon name={icon} size={20} color={theme['c-primary-font-active']} />
         </View>

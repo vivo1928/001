@@ -42,7 +42,7 @@ export const Icon = memo(({ size = 15, rawSize, color, style, ...props }: IconPr
     textShadowRadius: 2,
   }, style) : style
   return (
-    <View accessible={false} importantForAccessibility="no">
+    <View accessible={false} importantForAccessibility="no-hide-descendants">
       <IcoMoon
         size={rawSize ?? scaleSizeW(size)}
         color={color ?? theme['c-font']}

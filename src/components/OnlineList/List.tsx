@@ -28,7 +28,7 @@ export interface ListProps {
   onLoadMore: () => void
   onPlayList?: (index: number) => void
   progressViewOffset?: number
-  ListHeaderComponent?: FlatListType['ListEmptyComponent']
+  ListHeaderComponent?: React.ReactNode
   checkHomePagerIdle: boolean
   rowType?: RowInfoType
 }
@@ -301,11 +301,11 @@ const List = forwardRef<ListType, ListProps>(({
   const createPanResponder = useCallback(() => {
     return PanResponder.create({
       // 在子组件没有明确声明捕获前，拒绝作为响应者
-      startShouldSetPanResponder: () => false,
+      onStartShouldSetPanResponder: () => false,
       // 在子组件没有明确声明捕获前，拒绝作为响应者
-      startShouldSetPanResponderCapture: () => false,
+      onStartShouldSetPanResponderCapture: () => false,
       // 拖拽开始后捕获移动事件
-      moveShouldSetPanResponderCapture: () => {
+      onMoveShouldSetPanResponderCapture: () => {
         return isMultiSelectModeRef.current && isDraggingRef.current
       },
       onPanResponderGrant: (e: GestureResponderEvent) => {
