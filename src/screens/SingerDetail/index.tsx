@@ -54,10 +54,10 @@ export default ({ componentId, info }: { componentId: string, info: SingerDetail
       <StatusBar />
       <SingerInfoContext.Provider value={safeInfo}>
         <View style={{ flex: 1 }}>
-          <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, opacity: activeTab === 'song' ? 1 : 0 }} pointerEvents={activeTab === 'song' ? 'auto' : 'none'}>
+          <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, opacity: activeTab === 'song' ? 1 : 0 }} pointerEvents={activeTab === 'song' ? 'auto' : 'none'} importantForAccessibility={activeTab === 'song' ? 'yes' : 'no-hide-descendants'}>
             <MusicList ref={musicListRef} componentId={componentId} activeTab={activeTab} onTabChange={handleTabChange} />
           </View>
-          <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, opacity: activeTab === 'album' ? 1 : 0 }} pointerEvents={activeTab === 'album' ? 'auto' : 'none'}>
+          <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, opacity: activeTab === 'album' ? 1 : 0 }} pointerEvents={activeTab === 'album' ? 'auto' : 'none'} importantForAccessibility={activeTab === 'album' ? 'yes' : 'no-hide-descendants'}>
             <AlbumList ref={albumListRef} componentId={componentId} activeTab={activeTab} onTabChange={handleTabChange} />
           </View>
         </View>

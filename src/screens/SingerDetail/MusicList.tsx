@@ -1,5 +1,5 @@
-import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef } from 'react'
-import { Alert } from 'react-native'
+import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react'
+import { Alert, View } from 'react-native'
 import OnlineList, { type OnlineListType, type OnlineListProps } from '@/components/OnlineList'
 import Header, { type HeaderType } from './Header'
 import { useSingerInfo, type SingerTabType } from './state'
@@ -302,21 +302,18 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId, activeT
     }
   }
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const header = useMemo(() => (
-    <Header ref={headerRef} componentId={componentId} onPlayAll={handlePlayAllSongs} onBatchDownload={handleBatchDownload} activeTab={activeTab} onTabChange={onTabChange} />
-  ), [componentId, activeTab, onTabChange])
-
   return (
     <>
-      <OnlineList
-        ref={listRef}
-        onPlayList={handlePlayList}
-        onRefresh={handleRefresh}
-        onLoadMore={handleLoadMore}
-        ListHeaderComponent={header}
-        rowType='medium'
-      />
+      <View style={{ flex: 1 }}>
+        <Header ref={headerRef} componentId={componentId} onPlayAll={handlePlayAllSongs} onBatchDownload={handleBatchDownload} activeTab={activeTab} onTabChange={onTabChange} />
+        <OnlineList
+          ref={listRef}
+          onPlayList={handlePlayList}
+          onRefresh={handleRefresh}
+          onLoadMore={handleLoadMore}
+          rowType='medium'
+        />
+      </View>
       <DownloadQualityModal ref={downloadQualityRef} />
       <DownloadProgressModal ref={downloadProgressRef} />
       <DownloadFailedModal ref={downloadFailedRef} />

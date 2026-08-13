@@ -1,4 +1,5 @@
-import { forwardRef, useImperativeHandle, useRef, useMemo, useState, useCallback, useEffect } from 'react'
+import { forwardRef, useImperativeHandle, useRef, useState, useCallback, useEffect } from 'react'
+import { View } from 'react-native'
 
 import Songlist, { type SonglistProps, type SonglistType } from '@/screens/Home/Views/SongList/components/Songlist'
 import { navigations } from '@/navigation'
@@ -200,17 +201,17 @@ export default forwardRef<AlbumListType, AlbumListProps>(({ componentId, activeT
     })
   }
 
-  const header = useMemo(() => (
-    <Header componentId={componentId} activeTab={activeTab} onTabChange={onTabChange} />
-  ), [componentId, activeTab, onTabChange])
-
-  return <Songlist
-    ref={listRef}
-    onRefresh={handleRefresh}
-    onLoadMore={handleLoadMore}
-    onOpenDetail={handleOpenDetail}
-    onCollect={handleCollect}
-    collectedSet={collectedSet}
-    ListHeaderComponent={header}
-  />
+  return (
+    <View style={{ flex: 1 }}>
+      <Header componentId={componentId} activeTab={activeTab} onTabChange={onTabChange} />
+      <Songlist
+        ref={listRef}
+        onRefresh={handleRefresh}
+        onLoadMore={handleLoadMore}
+        onOpenDetail={handleOpenDetail}
+        onCollect={handleCollect}
+        collectedSet={collectedSet}
+      />
+    </View>
+  )
 })
