@@ -102,6 +102,7 @@ const Component = <T extends ItemT<T>>({ onPressBg = noop, ...props }: SearchTip
 
   const component = useMemo(() => (
     <Animated.View
+      accessibilityViewIsModal
       style={{
         ...styles.anima,
         transform: [

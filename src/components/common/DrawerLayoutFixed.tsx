@@ -16,10 +16,11 @@ export interface DrawerLayoutFixedType {
   fixWidth: () => void
 }
 
-const DrawerLayoutFixed = forwardRef<DrawerLayoutFixedType, Props>(({ visibleNavNames, widthPercentage, widthPercentageMax, children, ...props }, ref) => {
+const DrawerLayoutFixed = forwardRef<DrawerLayoutFixedType, Props>(({ visibleNavNames, widthPercentage, widthPercentageMax, renderNavigationView, children, ...props }, ref) => {
   const drawerLayoutRef = useRef<DrawerLayoutAndroid>(null)
   const [w, setW] = useState<number | `${number}%`>('100%')
   const [drawerWidth, setDrawerWidth] = useState(0)
+  const [drawerOpened, setDrawerOpened] = useState(false)
   const changedRef = useRef({ width: 0, changed: false })
 
   const fixDrawerWidth = useCallback(() => {
@@ -69,6 +70,16 @@ const DrawerLayoutFixed = forwardRef<DrawerLayoutFixedType, Props>(({ visibleNav
     }
   }, [widthPercentage, widthPercentageMax])
 
+  const handleDrawerOpen = useCallback((e: any) => {
+    setDrawerOpened(true)
+    props.onDrawerOpen?.(e)
+  }, [props.onDrawerOpen])
+
+  const handleDrawerClose = useCallback((e: any) => {
+    setDrawerOpened(false)
+    props.onDrawerClose?.(e)
+  }, [props.onDrawerClose])
+
   return (
     <View
       onLayout={handleLayout}
@@ -78,6 +89,13 @@ const DrawerLayoutFixed = forwardRef<DrawerLayoutFixedType, Props>(({ visibleNav
         ref={drawerLayoutRef}
         keyboardDismissMode="on-drag"
         drawerWidth={drawerWidth}
+        renderNavigationView={renderNavigationView ? () => (
+          <View style={{ flex: 1 }} importantForAccessibility={drawerOpened ? 'auto' : 'no-hide-descendants'}>
+            {renderNavigationView()}
+          </View>
+        ) : undefined}
+        onDrawerOpen={handleDrawerOpen}
+        onDrawerClose={handleDrawerClose}
         {...props}
       >
         <View style={{ marginRight: w == '100%' ? 0 : -1, flex: 1 }}>

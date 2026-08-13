@@ -50,7 +50,7 @@ const LrcLine = memo(({ line, lineNum, activeLine, onLayout }: LineProps) => {
   // textBreakStrategy="simple" 用于解决某些设备上字体被截断的问题
   // https://stackoverflow.com/a/72822360
   return (
-    <View style={styles.line} onLayout={handleLayout}>
+    <View style={styles.line} onLayout={handleLayout} accessible>
       <AnimatedColorText style={{
         ...styles.lineText,
         textAlign,

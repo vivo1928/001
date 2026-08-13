@@ -25,7 +25,7 @@ const Title = () => {
 
 
   return (
-    <View style={styles.titleContent} accessibilityLabel={musicInfo.name + ' ' + (musicInfo.singer ?? '')}>
+    <View style={styles.titleContent} accessible accessibilityLabel={musicInfo.name + ' ' + (musicInfo.singer ?? '')}>
       <Text numberOfLines={1} style={styles.title}>{musicInfo.name}</Text>
       <Text numberOfLines={1} style={styles.title} size={12} color={theme['c-font-label']}>{musicInfo.singer}</Text>
     </View>

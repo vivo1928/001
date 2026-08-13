@@ -136,6 +136,7 @@ const Menu = ({
                   <View
                     key={menu.action}
                     style={{ ...styles.menuItem, width: menuItemStyle.width, height: menuItemStyle.height, opacity: 0.4 }}
+                    importantForAccessibility="no"
                   >
                     <Text style={{ textAlign: center ? 'center' : 'left' }} size={fontSize} numberOfLines={1}>{menu.label}</Text>
                   </View>
@@ -145,6 +146,7 @@ const Menu = ({
                     <View
                       key={menu.action}
                       style={{ ...styles.menuItem, width: menuItemStyle.width, height: menuItemStyle.height }}
+                      importantForAccessibility="no"
                     >
                       <Text style={{ textAlign: center ? 'center' : 'left' }} color={theme['c-primary-font-active']} size={fontSize} numberOfLines={1}>{menu.label}</Text>
                     </View>

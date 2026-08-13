@@ -114,7 +114,7 @@ export default forwardRef<MultipleModeBarType, MultipleModeBarProps>(({ onSelect
 
   const component = useMemo(() => {
     return (
-      <Animated.View style={animaStyle}>
+      <Animated.View style={animaStyle} importantForAccessibility={visibleBar ? 'auto' : 'no-hide-descendants'}>
         <View style={styles.switchBtn}>
           <Button onPress={() => { onSwitchMode('single') }} style={{ ...styles.btn, backgroundColor: selectMode == 'single' ? theme['c-button-background'] : 'rgba(0,0,0,0)' }}
             accessibilityLabel={global.i18n.t('list_select_single')}
@@ -142,7 +142,7 @@ export default forwardRef<MultipleModeBarType, MultipleModeBarProps>(({ onSelect
         </TouchableOpacity>
       </Animated.View>
     )
-  }, [animaStyle, selectMode, theme, handleSelectAll, isSelectAll, onExitSelectMode, onSwitchMode])
+  }, [animaStyle, selectMode, theme, handleSelectAll, isSelectAll, onExitSelectMode, onSwitchMode, visibleBar])
 
   return !visible && animatePlayed ? null : component
 })

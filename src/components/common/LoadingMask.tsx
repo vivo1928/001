@@ -57,7 +57,7 @@ export default forwardRef<LoadingMaskType, {}>((props, ref) => {
 
 
   const maskComponent = useMemo(() => (
-    <Animated.View style={{ ...styles.container, backgroundColor: theme['c-main-background'], opacity: animFade }}>
+    <Animated.View accessibilityViewIsModal style={{ ...styles.container, backgroundColor: theme['c-main-background'], opacity: animFade }}>
       <Loading size={25} label={t('list_loading')} />
     </Animated.View>
   ), [animFade, t, theme])

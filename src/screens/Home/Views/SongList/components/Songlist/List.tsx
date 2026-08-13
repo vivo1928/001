@@ -163,7 +163,7 @@ export default forwardRef<ListType, ListProps>(({ onRefresh, onLoadMore, onOpenD
                 maxToRenderPerBatch={10}
                 // updateCellsBatchingPeriod={80}
                 windowSize={7}
-                removeClippedSubviews={true}
+                removeClippedSubviews={false}
                 initialNumToRender={12}
                 renderItem={renderItem}
                 keyExtractor={getkey}
@@ -198,7 +198,7 @@ const Footer = ({ label, onLoadMore }: {
     label
       ? (
           <View>
-            <Text onPress={handlePress} style={styles.footer} color={theme['c-font-label']}>{t(label)}</Text>
+            <Text onPress={handlePress} style={styles.footer} color={theme['c-font-label']} accessibilityRole="button">{t(label)}</Text>
           </View>
         )
       : null

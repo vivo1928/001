@@ -189,7 +189,7 @@ const List = ({ listId }: { listId: string }) => {
         style={styles.list}
         maxToRenderPerBatch={4}
         windowSize={8}
-        removeClippedSubviews={true}
+        removeClippedSubviews={false}
         initialNumToRender={12}
         data={list}
         renderItem={renderItem}

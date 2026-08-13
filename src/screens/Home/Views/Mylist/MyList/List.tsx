@@ -129,7 +129,7 @@ export default ({ onShowMenu }: {
       maxToRenderPerBatch={9}
       // updateCellsBatchingPeriod={80}
       windowSize={9}
-      removeClippedSubviews={true}
+      removeClippedSubviews={false}
       initialNumToRender={18}
       renderItem={renderItem}
       keyExtractor={getkey}

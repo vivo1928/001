@@ -49,7 +49,7 @@ export default ({ isHome }: { isHome: boolean }) => {
       </View>
       <View style={{ flexGrow: 0, flexShrink: 0, flexDirection: 'row', alignItems: 'flex-start' }} >
         <PlayTimeCurrent timeStr={nowPlayTimeStr} />
-        <Text size={FONT_SIZE} color={theme['c-500']}> / </Text>
+        <Text size={FONT_SIZE} color={theme['c-500']} importantForAccessibility="no-hide-descendants"> / </Text>
         <PlayTimeMax timeStr={maxPlayTimeStr} />
       </View>
       <View style={[StyleSheet.absoluteFill, stylesRaw.progress]}>

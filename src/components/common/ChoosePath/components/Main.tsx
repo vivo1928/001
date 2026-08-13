@@ -43,7 +43,7 @@ export default ({ list, loading, onSetPath, toParentDir }: {
       numColumns={rowInfo.current.rowNum}
       renderItem={({ item }) => <ListItem item={item} rowInfo={rowInfo.current} onPress={onSetPath} />}
       keyExtractor={item => item.path + '/' + item.name}
-      removeClippedSubviews={true}
+      removeClippedSubviews={false}
     />
   ), [list, onSetPath])
 

@@ -61,16 +61,16 @@ export default forwardRef<ListType, ListProps>(({ onSearch }, ref) => {
       ? <BlankView ref={blankViewRef} onSearch={onSearch} />
       : (
           <View style={{ flex: 1 }}>
-            <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, opacity: listType === 'music' ? 1 : 0 }} pointerEvents={listType === 'music' ? 'auto' : 'none'}>
+            <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, opacity: listType === 'music' ? 1 : 0 }} pointerEvents={listType === 'music' ? 'auto' : 'none'} importantForAccessibility={listType === 'music' ? 'auto' : 'no-hide-descendants'}>
               <MusicList ref={musicListRef} />
             </View>
-            <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, opacity: listType === 'songlist' ? 1 : 0 }} pointerEvents={listType === 'songlist' ? 'auto' : 'none'}>
+            <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, opacity: listType === 'songlist' ? 1 : 0 }} pointerEvents={listType === 'songlist' ? 'auto' : 'none'} importantForAccessibility={listType === 'songlist' ? 'auto' : 'no-hide-descendants'}>
               <SonglistList ref={songlistListRef} />
             </View>
-            <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, opacity: listType === 'album' ? 1 : 0 }} pointerEvents={listType === 'album' ? 'auto' : 'none'}>
+            <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, opacity: listType === 'album' ? 1 : 0 }} pointerEvents={listType === 'album' ? 'auto' : 'none'} importantForAccessibility={listType === 'album' ? 'auto' : 'no-hide-descendants'}>
               <AlbumList ref={albumListRef} />
             </View>
-            <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, opacity: listType === 'singer' ? 1 : 0 }} pointerEvents={listType === 'singer' ? 'auto' : 'none'}>
+            <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, opacity: listType === 'singer' ? 1 : 0 }} pointerEvents={listType === 'singer' ? 'auto' : 'none'} importantForAccessibility={listType === 'singer' ? 'auto' : 'no-hide-descendants'}>
               <SingerList ref={singerListRef} />
             </View>
           </View>

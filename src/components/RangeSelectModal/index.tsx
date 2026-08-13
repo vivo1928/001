@@ -92,7 +92,7 @@ export default forwardRef<RangeSelectModalType>((_props, ref) => {
                   accessibilityLabel={t('download_range_start')}
                 />
               </View>
-              <Text size={14} color={theme['c-font']} style={styles.separator}>—</Text>
+              <Text size={14} color={theme['c-font']} style={styles.separator} importantForAccessibility="no-hide-descendants">—</Text>
               <View style={styles.inputGroup}>
                 <Text size={13} color={theme['c-font-label']} style={styles.label}>{t('download_range_end')}</Text>
                 <TextInput

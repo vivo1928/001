@@ -16,6 +16,7 @@ const LoadingLabel = ({ style, label, ...props }: LoadingProps) => {
     <>
       <ActivityIndicator
         style={StyleSheet.compose(styles.loadingLabel, style)}
+        accessible={false}
         {...props}
       />
       <Text color={props.color} size={props.size! * 0.8}>{label}</Text>
@@ -32,6 +33,7 @@ export default memo(({ size = 15, label, ...props }: LoadingProps) => {
           <ActivityIndicator
             color={theme['c-font-label']}
             size={setSpText(size)}
+            accessible={false}
             {...props}
           />
         )

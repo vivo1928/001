@@ -27,7 +27,7 @@ const List = <T extends ItemT<T>>(props: ListProps<T>, ref: Ref<ListType<T>>) =>
     },
   }))
 
-  return <FlatList removeClippedSubviews={true} keyboardShouldPersistTaps={'always'} {...props} data={list} />
+  return <FlatList removeClippedSubviews={false} keyboardShouldPersistTaps={'always'} {...props} data={list} />
 }
 
 export default forwardRef(List) as

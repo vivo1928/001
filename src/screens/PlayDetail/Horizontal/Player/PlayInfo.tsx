@@ -35,7 +35,7 @@ export default () => {
       </View>
       <View style={{ flexGrow: 0, flexShrink: 0, flexDirection: 'row' }} >
         <PlayTimeCurrent timeStr={nowPlayTimeStr} />
-        <Text color={theme['c-500']}> / </Text>
+        <Text color={theme['c-500']} importantForAccessibility="no-hide-descendants"> / </Text>
         <PlayTimeMax timeStr={maxPlayTimeStr} />
       </View>
       <View style={[StyleSheet.absoluteFill, styles.progress]}><Progress progress={progress} duration={maxPlayTime} buffered={buffered} /></View>
