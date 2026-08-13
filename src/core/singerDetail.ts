@@ -59,7 +59,7 @@ const getListLimit = async(source: LX.OnlineSource, singerId: string, page: numb
   }
 
   const sdk = musicSdk[source] as {
-    singer?: { getSingerSongList?: (singerid: string, page: number, limit: number) => Promise<{ list: any[], total: number, limit: number, info?: any }> }
+    singer?: { getSingerSongList?: (singerid: string, page: number, limit: number) => Promise<{ list: any[], total: number, limit: number, info?: any }>, getSingerInfo?: (singerid: string) => Promise<{ source: string, singerid: string, info?: { name?: string, img?: string, desc?: string } }> }
     musicSearch?: { search: (name: string, page: number, limit: number) => Promise<{ list: any[], total: number, limit: number, allPage: number }> }
   }
   if (!sdk) throw new Error('source not found: ' + source)
@@ -113,6 +113,19 @@ const getListLimit = async(source: LX.OnlineSource, singerId: string, page: numb
       total: result.total || 0,
       allPage: result.allPage || 1,
       limit: LIMIT,
+    }
+    // kw 等无歌手歌曲 API 的源，首次分页请求时补充歌手简介（失败不影响列表）
+    if (sourcePage === 0 && sdk.singer?.getSingerInfo) {
+      try {
+        const si = await withTimeout(
+          sdk.singer.getSingerInfo(singerId),
+          FETCH_TIMEOUT,
+          `SingerInfo timeout for source: ${source}`,
+        )
+        if (si?.info) singerDetailActions.setSingerInfo(si.info)
+      } catch (err: any) {
+        console.log(`[singerDetail] getSingerInfo failed: ${err?.message || err}`)
+      }
     }
   }
 

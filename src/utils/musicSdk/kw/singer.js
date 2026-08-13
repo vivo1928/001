@@ -29,7 +29,42 @@ async function fetchWithRetry(url, retryCount = 2) {
   throw new Error('获取歌手专辑列表失败: 请求重试耗尽')
 }
 
+// 从歌手详情页 __NUXT__ 数据中解析歌手信息（简介/头像）
+const parseSingerInfo = (html) => {
+  const block = html.match(/singerInfo:\{[^}]*\}/s)?.[0]
+  if (!block) return null
+  const extract = (str, key) => {
+    const re = new RegExp(key + ':"((?:[^"\\\\]|\\\\.)*)"')
+    const m = str.match(re)
+    if (!m) return ''
+    try { return JSON.parse('"' + m[1] + '"') } catch { return m[1] }
+  }
+  return {
+    name: extract(block, 'name'),
+    img: extract(block, 'pic300') || extract(block, 'pic'),
+    desc: extract(block, 'info'),
+  }
+}
+
 export default {
+  async getSingerInfo(singerid) {
+    if (!singerid) throw new Error('歌手不存在')
+    const requestObj = httpFetch(`https://www.kuwo.cn/singer_detail/${singerid}`, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/69.0.3497.100 Safari/537.36',
+        'Referer': 'https://www.kuwo.cn/',
+      },
+    })
+    const { body } = await requestObj.promise
+    const html = typeof body === 'string' ? body : JSON.stringify(body || '')
+    const info = parseSingerInfo(html)
+    if (!info) throw new Error('获取歌手信息失败: 无法解析歌手简介')
+    return {
+      source: 'kw',
+      singerid,
+      info,
+    }
+  },
   async getSingerAlbumList(singerid, page, limit) {
     if (!singerid) throw new Error('歌手不存在')
     const body = await fetchWithRetry(`https://www.kuwo.cn/api/www/artist/artistAlbum?artistid=${singerid}&pn=${page}&rn=${limit}&httpsStatus=1`)
