@@ -48,6 +48,7 @@ export default memo(({ item, index, activeIndex, onPress, onShowMenu, onLongPres
   return (
     <View style={{ ...styles.listItem, width: rowInfo.rowWidth, height: ITEM_HEIGHT, backgroundColor: isSelected ? theme['c-primary-background-hover'] : 'rgba(0,0,0,0)', opacity: isSupported ? 1 : 0.5 }}>
       <TouchableOpacity style={styles.listItemLeft} onPress={() => { onPress(item, index) }} onLongPress={() => { onLongPress(item, index) }}
+        accessible={true}
         accessibilityLabel={(index + 1) + ' ' + item.name + ' ' + singer + '，' + t('source_from') + '：' + item.source.toUpperCase()}>
         {
           active

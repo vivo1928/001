@@ -103,7 +103,7 @@ export default forwardRef<TipListType, TipListProps>(({ onSearch }, ref) => {
       </Button>
     )
   }
-  const getkey: SearchTipListProps['keyExtractor'] = (item, index) => String(index)
+  const getkey: SearchTipListProps['keyExtractor'] = (item) => item
   const getItemLayout: SearchTipListProps['getItemLayout'] = (data, index) => {
     return { length: ITEM_HEIGHT, offset: ITEM_HEIGHT * index, index }
   }
