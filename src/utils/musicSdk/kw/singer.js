@@ -29,6 +29,17 @@ async function fetchWithRetry(url, retryCount = 2) {
   throw new Error('获取歌手专辑列表失败: 请求重试耗尽')
 }
 
+// 解码 HTML 实体（&nbsp;、&lt; 等）
+const decodeHtml = (str) => String(str || '')
+  .replace(/&nbsp;/g, ' ')
+  .replace(/&lt;/g, '<')
+  .replace(/&gt;/g, '>')
+  .replace(/&quot;/g, '"')
+  .replace(/&#39;/g, "'")
+  .replace(/&#x([0-9a-fA-F]+);/g, (_, h) => String.fromCharCode(parseInt(h, 16)))
+  .replace(/&#(\d+);/g, (_, d) => String.fromCharCode(parseInt(d, 10)))
+  .replace(/&amp;/g, '&')
+
 // 从歌手详情页 __NUXT__ 数据中解析歌手信息（简介/头像）
 const parseSingerInfo = (html) => {
   const block = html.match(/singerInfo:\{[^}]*\}/s)?.[0]
@@ -42,7 +53,7 @@ const parseSingerInfo = (html) => {
   return {
     name: extract(block, 'name'),
     img: extract(block, 'pic300') || extract(block, 'pic'),
-    desc: extract(block, 'info'),
+    desc: decodeHtml(extract(block, 'info')),
   }
 }
 
