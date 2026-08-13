@@ -608,5 +608,7 @@
   "download_resume": "继续下载",
   "download_storage_permission_title": "需要存储权限",
   "download_storage_permission_denied": "下载歌曲需要存储权限，请在系统设置中允许访问存储空间",
-  "open_settings": "去设置"
+  "open_settings": "去设置",
+  "singer_intro": "歌手简介",
+  "singer_intro_empty": "暂无歌手简介"
 }

@@ -47,13 +47,24 @@ module.exports = {
       throw new Error('获取歌手信息失败: ' + (body?.msg || '无数据'))
     }
     const data = body.data || {}
+    const artist = data.artist || {}
+    const briefDesc = artist.briefDesc || ''
+    const alias = Array.isArray(artist.alias) ? artist.alias.join(' ') : ''
+    const introParts = (artist.introduction || [])
+      .map(item => {
+        const title = item.title || item.ti || ''
+        const text = item.text || item.txt || ''
+        return [title, text].filter(Boolean).join('\n')
+      })
+      .filter(Boolean)
+    const desc = [briefDesc || alias, ...introParts].filter(Boolean).join('\n\n')
     return {
       source: 'wy',
       singerid,
       info: {
-        name: data.artist?.name || '',
-        desc: (data.artist?.briefDesc || data.artist?.alias || []).join(' '),
-        img: data.artist?.cover || data.artist?.picUrl || data.artist?.img1v1Url || '',
+        name: artist.name || '',
+        desc,
+        img: artist.cover || artist.picUrl || artist.img1v1Url || '',
       },
     }
   },
