@@ -21,42 +21,6 @@ const withTimeout = <T,>(promise: Promise<T>, ms: number, msg: string): Promise<
   ])
 }
 
-// 简介有效性阈值：小于该长度视为无有效简介，触发跨源兜底
-const MIN_DESC_LEN = 10
-
-// 跨源兜底：主源简介缺失/过短时，依次从其他源按歌手名搜索补齐（网易云最全，酷我网页次之）
-const getFallbackSingerInfo = async(singerName: string, excludeSource?: string) => {
-  const order = ['wy', 'kw', 'kg', 'tx', 'mg']
-  for (const s of order) {
-    if (s === excludeSource) continue
-    const sdk = (musicSdk as any)[s]
-    if (!sdk?.singerSearch?.search || !sdk?.singer?.getSingerInfo) continue
-    try {
-      const r = await withTimeout(
-        sdk.singerSearch.search(singerName, 1, 5),
-        FETCH_TIMEOUT,
-        `fallback singerSearch timeout for source: ${s}`,
-      )
-      const hit = (r?.list || []).find((it: any) => it.name === singerName) || (r?.list || [])[0]
-      if (!hit?.id) continue
-      const raw = await withTimeout(
-        sdk.singer.getSingerInfo(hit.id),
-        FETCH_TIMEOUT,
-        `fallback getSingerInfo timeout for source: ${s}`,
-      )
-      // 兼容两种返回格式：{source, singerid, info:{...}} 或平铺 {name, image, desc}
-      const info = raw?.info || raw || {}
-      const desc = String(info.desc || '').trim()
-      if (desc.length >= MIN_DESC_LEN) {
-        return { name: info.name || singerName, img: info.img || info.image || '', desc }
-      }
-    } catch (err: any) {
-      console.log(`[singerDetail] fallback singer info from ${s} failed: ${err?.message || err}`)
-    }
-  }
-  return null
-}
-
 export const setListDetailInfo = (id: string) => {
   clearListDetail()
   const [source] = id.split('__') as [LX.OnlineSource, string]
@@ -113,14 +77,7 @@ const getListLimit = async(source: LX.OnlineSource, singerId: string, page: numb
       )
       if (result && result.list && result.list.length > 0) {
         if (result.info) {
-          const desc = String(result.info.desc || '').trim()
-          if (desc.length >= MIN_DESC_LEN) {
-            singerDetailActions.setSingerInfo(result.info)
-          } else if (sourcePage === 0 && singerName) {
-            // 简介缺失/过短时跨源兜底补齐
-            const fb = await getFallbackSingerInfo(singerName, source)
-            if (fb) singerDetailActions.setSingerInfo(fb)
-          }
+          singerDetailActions.setSingerInfo(result.info)
         }
       } else {
         throw new Error('Singer API returned empty list')
@@ -140,11 +97,6 @@ const getListLimit = async(source: LX.OnlineSource, singerId: string, page: numb
         total: result.total || 0,
         allPage: result.allPage || 1,
         limit: LIMIT,
-      }
-      // 降级路径无歌手信息，跨源兜底补齐简介
-      if (sourcePage === 0 && singerName) {
-        const fb = await getFallbackSingerInfo(singerName, source)
-        if (fb) singerDetailActions.setSingerInfo(fb)
       }
     }
   } else {
@@ -170,22 +122,9 @@ const getListLimit = async(source: LX.OnlineSource, singerId: string, page: numb
           FETCH_TIMEOUT,
           `SingerInfo timeout for source: ${source}`,
         )
-        if (si?.info) {
-          const desc = String(si.info.desc || '').trim()
-          if (desc.length >= MIN_DESC_LEN) {
-            singerDetailActions.setSingerInfo(si.info)
-          } else if (singerName) {
-            // 简介缺失/过短时跨源兜底补齐
-            const fb = await getFallbackSingerInfo(singerName, source)
-            if (fb) singerDetailActions.setSingerInfo(fb)
-          }
-        }
+        if (si?.info) singerDetailActions.setSingerInfo(si.info)
       } catch (err: any) {
         console.log(`[singerDetail] getSingerInfo failed: ${err?.message || err}`)
-        if (singerName) {
-          const fb = await getFallbackSingerInfo(singerName, source)
-          if (fb) singerDetailActions.setSingerInfo(fb)
-        }
       }
     }
   }
