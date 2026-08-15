@@ -1,6 +1,5 @@
 import { httpFetch } from '../../request'
 import { decodeName } from '../../index'
-import musicSearch from './musicSearch'
 
 /**
  * 带重试和延迟的酷我API请求
@@ -58,9 +57,6 @@ const parseSingerInfo = (html) => {
   }
 }
 
-// 歌手信息缓存，避免分页时重复解析歌手详情页
-const singerInfoCache = new Map()
-
 export default {
   async getSingerInfo(singerid) {
     if (!singerid) throw new Error('歌手不存在')
@@ -74,48 +70,10 @@ export default {
     const html = typeof body === 'string' ? body : JSON.stringify(body || '')
     const info = parseSingerInfo(html)
     if (!info) throw new Error('获取歌手信息失败: 无法解析歌手简介')
-    singerInfoCache.set(singerid, info)
     return {
       source: 'kw',
       singerid,
       info,
-    }
-  },
-  async getSingerSongList(singerid, page, limit) {
-    if (!singerid) throw new Error('歌手不存在')
-    let singerInfo = singerInfoCache.get(singerid)
-    if (!singerInfo) {
-      singerInfo = (await this.getSingerInfo(singerid).catch(() => null))?.info || null
-      if (singerInfo) singerInfoCache.set(singerid, singerInfo)
-    }
-    const singerName = singerInfo?.name || ''
-    const searchParams = singerName
-      ? `all=${encodeURIComponent(singerName)}&artistid=${singerid}`
-      : `artistid=${singerid}`
-    const requestObj = httpFetch(`https://search.kuwo.cn/r.s?client=kt&${searchParams}&pn=${page - 1}&rn=${limit}&ft=music&cluster=0&strategy=2012&encoding=utf8&rformat=json&vermerge=1&mobi=1&issubtitle=1`, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/69.0.3497.100 Safari/537.36',
-        'Referer': 'https://www.kuwo.cn/',
-      },
-    })
-    const { body } = await requestObj.promise
-    if (!body || (body.TOTAL !== '0' && body.SHOW === '0')) throw new Error('获取歌手歌曲列表失败: 无数据')
-    const rawList = body.abslist || []
-    if (!rawList.length) throw new Error('获取歌手歌曲列表失败: 歌曲列表为空')
-    const list = musicSearch.handleResult(rawList)
-    return {
-      source: 'kw',
-      list,
-      id: `kw__singer_${singerid}`,
-      singerid,
-      total: parseInt(body.TOTAL) || 0,
-      limit,
-      allPage: Math.ceil((parseInt(body.TOTAL) || 0) / limit) || 1,
-      info: {
-        name: singerInfo?.name || '',
-        img: singerInfo?.img || '',
-        desc: singerInfo?.desc || '',
-      },
     }
   },
   async getSingerAlbumList(singerid, page, limit) {
