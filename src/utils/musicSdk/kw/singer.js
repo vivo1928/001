@@ -61,16 +61,6 @@ const parseSingerInfo = (html) => {
 // 歌手信息缓存，避免分页时重复解析歌手详情页
 const singerInfoCache = new Map()
 
-// 酷我曲库会收录资讯站/专访/纯伴奏等非正规歌曲资源，过滤避免混入歌手单曲列表
-const isNoiseItem = (item) => {
-  const artist = decodeName(item.ARTIST || '')
-  const name = decodeName(item.SONGNAME || '')
-  if (/资讯站/.test(artist)) return true
-  if (/专访/.test(name)) return true
-  if (/伴奏/.test(name)) return true
-  return false
-}
-
 export default {
   async getSingerInfo(singerid) {
     if (!singerid) throw new Error('歌手不存在')
@@ -112,19 +102,15 @@ export default {
     if (!body || (body.TOTAL !== '0' && body.SHOW === '0')) throw new Error('获取歌手歌曲列表失败: 无数据')
     const rawList = body.abslist || []
     if (!rawList.length) throw new Error('获取歌手歌曲列表失败: 歌曲列表为空')
-    const total = Math.max(0, parseInt(body.TOTAL) || 0)
-    const filteredList = rawList.filter(item => !isNoiseItem(item))
-    const filteredCount = rawList.length - filteredList.length
-    const list = musicSearch.handleResult(filteredList)
-    if (!list.length) throw new Error('获取歌手歌曲列表失败: 歌曲列表为空')
+    const list = musicSearch.handleResult(rawList)
     return {
       source: 'kw',
       list,
       id: `kw__singer_${singerid}`,
       singerid,
-      total: filteredCount ? Math.max(0, total - filteredCount) : total,
+      total: parseInt(body.TOTAL) || 0,
       limit,
-      allPage: Math.ceil((filteredCount ? Math.max(0, total - filteredCount) : total) / limit) || 1,
+      allPage: Math.ceil((parseInt(body.TOTAL) || 0) / limit) || 1,
       info: {
         name: singerInfo?.name || '',
         img: singerInfo?.img || '',
