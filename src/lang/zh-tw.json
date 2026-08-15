@@ -609,7 +609,5 @@
   "download_select_none": "取消全選",
   "download_selected": "下載選中",
   "download_storage_permission_denied": "下載歌曲需要儲存權限，請在系統設定中允許存取儲存空間",
-  "download_storage_permission_title": "需要儲存權限",
-  "singer_intro": "歌手簡介",
-  "singer_intro_empty": "暫無歌手簡介"
+  "download_storage_permission_title": "需要儲存權限"
 }

@@ -609,7 +609,5 @@
   "download_select_none": "Deselect All",
   "download_selected": "Download Selected",
   "download_storage_permission_denied": "Storage permission is required to download songs. Please allow storage access in system settings.",
-  "download_storage_permission_title": "Storage Permission Required",
-  "singer_intro": "Singer Intro",
-  "singer_intro_empty": "No singer introduction available"
+  "download_storage_permission_title": "Storage Permission Required"
 }
