@@ -1,5 +1,7 @@
 package cn.toside.music.mobile.equalizer;
 
+import android.content.Context;
+import android.content.SharedPreferences;
 import android.util.Log;
 
 import androidx.annotation.NonNull;
@@ -16,15 +18,72 @@ import com.facebook.react.bridge.WritableMap;
 /**
  * React Native 均衡器原生模块
  * 提供软件均衡器控制接口，兼容所有 Android 设备
+ * 均衡器状态持久化到 SharedPreferences，应用重启后自动恢复
  */
 public class EqualizerModule extends ReactContextBaseJavaModule {
     private static final String TAG = "EqualizerModule";
+
+    private static final String PREFS_NAME = "equalizer_settings";
+    private static final String KEY_ENABLED = "eq_enabled";
+    private static final String KEY_LEVELS = "eq_levels";
+    private static final String KEY_PREAMP = "eq_preamp";
+
     private final SoftwareEqualizer equalizer;
+    private final SharedPreferences prefs;
 
     public EqualizerModule(ReactApplicationContext reactContext) {
         super(reactContext);
         this.equalizer = SoftwareEqualizer.getInstance();
+        this.prefs = reactContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        restoreState();
         Log.d(TAG, "Equalizer module initialized, bands=" + equalizer.getNumberOfBands());
+    }
+
+    /**
+     * 从 SharedPreferences 恢复均衡器状态（启用状态、各频段增益、preamp）
+     */
+    private void restoreState() {
+        try {
+            boolean enabled = prefs.getBoolean(KEY_ENABLED, false);
+            equalizer.setEnabled(enabled);
+
+            String levelsStr = prefs.getString(KEY_LEVELS, null);
+            if (levelsStr != null) {
+                String[] parts = levelsStr.split(",");
+                int[] levels = new int[equalizer.getNumberOfBands()];
+                for (int i = 0; i < levels.length && i < parts.length; i++) {
+                    levels[i] = Integer.parseInt(parts[i].trim());
+                }
+                equalizer.setBandLevels(levels);
+            }
+
+            float preamp = prefs.getFloat(KEY_PREAMP, 1.0f);
+            equalizer.setPreamp(preamp);
+            Log.d(TAG, "Restored equalizer state: enabled=" + enabled + " preamp=" + preamp);
+        } catch (Exception e) {
+            Log.e(TAG, "restoreState error", e);
+        }
+    }
+
+    /**
+     * 将当前均衡器状态保存到 SharedPreferences
+     */
+    private void saveState() {
+        try {
+            StringBuilder sb = new StringBuilder();
+            int[] levels = equalizer.getBandLevels();
+            for (int i = 0; i < levels.length; i++) {
+                if (i > 0) sb.append(',');
+                sb.append(levels[i]);
+            }
+            prefs.edit()
+                    .putBoolean(KEY_ENABLED, equalizer.isEnabled())
+                    .putString(KEY_LEVELS, sb.toString())
+                    .putFloat(KEY_PREAMP, equalizer.getPreamp())
+                    .apply();
+        } catch (Exception e) {
+            Log.e(TAG, "saveState error", e);
+        }
     }
 
     @NonNull
@@ -50,6 +109,7 @@ public class EqualizerModule extends ReactContextBaseJavaModule {
     public void setEnabled(boolean enabled, Promise promise) {
         try {
             equalizer.setEnabled(enabled);
+            saveState();
             promise.resolve(null);
         } catch (Exception e) {
             Log.e(TAG, "setEnabled error", e);
@@ -106,6 +166,7 @@ public class EqualizerModule extends ReactContextBaseJavaModule {
     public void setBandLevel(int band, int levelMb, Promise promise) {
         try {
             equalizer.setBandLevel(band, levelMb);
+            saveState();
             promise.resolve(null);
         } catch (Exception e) {
             Log.e(TAG, "setBandLevel error", e);
@@ -125,6 +186,7 @@ public class EqualizerModule extends ReactContextBaseJavaModule {
                 levels[i] = levelsMb.getInt(i);
             }
             equalizer.setBandLevels(levels);
+            saveState();
             promise.resolve(null);
         } catch (Exception e) {
             Log.e(TAG, "setBandLevels error", e);
@@ -158,6 +220,7 @@ public class EqualizerModule extends ReactContextBaseJavaModule {
         try {
             int[] zeros = new int[equalizer.getNumberOfBands()];
             equalizer.setBandLevels(zeros);
+            saveState();
             promise.resolve(null);
         } catch (Exception e) {
             Log.e(TAG, "reset error", e);
@@ -182,6 +245,7 @@ public class EqualizerModule extends ReactContextBaseJavaModule {
     public void setPreamp(double preamp, Promise promise) {
         try {
             equalizer.setPreamp((float) preamp);
+            saveState();
             promise.resolve(null);
         } catch (Exception e) {
             Log.e(TAG, "setPreamp error", e);
