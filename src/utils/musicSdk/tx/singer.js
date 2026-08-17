@@ -38,6 +38,16 @@ async function fetchWithRetry(body, retryCount = 2) {
   throw new Error('QQ Music API request failed')
 }
 
+// QQ Music musicu.fcg 通用公共参数（与开源项目保持一致，部分接口依赖此字段）
+const COMM = {
+  cv: 4747474,
+  ct: 24,
+  format: 'json',
+  inCharset: 'utf-8',
+  outCharset: 'utf-8',
+  uin: 0,
+}
+
 /**
  * 格式化歌曲列表（与 musicSearch.handleResult 保持一致）
  */
@@ -96,10 +106,56 @@ const formatSongList = (rawList) => {
 module.exports = {
   /**
    * 获取歌手信息
+   * 优先使用带 wiki_singer 的 GetSingerDetail 接口（简介更全、更新及时），
+   * 失败时降级到旧的 GetSingerInfo 接口
    */
   async getSingerInfo(singerMID) {
     if (!singerMID) throw new Error('歌手不存在')
+
+    // 1. 优先：GetSingerDetail（含歌手百科简介）
+    try {
+      const detailBody = await fetchWithRetry({
+        comm: COMM,
+        req_1: {
+          module: 'music.musichallSinger.SingerInfoInter',
+          method: 'GetSingerDetail',
+          param: {
+            singer_mid: [singerMID],
+            ex_singer: 1,
+            wiki_singer: 1,
+            group_singer: 0,
+            pic: 1,
+            photos: 0,
+          },
+        },
+      }, 1)
+      if (detailBody && detailBody.req_1 && detailBody.req_1.code === 0) {
+        const info = detailBody.req_1.data?.singer_list?.[0]
+        const data = info?.data || info || {}
+        const basic = data.basic_info || {}
+        const ex = data.ex_info || {}
+        const desc = ex.desc || data.desc || ''
+        if (desc || basic.name) {
+          return {
+            source: 'tx',
+            singerid: singerMID,
+            info: {
+              name: basic.name || info.singer_name || '',
+              desc: String(desc).trim(),
+              img: data.pic?.pic
+                ? `https://y.gtimg.cn/music/photo_new/T001R300x300M000${data.pic.pic}.jpg`
+                : (data.pic?.pic120 || data.pic?.pic300 || ''),
+            },
+          }
+        }
+      }
+    } catch (err) {
+      console.log(`[tx singer] GetSingerDetail failed, fallback to GetSingerInfo: ${err?.message || err}`)
+    }
+
+    // 2. 降级：旧 GetSingerInfo 接口
     const body = await fetchWithRetry({
+      comm: COMM,
       req_1: {
         module: 'music.singer.SingerInfoServer',
         method: 'GetSingerInfo',
@@ -128,6 +184,7 @@ module.exports = {
   async getSingerSongList(singerMID, page, limit) {
     if (!singerMID) throw new Error('歌手不存在')
     const body = await fetchWithRetry({
+      comm: COMM,
       req_1: {
         module: 'music.singerSongList.SingerSongList',
         method: 'GetSingerSongList',
@@ -170,6 +227,7 @@ module.exports = {
   async getSingerAlbumList(singerMID, page, limit) {
     if (!singerMID) throw new Error('歌手不存在')
     const body = await fetchWithRetry({
+      comm: COMM,
       req_1: {
         module: 'music.singerAlbum.SingerAlbum',
         method: 'get_singer_album',
