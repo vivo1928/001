@@ -98,6 +98,23 @@ const parseSingerId = (id) => {
 }
 
 export default {
+  /**
+   * 按歌手名搜索歌手ID（供跨源兜底使用）
+   */
+  async searchSingerId(name) {
+    if (!name) return null
+    try {
+      const body = await fetchWithFallback(SINGER_HOSTS, (host) =>
+        `https://${host}/song/search/v2?keyword=${encodeURIComponent(name)}&page=1&pagesize=1&userid=0&clientver=&platform=WebFilter&filter=2&iscorrection=1&privilege_filter=0&area_code=1`
+      ).catch(() => null)
+      const list = body?.data?.lists || body?.data?.info || []
+      const singer = list[0]?.Singers?.[0]
+      if (singer?.id) return singer.id
+      return null
+    } catch {
+      return null
+    }
+  },
   async getSingerInfo(singerid) {
     const sid = parseSingerId(singerid)
     if (sid == 0 || !sid) throw new Error('歌手不存在')

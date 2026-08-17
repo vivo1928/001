@@ -105,6 +105,57 @@ const formatSongList = (rawList) => {
 
 module.exports = {
   /**
+   * 按歌手名搜索歌手MID（供跨源兜底使用）
+   */
+  async searchSingerId(name) {
+    if (!name) return null
+    try {
+      const body = await fetchWithRetry({
+        comm: COMM,
+        req_1: {
+          module: 'music.search.SearchCgiService',
+          method: 'DoSearchForQQMusicDesktop',
+          param: {
+            remoteplace: 'txt.mqq.all',
+            search_type: 2,
+            query: name,
+            searchid: Math.random().toString().slice(2),
+            cur_page: 1,
+            page_num: 10,
+            page_size: 10,
+            grp: 1,
+          },
+        },
+      }, 0)
+      const singerList = body?.req_1?.data?.singer?.list || []
+      const first = singerList[0]
+      if (first?.mid) return first.mid
+      // 降级：从歌曲搜索结果取歌手 mid
+      const songBody = await fetchWithRetry({
+        comm: COMM,
+        req_1: {
+          module: 'music.search.SearchCgiService',
+          method: 'DoSearchForQQMusicDesktop',
+          param: {
+            remoteplace: 'txt.mqq.all',
+            search_type: 0,
+            query: name,
+            searchid: Math.random().toString().slice(2),
+            cur_page: 1,
+            page_num: 10,
+            page_size: 10,
+          },
+        },
+      }, 0)
+      const songList = songBody?.req_1?.data?.song?.list || []
+      const singerItem = songList[0]?.singer?.[0]
+      if (singerItem?.mid) return singerItem.mid
+      return null
+    } catch {
+      return null
+    }
+  },
+  /**
    * 获取歌手信息
    * 优先使用带 wiki_singer 的 GetSingerDetail 接口（简介更全、更新及时），
    * 失败时降级到旧的 GetSingerInfo 接口

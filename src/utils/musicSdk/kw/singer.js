@@ -32,6 +32,26 @@ const parseSingerInfo = (html) => {
 
 export default {
   /**
+   * 按歌手名搜索歌手ID（供跨源兜底使用）
+   */
+  async searchSingerId(name) {
+    if (!name) return null
+    try {
+      const requestObj = httpFetch(`https://search.kuwo.cn/r.s?client=kt&all=${encodeURIComponent(name)}&pn=0&rn=1&ft=artist&cluster=0&strategy=2012&encoding=utf8&rformat=json&vermerge=1&mobi=1&issubtitle=1`, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/69.0.3497.100 Safari/537.36',
+          'Referer': 'https://www.kuwo.cn/',
+        },
+      })
+      const { body } = await requestObj.promise
+      const list = body?.abslist || []
+      if (list.length && list[0].ARTISTID) return list[0].ARTISTID
+      return null
+    } catch {
+      return null
+    }
+  },
+  /**
    * 获取歌手信息（简介/头像）
    * 优先使用 token 鉴权接口访问最新歌手信息，失败降级 singer_detail 页面解析
    */

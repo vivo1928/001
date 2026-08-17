@@ -21,6 +21,69 @@ const withTimeout = <T,>(promise: Promise<T>, ms: number, msg: string): Promise<
   ])
 }
 
+interface SingerInfoResult { source: string, singerid: string, info?: { name?: string, img?: string, desc?: string } }
+
+interface SingerModule {
+  getSingerInfo?: (singerid: string) => Promise<SingerInfoResult>
+  searchSingerId?: (name: string) => Promise<string | number | null>
+}
+
+// 简介长度阈值：低于该值视为不完整，触发跨源兜底补齐
+const MIN_DESC_LEN = 30
+
+/**
+ * 获取歌手简介，跨源兜底补齐
+ * 1. 优先本源 getSingerInfo
+ * 2. 本源简介缺失/过短时，依次尝试其他源补全（tx→wy→kg→kw）
+ */
+const getSingerInfoWithFallback = async(source: LX.OnlineSource, singerId: string, singerName: string): Promise<SingerInfoResult | null> => {
+  const sources = ['tx', 'wy', 'kg', 'kw'] as LX.OnlineSource[]
+  const primary = (musicSdk[source]?.singer as SingerModule | undefined)
+
+  // 本源优先
+  let best: SingerInfoResult | null = null
+
+  if (primary?.getSingerInfo) {
+    try {
+      const r = await withTimeout(
+        primary.getSingerInfo(singerId),
+        FETCH_TIMEOUT,
+        `SingerInfo timeout for source: ${source}`,
+      )
+      if (r?.info) best = r
+    } catch { /* ignore */ }
+  }
+
+  const descLen = () => String(best?.info?.desc || '').trim().length
+
+  if (!best || descLen() < MIN_DESC_LEN) {
+    // 跨源兜底：按优先级尝试其他源（tx→wy→kg→kw）
+    for (const other of sources) {
+      if (other === source) continue
+      const otherSinger = musicSdk[other]?.singer as SingerModule | undefined
+      if (!otherSinger?.getSingerInfo || !otherSinger?.searchSingerId) continue
+      try {
+        const otherId = await withTimeout(
+          otherSinger.searchSingerId(singerName),
+          FETCH_TIMEOUT,
+          `searchSingerId timeout for source: ${other}`,
+        )
+        if (!otherId) continue
+        const r = await withTimeout(
+          otherSinger.getSingerInfo(otherId),
+          FETCH_TIMEOUT,
+          `SingerInfo timeout for source: ${other}`,
+        )
+        if (r?.info && String(r.info.desc || '').trim().length > descLen()) {
+          best = r
+        }
+      } catch { /* ignore */ }
+    }
+  }
+
+  return best
+}
+
 export const setListDetailInfo = (id: string) => {
   clearListDetail()
   const [source] = id.split('__') as [LX.OnlineSource, string]
@@ -67,6 +130,14 @@ const getListLimit = async(source: LX.OnlineSource, singerId: string, page: numb
   const hasSingerApi = !!(sdk.singer?.getSingerSongList)
   let result: any
 
+  // 简介获取：本源优先，缺失/过短时跨源兜底
+  const fetchSingerInfo = async() => {
+    try {
+      const info = await getSingerInfoWithFallback(source, singerId, singerName)
+      if (info?.info) singerDetailActions.setSingerInfo(info.info)
+    } catch { /* 简介失败不影响列表 */ }
+  }
+
   if (hasSingerApi) {
     try {
       const fetchLimit = SOURCE_FETCH_LIMIT[source] || 100
@@ -76,8 +147,15 @@ const getListLimit = async(source: LX.OnlineSource, singerId: string, page: numb
         `Singer API timeout for source: ${source}`,
       )
       if (result && result.list && result.list.length > 0) {
-        if (result.info) {
-          singerDetailActions.setSingerInfo(result.info)
+        const info = result.info as SingerInfoResult['info'] | undefined
+        const hasMeaningfulDesc = info && String(info.desc || '').trim().length >= MIN_DESC_LEN
+        if (hasMeaningfulDesc) {
+          singerDetailActions.setSingerInfo(info)
+        } else if (sourcePage === 0) {
+          // 本源简介缺失/过短时跨源兜底补齐
+          await fetchSingerInfo()
+        } else if (info) {
+          singerDetailActions.setSingerInfo(info)
         }
       } else {
         throw new Error('Singer API returned empty list')
@@ -98,6 +176,7 @@ const getListLimit = async(source: LX.OnlineSource, singerId: string, page: numb
         allPage: result.allPage || 1,
         limit: LIMIT,
       }
+      if (sourcePage === 0) await fetchSingerInfo()
     }
   } else {
     // 没有 singer API，直接使用 musicSearch
@@ -114,6 +193,8 @@ const getListLimit = async(source: LX.OnlineSource, singerId: string, page: numb
       allPage: result.allPage || 1,
       limit: LIMIT,
     }
+    // kw 等无歌手歌曲 API 的源，首次分页请求时补充歌手简介（失败不影响列表）
+    if (sourcePage === 0) await fetchSingerInfo()
   }
 
   if (listCache !== cache.get(listKey)) throw new Error('cache mismatch')

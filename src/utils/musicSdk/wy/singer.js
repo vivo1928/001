@@ -39,8 +39,46 @@ const filterAlbumList = (rawList) => {
 }
 
 module.exports = {
+  /**
+   * 按歌手名搜索歌手ID（供跨源兜底使用）
+   */
+  async searchSingerId(name) {
+    if (!name) return null
+    try {
+      const requestObj = eapiRequest('/api/search/get/web?csrf_token=&type=100', { s: name, limit: 1, type: 100, offset: 0 })
+      const { body } = await requestObj.promise
+      if (!body || body.code !== 200) return null
+      const artists = body.result?.artists || []
+      if (artists.length && artists[0].id) return artists[0].id
+      return null
+    } catch {
+      return null
+    }
+  },
   async getSingerInfo(singerid) {
     if (!singerid) throw new Error('歌手不存在')
+    // 1. 优先获取完整歌手介绍（分段详细介绍）
+    try {
+      const requestObj = eapiRequest('/api/artist/desc', { id: singerid })
+      const { body } = await requestObj.promise
+      if (body && body.code === 200 && body.artistDesc) {
+        const artistDesc = body.artistDesc
+        const briefDesc = String(artistDesc.briefDesc || '').trim()
+        const intro = (Array.isArray(artistDesc.intro) ? artistDesc.intro.map(i => i.ti ? `${i.ti}\n${i.txt || ''}` : (i.txt || '')).filter(Boolean).join('\n') : String(artistDesc.intro || '')).trim()
+        const desc = intro || briefDesc
+        return {
+          source: 'wy',
+          singerid,
+          info: {
+            name: artistDesc.briefDesc && artistDesc.artist?.name ? artistDesc.artist.name : (artistDesc.name || ''),
+            desc,
+            img: artistDesc.artist?.cover || artistDesc.artist?.picUrl || '',
+          },
+        }
+      }
+    } catch { /* fallback to detail */ }
+
+    // 2. 降级：artist/detail
     const requestObj = eapiRequest('/api/v1/artist/detail', { id: singerid })
     const { body } = await requestObj.promise
     if (!body || body.code !== 200) {
