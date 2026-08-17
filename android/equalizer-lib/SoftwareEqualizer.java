@@ -45,7 +45,9 @@ public class SoftwareEqualizer {
     private final float[][] y2 = new float[2][];
     private final float[] x1 = new float[2];
 
-    private boolean enabled = false;
+    // volatile 保证跨线程可见性：音频线程（processStereo/queueInput）高频读，
+    // JS 线程通过 setEnabled 同步写，避免开启/关闭效果出现不确定的延迟
+    private volatile boolean enabled = false;
     private double sampleRate = 44100.0;
 
     // Preamp 输出增益补偿 (线性倍率)，默认 1.0 = 0dB
@@ -137,19 +139,20 @@ public class SoftwareEqualizer {
         }
     }
 
+    // 音频热路径高频读，不加锁（volatile 已保证可见性）
     public boolean isEnabled() {
         return enabled;
     }
 
-    public int getNumberOfBands() {
+    public synchronized int getNumberOfBands() {
         return frequencies.length;
     }
 
-    public int[] getFrequencies() {
+    public synchronized int[] getFrequencies() {
         return Arrays.copyOf(frequencies, frequencies.length);
     }
 
-    public int getBandFreq(int band) {
+    public synchronized int getBandFreq(int band) {
         if (band < 0 || band >= frequencies.length) return 0;
         return frequencies[band];
     }
@@ -170,12 +173,12 @@ public class SoftwareEqualizer {
         }
     }
 
-    public int getBandLevel(int band) {
+    public synchronized int getBandLevel(int band) {
         if (band < 0 || band >= gains.length) return 0;
         return gains[band];
     }
 
-    public int[] getBandLevels() {
+    public synchronized int[] getBandLevels() {
         return Arrays.copyOf(gains, gains.length);
     }
 
@@ -187,7 +190,7 @@ public class SoftwareEqualizer {
         }
     }
 
-    public double getSampleRate() {
+    public synchronized double getSampleRate() {
         return sampleRate;
     }
 
@@ -200,11 +203,11 @@ public class SoftwareEqualizer {
         Log.d(TAG, "Preamp set to " + this.preamp);
     }
 
-    public float getPreamp() {
+    public synchronized float getPreamp() {
         return preamp;
     }
 
-    public void reset() {
+    public synchronized void reset() {
         for (int ch = 0; ch < 2; ch++) {
             x1[ch] = 0.0f;
             Arrays.fill(y1[ch], 0.0f);
