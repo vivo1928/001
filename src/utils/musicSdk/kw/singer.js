@@ -1,35 +1,87 @@
 import { httpFetch } from '../../request'
 import { decodeName } from '../../index'
+import { getToken, tokenRequest } from './util'
 
-/**
- * 带重试和延迟的酷我API请求
- */
-async function fetchWithRetry(url, retryCount = 2) {
-  for (let attempt = 0; attempt <= retryCount; attempt++) {
-    try {
-      const requestObj = httpFetch(url, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/69.0.3497.100 Safari/537.36',
-          'Referer': 'https://www.kuwo.cn/',
-        },
-      })
-      const { body, statusCode } = await requestObj.promise
-      if (statusCode === 200 && body && body.code === 200 && body.data) return body
-      if (attempt < retryCount) {
-        await new Promise(r => setTimeout(r, 300 * (attempt + 1)))
-      }
-    } catch (err) {
-      if (attempt < retryCount) {
-        await new Promise(r => setTimeout(r, 500 * (attempt + 1)))
-      } else {
-        throw err
-      }
-    }
+// 解码 HTML 实体
+const decodeHtml = (str) => String(str || '')
+  .replace(/&nbsp;/g, ' ')
+  .replace(/&lt;/g, '<')
+  .replace(/&gt;/g, '>')
+  .replace(/&quot;/g, '"')
+  .replace(/&#39;/g, "'")
+  .replace(/&#x([0-9a-fA-F]+);/g, (_, h) => String.fromCharCode(parseInt(h, 16)))
+  .replace(/&#(\d+);/g, (_, d) => String.fromCharCode(parseInt(d, 10)))
+  .replace(/&amp;/g, '&')
+
+// 从歌手详情页 __NUXT__ 数据中解析歌手信息
+const parseSingerInfo = (html) => {
+  const block = html.match(/singerInfo:\{[^}]*\}/s)?.[0]
+  if (!block) return null
+  const extract = (str, key) => {
+    const re = new RegExp(key + ':"((?:[^"\\\\]|\\\\.)*)"')
+    const m = str.match(re)
+    if (!m) return ''
+    try { return JSON.parse('"' + m[1] + '"') } catch { return m[1] }
   }
-  throw new Error('获取歌手专辑列表失败: 请求重试耗尽')
+  return {
+    name: extract(block, 'name'),
+    img: extract(block, 'pic300') || extract(block, 'pic'),
+    desc: decodeHtml(extract(block, 'info')),
+  }
 }
 
 export default {
+  /**
+   * 获取歌手信息（简介/头像）
+   * 优先使用 token 鉴权接口访问最新歌手信息，失败降级 singer_detail 页面解析
+   */
+  async getSingerInfo(singerid) {
+    if (!singerid) throw new Error('歌手不存在')
+
+    // 1. 尝试 token 鉴权接口（可获得最新简介）
+    try {
+      const token = await getToken()
+      if (token) {
+        const requestObj = tokenRequest(`https://www.kuwo.cn/api/www/singer/singerInfo?pid=${singerid}&httpsStatus=1`)
+        const { statusCode, body } = await requestObj.promise
+        if (statusCode === 200 && body && body.success && body.data) {
+          const data = body.data
+          const desc = String(data.desc || '').trim()
+          const name = data.name || data.singerName || ''
+          if (desc || name) {
+            return {
+              source: 'kw',
+              singerid,
+              info: {
+                name,
+                img: data.pic || data.pic300 || data.avatar || '',
+                desc,
+              },
+            }
+          }
+        }
+      }
+    } catch (err) {
+      console.log(`[kw singer] tokenRequest failed, fallback to page parse: ${err?.message || err}`)
+    }
+
+    // 2. 降级：解析 singer_detail 页面
+    const requestObj = httpFetch(`https://www.kuwo.cn/singer_detail/${singerid}`, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/69.0.3497.100 Safari/537.36',
+        'Referer': 'https://www.kuwo.cn/',
+      },
+    })
+    const { body } = await requestObj.promise
+    const html = typeof body === 'string' ? body : JSON.stringify(body || '')
+    const info = parseSingerInfo(html)
+    if (!info) throw new Error('获取歌手信息失败: 无法解析歌手简介')
+    return {
+      source: 'kw',
+      singerid,
+      info,
+    }
+  },
   async getSingerAlbumList(singerid, page, limit) {
     if (!singerid) throw new Error('歌手不存在')
     const body = await fetchWithRetry(`https://www.kuwo.cn/api/www/artist/artistAlbum?artistid=${singerid}&pn=${page}&rn=${limit}&httpsStatus=1`)
