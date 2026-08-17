@@ -437,6 +437,8 @@
   "share_card_title_music": "Share \"{name}\" to...",
   "share_title_music": "Song Sharing",
   "singer": "Artist: {name}",
+  "singer_intro": "Singer Intro",
+  "singer_intro_empty": "No singer introduction available",
   "song_title": "Song Title",
   "songlist_hot": "Top",
   "songlist_hot_collect": "Top Collect",

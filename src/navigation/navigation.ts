@@ -7,6 +7,7 @@ import {
   SONGLIST_DETAIL_SCREEN,
   SINGER_DETAIL_SCREEN,
   ALBUM_DETAIL_SCREEN,
+  SINGER_INTRO_SCREEN,
   COMMENT_SCREEN,
   // SETTING_SCREEN,
 } from './screenNames'
@@ -365,6 +366,59 @@ export function pushAlbumDetailScreen(componentId: string, info: { id: string, n
     void Navigation.push(componentId, {
       component: {
         name: ALBUM_DETAIL_SCREEN,
+        passProps: {
+          info,
+        },
+        options: {
+          topBar: {
+            visible: false,
+            height: 0,
+            drawBehind: false,
+          },
+          statusBar: {
+            drawBehind: true,
+            visible: true,
+            style: getStatusBarStyle(theme.isDark),
+            backgroundColor: 'transparent',
+          },
+          navigationBar: {
+            backgroundColor: theme['c-content-background'],
+          },
+          layout: {
+            componentBackgroundColor: theme['c-content-background'],
+          },
+          animations: {
+            push: {
+              content: {
+                translationX: {
+                  from: windowSizeTools.getSize().width,
+                  to: 0,
+                  duration: 300,
+                },
+              },
+            },
+            pop: {
+              content: {
+                translationX: {
+                  from: 0,
+                  to: windowSizeTools.getSize().width,
+                  duration: 300,
+                },
+              },
+            },
+          },
+        },
+      },
+    })
+  })
+}
+export function pushSingerIntroScreen(componentId: string, info: { name?: string, img?: string }) {
+  const theme = themeState.theme
+
+  requestAnimationFrame(() => {
+    void Navigation.push(componentId, {
+      component: {
+        name: SINGER_INTRO_SCREEN,
         passProps: {
           info,
         },

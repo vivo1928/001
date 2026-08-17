@@ -437,6 +437,8 @@
   "share_card_title_music": "将「{name}」分享到...",
   "share_title_music": "歌曲分享",
   "singer": "艺术家：{name}",
+  "singer_intro": "歌手简介",
+  "singer_intro_empty": "暂无歌手简介",
   "song_title": "歌曲标题",
   "songlist_hot": "最热",
   "songlist_hot_collect": "热藏",
