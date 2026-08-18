@@ -110,28 +110,8 @@ module.exports = {
   async searchSingerId(name) {
     if (!name) return null
     try {
+      // 歌曲搜索取歌手 mid（musicSearch 同款 API）
       const body = await fetchWithRetry({
-        comm: COMM,
-        req_1: {
-          module: 'music.search.SearchCgiService',
-          method: 'DoSearchForQQMusicDesktop',
-          param: {
-            remoteplace: 'txt.mqq.all',
-            search_type: 2,
-            query: name,
-            searchid: Math.random().toString().slice(2),
-            cur_page: 1,
-            page_num: 10,
-            page_size: 10,
-            grp: 1,
-          },
-        },
-      }, 0)
-      const singerList = body?.req_1?.data?.singer?.list || []
-      const first = singerList[0]
-      if (first?.mid) return first.mid
-      // 降级：从歌曲搜索结果取歌手 mid
-      const songBody = await fetchWithRetry({
         comm: COMM,
         req_1: {
           module: 'music.search.SearchCgiService',
@@ -147,7 +127,7 @@ module.exports = {
           },
         },
       }, 0)
-      const songList = songBody?.req_1?.data?.song?.list || []
+      const songList = body?.req_1?.data?.body?.song?.list || []
       const singerItem = songList[0]?.singer?.[0]
       if (singerItem?.mid) return singerItem.mid
       return null

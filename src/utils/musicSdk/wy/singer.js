@@ -45,7 +45,7 @@ module.exports = {
   async searchSingerId(name) {
     if (!name) return null
     try {
-      const requestObj = eapiRequest('/api/search/get/web?csrf_token=&type=100', { s: name, limit: 1, type: 100, offset: 0 })
+      const requestObj = eapiRequest('/api/search/get', { s: name, limit: 1, type: 100, offset: 0 })
       const { body } = await requestObj.promise
       if (!body || body.code !== 200) return null
       const artists = body.result?.artists || []

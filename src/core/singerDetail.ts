@@ -40,44 +40,56 @@ const getSingerInfoWithFallback = async(source: LX.OnlineSource, singerId: strin
   const sources = ['tx', 'wy', 'kg', 'kw'] as LX.OnlineSource[]
   const primary = (musicSdk[source]?.singer as SingerModule | undefined)
 
-  // 本源优先
-  let best: SingerInfoResult | null = null
+  // 并行拉取所有有 getSingerInfo 的源，取简介最长的
+  const tasks: Promise<SingerInfoResult | null>[] = []
 
+  // 本源优先加入
   if (primary?.getSingerInfo) {
-    try {
-      const r = await withTimeout(
-        primary.getSingerInfo(singerId),
-        FETCH_TIMEOUT,
-        `SingerInfo timeout for source: ${source}`,
-      )
-      if (r?.info) best = r
-    } catch { /* ignore */ }
+    tasks.push(
+      withTimeout(primary.getSingerInfo(singerId), FETCH_TIMEOUT, `SingerInfo timeout: ${source}`)
+        .catch(() => null)
+    )
   }
 
-  const descLen = () => String(best?.info?.desc || '').trim().length
-
-  if (!best || descLen() < MIN_DESC_LEN) {
-    // 跨源兜底：按优先级尝试其他源（tx→wy→kg→kw）
-    for (const other of sources) {
-      if (other === source) continue
-      const otherSinger = musicSdk[other]?.singer as SingerModule | undefined
-      if (!otherSinger?.getSingerInfo || !otherSinger?.searchSingerId) continue
-      try {
-        const otherId = await withTimeout(
-          otherSinger.searchSingerId(singerName),
-          FETCH_TIMEOUT,
-          `searchSingerId timeout for source: ${other}`,
-        )
-        if (!otherId) continue
-        const r = await withTimeout(
-          otherSinger.getSingerInfo(otherId),
-          FETCH_TIMEOUT,
-          `SingerInfo timeout for source: ${other}`,
-        )
-        if (r?.info && String(r.info.desc || '').trim().length > descLen()) {
-          best = r
+  // 跨源：用歌手名搜索其他源
+  for (const other of sources) {
+    if (other === source) continue
+    const otherSinger = musicSdk[other]?.singer as SingerModule | undefined
+    if (!otherSinger?.getSingerInfo || !otherSinger?.searchSingerId) continue
+    tasks.push(
+      (async() => {
+        try {
+          const otherId = await withTimeout(
+            otherSinger.searchSingerId!(singerName),
+            FETCH_TIMEOUT,
+            `searchSingerId timeout: ${other}`,
+          )
+          if (!otherId) return null
+          return await withTimeout(
+            otherSinger.getSingerInfo!(otherId),
+            FETCH_TIMEOUT,
+            `SingerInfo timeout: ${other}`,
+          )
+        } catch {
+          return null
         }
-      } catch { /* ignore */ }
+      })()
+    )
+  }
+
+  if (tasks.length === 0) return null
+
+  const results = await Promise.allSettled(tasks)
+  let best: SingerInfoResult | null = null
+  let bestLen = 0
+
+  for (const r of results) {
+    if (r.status === 'fulfilled' && r.value?.info) {
+      const len = String(r.value.info.desc || '').trim().length
+      if (len > bestLen) {
+        best = r.value
+        bestLen = len
+      }
     }
   }
 
@@ -130,12 +142,11 @@ const getListLimit = async(source: LX.OnlineSource, singerId: string, page: numb
   const hasSingerApi = !!(sdk.singer?.getSingerSongList)
   let result: any
 
-  // 简介获取：本源优先，缺失/过短时跨源兜底
-  const fetchSingerInfo = async() => {
-    try {
-      const info = await getSingerInfoWithFallback(source, singerId, singerName)
+  // 简介获取：本源优先，并行拉取所有源取最长简介（不阻塞列表加载）
+  const fetchSingerInfo = () => {
+    getSingerInfoWithFallback(source, singerId, singerName).then(info => {
       if (info?.info) singerDetailActions.setSingerInfo(info.info)
-    } catch { /* 简介失败不影响列表 */ }
+    }).catch(() => {})
   }
 
   if (hasSingerApi) {
@@ -153,7 +164,7 @@ const getListLimit = async(source: LX.OnlineSource, singerId: string, page: numb
           singerDetailActions.setSingerInfo(info)
         } else if (sourcePage === 0) {
           // 本源简介缺失/过短时跨源兜底补齐
-          await fetchSingerInfo()
+          fetchSingerInfo()
         } else if (info) {
           singerDetailActions.setSingerInfo(info)
         }
@@ -176,7 +187,7 @@ const getListLimit = async(source: LX.OnlineSource, singerId: string, page: numb
         allPage: result.allPage || 1,
         limit: LIMIT,
       }
-      if (sourcePage === 0) await fetchSingerInfo()
+if (sourcePage === 0) fetchSingerInfo()
     }
   } else {
     // 没有 singer API，直接使用 musicSearch
@@ -194,7 +205,7 @@ const getListLimit = async(source: LX.OnlineSource, singerId: string, page: numb
       limit: LIMIT,
     }
     // kw 等无歌手歌曲 API 的源，首次分页请求时补充歌手简介（失败不影响列表）
-    if (sourcePage === 0) await fetchSingerInfo()
+    if (sourcePage === 0) fetchSingerInfo()
   }
 
   if (listCache !== cache.get(listKey)) throw new Error('cache mismatch')
