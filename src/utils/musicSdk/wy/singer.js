@@ -1,4 +1,4 @@
-const { eapiRequest } = require('./utils/index')
+const { eapiRequest, directRequest } = require('./utils/index')
 
 const filterSongList = (rawList, singerid) => {
   if (!rawList || !Array.isArray(rawList)) return []
@@ -78,22 +78,43 @@ module.exports = {
       }
     } catch { /* fallback to detail */ }
 
-    // 2. 降级：artist/detail
-    const requestObj = eapiRequest('/api/v1/artist/detail', { id: singerid })
-    const { body } = await requestObj.promise
-    if (!body || body.code !== 200) {
-      throw new Error('获取歌手信息失败: ' + (body?.msg || '无数据'))
-    }
-    const data = body.data || {}
-    return {
-      source: 'wy',
-      singerid,
-      info: {
-        name: data.artist?.name || '',
-        desc: (data.artist?.briefDesc || data.artist?.alias || []).join(' '),
-        img: data.artist?.cover || data.artist?.picUrl || data.artist?.img1v1Url || '',
-      },
-    }
+    // 2. 降级：artist/detail（eapi）
+    try {
+      const requestObj = eapiRequest('/api/v1/artist/detail', { id: singerid })
+      const { body } = await requestObj.promise
+      if (body && body.code === 200) {
+        const data = body.data || {}
+        return {
+          source: 'wy',
+          singerid,
+          info: {
+            name: data.artist?.name || '',
+            desc: (data.artist?.briefDesc || data.artist?.alias || []).join(' '),
+            img: data.artist?.cover || data.artist?.picUrl || data.artist?.img1v1Url || '',
+          },
+        }
+      }
+    } catch { /* fallback to direct API */ }
+
+    // 3. 再次降级：非 eapi 直连 API
+    try {
+      const requestObj = directRequest('/weapi/v1/artist/detail', { id: singerid })
+      const { body } = await requestObj.promise
+      if (body && body.code === 200) {
+        const data = body.data || {}
+        return {
+          source: 'wy',
+          singerid,
+          info: {
+            name: data.artist?.name || '',
+            desc: (data.artist?.briefDesc || data.artist?.alias || []).join(' '),
+            img: data.artist?.cover || data.artist?.picUrl || data.artist?.img1v1Url || '',
+          },
+        }
+      }
+    } catch { /* final throw */ }
+
+    throw new Error('获取歌手信息失败: 所有端点均无数据')
   },
   async getSingerSongList(singerid, page, limit) {
     if (!singerid) throw new Error('歌手不存在')

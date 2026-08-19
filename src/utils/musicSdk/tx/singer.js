@@ -7,7 +7,7 @@ const API_PATH = '/cgi-bin/musicu.fcg'
 
 const COMMON_HEADERS = {
   'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/89.0.4389.90 Safari/537.36',
-  'Referer': 'https://y.qq.com',
+  Referer: 'https://y.qq.com',
   'Content-Type': 'application/json',
 }
 
@@ -25,11 +25,11 @@ async function fetchWithRetry(body, retryCount = 2) {
       const { body: res, statusCode } = await requestObj.promise
       if (statusCode === 200 && res && res.code === 0) return res
       if (attempt < retryCount) {
-        await new Promise(r => setTimeout(r, 300 * (attempt + 1)))
+        await new Promise(_resolve => setTimeout(_resolve, 300 * (attempt + 1)))
       }
     } catch (err) {
       if (attempt < retryCount) {
-        await new Promise(r => setTimeout(r, 500 * (attempt + 1)))
+        await new Promise(_resolve => setTimeout(_resolve, 500 * (attempt + 1)))
       } else {
         throw err
       }
@@ -38,14 +38,47 @@ async function fetchWithRetry(body, retryCount = 2) {
   throw new Error('QQ Music API request failed')
 }
 
-// QQ Music musicu.fcg 通用公共参数（与开源项目保持一致，部分接口依赖此字段）
+// QQ Music musicu.fcg 通用公共参数（与 leaderboard/musicInfo 保持一致的较新版本）
 const COMM = {
-  cv: 4747474,
+  cv: '1859',
   ct: 24,
   format: 'json',
   inCharset: 'utf-8',
   outCharset: 'utf-8',
   uin: 0,
+  tmeAppID: 'qqmusic',
+  tmePlatform: 'pc_web_qq_com',
+}
+
+// musics.fcg 端点用新版签名参数
+const COMM_FCG = {
+  ct: '11',
+  cv: '14090508',
+  v: '14090508',
+  tmeAppID: 'qqmusic',
+  phonetype: 'EBG-AN10',
+  deviceScore: '553.47',
+  devicelevel: '50',
+  newdevicelevel: '20',
+  rom: 'HuaWei/EMOTION/EmotionUI_14.2.0',
+  os_ver: '12',
+  OpenUDID: '0',
+  OpenUDID2: '0',
+  QIMEI36: '0',
+  udid: '0',
+  chid: '0',
+  aid: '0',
+  oaid: '0',
+  taid: '0',
+  tid: '0',
+  wid: '0',
+  uid: '0',
+  sid: '0',
+  modeSwitch: '6',
+  teenMode: '0',
+  ui_mode: '2',
+  nettype: '1020',
+  v4ip: '',
 }
 
 /**
@@ -110,12 +143,12 @@ module.exports = {
   async searchSingerId(name) {
     if (!name) return null
     try {
-      // 歌曲搜索取歌手 mid（musicSearch 同款 API）
+      // 歌曲搜索取歌手 mid（musicSearch 同款参数）
       const body = await fetchWithRetry({
-        comm: COMM,
+        comm: COMM_FCG,
         req_1: {
           module: 'music.search.SearchCgiService',
-          method: 'DoSearchForQQMusicDesktop',
+          method: 'DoSearchForQQMusicMobile',
           param: {
             remoteplace: 'txt.mqq.all',
             search_type: 0,
@@ -124,9 +157,16 @@ module.exports = {
             cur_page: 1,
             page_num: 10,
             page_size: 10,
+            highlight: 0,
+            nqc_flag: 0,
+            multi_zhida: 0,
+            cat: 2,
+            grp: 1,
+            sin: 0,
+            sem: 0,
           },
         },
-      }, 0)
+      }, 1)
       const songList = body?.req_1?.data?.body?.song?.list || []
       const singerItem = songList[0]?.singer?.[0]
       if (singerItem?.mid) return singerItem.mid
@@ -143,7 +183,7 @@ module.exports = {
   async getSingerInfo(singerMID) {
     if (!singerMID) throw new Error('歌手不存在')
 
-    // 1. 优先：GetSingerDetail（含歌手百科简介）
+    // 1. 优先：GetSingerDetail（含歌手百科简介，最新数据）
     try {
       const detailBody = await fetchWithRetry({
         comm: COMM,
@@ -185,28 +225,65 @@ module.exports = {
     }
 
     // 2. 降级：旧 GetSingerInfo 接口
-    const body = await fetchWithRetry({
-      comm: COMM,
-      req_1: {
-        module: 'music.singer.SingerInfoServer',
-        method: 'GetSingerInfo',
-        param: { singerMids: [singerMID] },
-      },
-    })
-    if (!body || !body.req_1 || body.req_1.code !== 0) {
-      throw new Error('获取歌手信息失败: ' + (body?.req_1?.msg || '无数据'))
+    try {
+      const body = await fetchWithRetry({
+        comm: COMM,
+        req_1: {
+          module: 'music.singer.SingerInfoServer',
+          method: 'GetSingerInfo',
+          param: { singerMids: [singerMID] },
+        },
+      }, 1)
+      if (body && body.req_1 && body.req_1.code === 0) {
+        const data = body.req_1.data
+        const info = data?.singer_info?.[0] || data || {}
+        return {
+          source: 'tx',
+          singerid: singerMID,
+          info: {
+            name: info.name || info.singer_name || '',
+            desc: info.desc || info.brief_desc || '',
+            img: info.mid ? `https://y.gtimg.cn/music/photo_new/T001R300x300M000${info.mid}.jpg` : (info.pic || ''),
+          },
+        }
+      }
+    } catch (err) {
+      console.log(`[tx singer] GetSingerInfo failed, fallback to GetSingerList: ${err?.message || err}`)
     }
-    const data = body.req_1.data
-    const info = data?.singer_info?.[0] || data || {}
-    return {
-      source: 'tx',
-      singerid: singerMID,
-      info: {
-        name: info.name || info.singer_name || '',
-        desc: info.desc || info.brief_desc || '',
-        img: info.mid ? `https://y.gtimg.cn/music/photo_new/T001R300x300M000${info.mid}.jpg` : (info.pic || ''),
-      },
+
+    // 3. 再次降级：GetSingerList（最简洁的端点，最不容易被废弃）
+    try {
+      const body = await fetchWithRetry({
+        comm: COMM,
+        req_1: {
+          module: 'music.musichallSinger.SingerInfoInter',
+          method: 'GetSingerList',
+          param: {
+            singer_mid: [singerMID],
+            ex_singer: 1,
+          },
+        },
+      }, 1)
+      if (body && body.req_1 && body.req_1.code === 0) {
+        const list = body.req_1.data?.singer_list || []
+        const info = list[0] || {}
+        const data = info.data || info || {}
+        const basic = data.basic_info || {}
+        return {
+          source: 'tx',
+          singerid: singerMID,
+          info: {
+            name: basic.name || info.singer_name || data.singer_name || '',
+            desc: (data.ex_info || {}).desc || data.desc || '',
+            img: data.pic?.pic ? `https://y.gtimg.cn/music/photo_new/T001R300x300M000${data.pic.pic}.jpg` : (data.pic?.pic120 || ''),
+          },
+        }
+      }
+    } catch (err) {
+      console.log(`[tx singer] GetSingerList failed: ${err?.message || err}`)
     }
+
+    throw new Error('获取歌手信息失败: 所有端点均无数据')
   },
 
   /**

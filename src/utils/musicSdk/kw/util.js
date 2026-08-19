@@ -58,10 +58,11 @@ export const getToken = (retryNum = 0) => new Promise((resolve, reject) => {
   if (kw_token.isGetingToken) return wait(1000).then(() => getToken(retryNum).then(token => resolve(token)))
   if (kw_token.token) return resolve(kw_token.token)
   kw_token.isGetingToken = true
-  const requestObj = httpFetch('http://www.kuwo.cn/', {
+  const requestObj = httpFetch('https://www.kuwo.cn/', {
     headers: {
       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/69.0.3497.100 Safari/537.36',
     },
+    cache: 'default',
   })
   requestObj.promise.then(resp => {
     kw_token.isGetingToken = false
@@ -69,7 +70,7 @@ export const getToken = (retryNum = 0) => new Promise((resolve, reject) => {
     const token = kw_token.token = matchToken(resp.headers)
     if (token) resolve(token)
     else reject(new Error('获取失败: 无 kw_token'))
-  }).catch(err => {
+  }).catch((catchErr) => {
     kw_token.isGetingToken = false
     getToken(++retryNum).then(token => resolve(token)).catch(err => reject(err))
   })
@@ -80,7 +81,7 @@ export const tokenRequest = async(url, options = {}) => {
   if (!token) token = await getToken()
   if (!options.headers) {
     options.headers = {
-      Referer: 'http://www.kuwo.cn/',
+      Referer: 'https://www.kuwo.cn/',
       csrf: token,
       cookie: 'kw_token=' + token,
     }
