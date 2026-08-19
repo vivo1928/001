@@ -582,6 +582,7 @@
   "download_progress_title": "下载进度",
   "download_cancel": "取消下载",
   "download_cancel_confirm": "确定要取消下载吗？",
+  "download_cancelled": "已取消下载",
   "download_retry": "重新下载",
   "download_failed_title": "下载失败",
   "download_failed_retry": "重新下载",

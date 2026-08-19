@@ -580,6 +580,7 @@
   "download_batch": "批量下載",
   "download_cancel": "取消下載",
   "download_cancel_confirm": "確定要取消下載嗎？",
+  "download_cancelled": "已取消下載",
   "download_choose_range": "選擇區間",
   "download_completed": "下載完成",
   "download_count": "共 {total} 首",

@@ -12,7 +12,7 @@ import DownloadFailedModal, { type DownloadFailedModalType } from '@/components/
 import RangeSelectModal, { type RangeSelectModalType } from '@/components/RangeSelectModal'
 import ConfirmAlert, { type ConfirmAlertType } from '@/components/common/ConfirmAlert'
 import { handleDislikeMusic, handlePlay, handlePlayLater, handleShare, handleShowMusicSourceDetail } from './listAction'
-import { createStyle } from '@/utils/tools'
+import { createStyle, toast } from '@/utils/tools'
 import { requestStoragePermission } from '@/utils/permissions'
 import { useBackHandler } from '@/utils/hooks/useBackHandler'
 import DownloadManager, { type DownloadTask } from '@/core/download/manager'
@@ -205,6 +205,9 @@ export default forwardRef<OnlineListType, OnlineListProps>(({
       downloadProgressRef.current?.close()
       if (success) {
         // 下载成功，关闭弹窗
+      } else if (error === 'cancelled') {
+        // 用户取消了下载
+        toast(global.i18n.t('download_cancelled'))
       } else {
         // 下载失败，显示失败弹窗
         downloadFailedRef.current?.show({

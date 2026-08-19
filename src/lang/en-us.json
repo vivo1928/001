@@ -580,6 +580,7 @@
   "download_batch": "Batch Download",
   "download_cancel": "Cancel Download",
   "download_cancel_confirm": "Are you sure you want to cancel the download?",
+  "download_cancelled": "Download cancelled",
   "download_choose_range": "Select Range",
   "download_completed": "Download Complete",
   "download_count": "{total} songs",

@@ -442,7 +442,7 @@ class DownloadManager {
         task.progress = Math.min(progress, 100)
         this.onProgress(task.id, task.progress)
       },
-      progressDivider: 10,
+      progressDivider: 1,
     })
 
     this.currentJobId = result.jobId
