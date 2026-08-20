@@ -1,6 +1,6 @@
 import { memo, useCallback, useEffect, useRef, useState } from 'react'
-import { View, PanResponder } from 'react-native'
-import { useDrag } from '@/utils/hooks'
+import { View } from 'react-native'
+import Slider from '@react-native-community/slider'
 import { createStyle } from '@/utils/tools'
 import { useTheme } from '@/store/theme/hook'
 
@@ -18,96 +18,6 @@ const DefaultBar = memo(() => {
 const BufferedBar = memo(({ progress }: { progress: number }) => {
   const theme = useTheme()
   return <View style={{ ...styles.progressBar, backgroundColor: theme['c-primary-light-600-alpha-900'], position: 'absolute', width: `${progress * 100}%`, left: 0, top: 0 }}></View>
-})
-
-const PreassBar = memo(({ onDragState, setDragProgress, onSetProgress, progress, duration }: {
-  onDragState: (drag: boolean) => void
-  setDragProgress: (progress: number) => void
-  onSetProgress: (progress: number) => void
-  progress: number
-  duration: number
-}) => {
-  const {
-    onLayout,
-    onDragStart,
-    onDragEnd,
-    onDrag,
-  } = useDrag(onSetProgress, onDragState, setDragProgress)
-
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponderCapture: (evt, gestureState) => true,
-      onMoveShouldSetPanResponderCapture: (evt, gestureState) => true,
-      onPanResponderMove: (evt, gestureState) => {
-        onDrag(gestureState.dx)
-      },
-      onPanResponderGrant: (evt, gestureState) => {
-        onDragStart(gestureState.dx, evt.nativeEvent.locationX)
-      },
-      onPanResponderRelease: () => {
-        onDragEnd()
-      },
-    }),
-  ).current
-
-  // 防抖：防止快速连续 seek 导致静音
-  const a11yDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  // 无障碍调整期间禁止被外部 progress 同步回跳
-  const a11yPendingRef = useRef(false)
-  const [a11yProgress, setA11yProgress] = useState(progress)
-
-  useEffect(() => {
-    if (a11yPendingRef.current) return
-    setA11yProgress(progress)
-  }, [progress])
-
-  const a11yPercent = Math.round(a11yProgress * 100)
-
-  const handleAccessibilityAction = useCallback((event: { nativeEvent: { actionName: string } }) => {
-    const step = 0.05
-    let newProgress = a11yProgress
-    switch (event.nativeEvent.actionName) {
-      case 'increment':
-        newProgress = Math.min(1, a11yProgress + step)
-        break
-      case 'decrement':
-        newProgress = Math.max(0, a11yProgress - step)
-        break
-      default:
-        return
-    }
-    // 本地值立即更新，accessibilityValue 随之变化，TalkBack 原生播报新值
-    a11yPendingRef.current = true
-    setA11yProgress(newProgress)
-    // 防抖：300ms 内连续操作只执行最后一次 seek
-    if (a11yDebounceRef.current) {
-      clearTimeout(a11yDebounceRef.current)
-    }
-    a11yDebounceRef.current = setTimeout(() => {
-      a11yDebounceRef.current = null
-      a11yPendingRef.current = false
-      onSetProgress(newProgress)
-    }, 300)
-  }, [a11yProgress, onSetProgress])
-
-  return <View
-    onLayout={onLayout}
-    style={styles.pressBar}
-    {...panResponder.panHandlers}
-    accessible={true}
-    accessibilityRole="adjustable"
-    accessibilityLabel={'播放进度'}
-    accessibilityValue={{
-      now: a11yPercent,
-      min: 0,
-      max: 100,
-    }}
-    accessibilityActions={[
-      { name: 'increment' },
-      { name: 'decrement' },
-    ]}
-    onAccessibilityAction={handleAccessibilityAction}
-  />
 })
 
 
@@ -146,6 +56,7 @@ const Progress = ({ progress, duration, buffered, paddingTop }: {
   const theme = useTheme()
   const [draging, setDraging] = useState(false)
   const [dragProgress, setDragProgress] = useState(0)
+  const [sliderValue, setSliderValue] = useState(progress)
   const progressStr: `${number}%` = `${progress * 100}%`
 
   const durationRef = useRef(duration)
@@ -156,9 +67,48 @@ const Progress = ({ progress, duration, buffered, paddingTop }: {
     global.app_event.setProgress(progress * durationRef.current)
   }, [])
 
+  // 防回弹：pending 期间外部 progress 不同步覆盖 sliderValue
+  const pendingRef = useRef(false)
+  useEffect(() => {
+    if (pendingRef.current) return
+    setSliderValue(progress)
+  }, [progress])
+
+  // 拖拽中标记
+  const isTouchingRef = useRef(false)
+
+  const handleSlidingStart = useCallback((val: number) => {
+    isTouchingRef.current = true
+    pendingRef.current = true
+    setDraging(true)
+    setDragProgress(val)
+    setSliderValue(val)
+  }, [])
+
+  const handleValueChange = useCallback((val: number) => {
+    setDragProgress(val)
+    setSliderValue(val)
+    // 无障碍手势（非拖拽状态）→ 立即 seek
+    if (!isTouchingRef.current) {
+      onSetProgress(val)
+    }
+  }, [onSetProgress])
+
+  const handleSlidingComplete = useCallback((val: number) => {
+    isTouchingRef.current = false
+    setDraging(false)
+    setDragProgress(val)
+    setSliderValue(val)
+    onSetProgress(val)
+    // 300ms 后若 progress 未同步则释放 pending
+    setTimeout(() => {
+      pendingRef.current = false
+    }, 300)
+  }, [onSetProgress])
+
   return (
     <View style={{ ...styles.progress, paddingTop }}>
-      <View style={{ flex: 1 }}>
+      <View style={{ flex: 1 }} pointerEvents="none">
         <DefaultBar />
         <BufferedBar progress={buffered} />
         {
@@ -173,7 +123,21 @@ const Progress = ({ progress, duration, buffered, paddingTop }: {
               )
         }
       </View>
-      <PreassBar onDragState={setDraging} setDragProgress={setDragProgress} onSetProgress={onSetProgress} progress={progress} duration={duration} />
+      <Slider
+        style={{ position: 'absolute', left: 0, top: 0, right: 0, bottom: 0, height: '100%' }}
+        minimumValue={0}
+        maximumValue={1}
+        step={0.01}
+        value={sliderValue}
+        minimumTrackTintColor="transparent"
+        maximumTrackTintColor="transparent"
+        thumbTintColor="transparent"
+        onSlidingStart={handleSlidingStart}
+        onValueChange={handleValueChange}
+        onSlidingComplete={handleSlidingComplete}
+        importantForAccessibility="yes"
+        accessibilityLabel="播放进度"
+      />
     </View>
   )
 }
