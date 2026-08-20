@@ -68,7 +68,6 @@ const PreassBar = memo(({ onDragState, setDragProgress, onSetProgress, progress,
     setA11yProgress(progress)
   }, [progress])
 
-  const progressPercent = Math.round(progress * 100)
   const a11yPercent = Math.round(a11yProgress * 100)
 
   const handleAccessibilityAction = useCallback((event: { nativeEvent: { actionName: string } }) => {
@@ -104,12 +103,11 @@ const PreassBar = memo(({ onDragState, setDragProgress, onSetProgress, progress,
     {...panResponder.panHandlers}
     accessible={true}
     accessibilityRole="adjustable"
-    accessibilityLabel={progressPercent + '%'}
+    accessibilityLabel={'播放进度'}
     accessibilityValue={{
       now: a11yPercent,
       min: 0,
       max: 100,
-      text: a11yPercent + '%',
     }}
     accessibilityActions={[
       { name: 'increment' },

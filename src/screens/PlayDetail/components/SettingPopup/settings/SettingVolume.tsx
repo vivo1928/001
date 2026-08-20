@@ -55,7 +55,6 @@ const Volume = () => {
           step={1}
           value={sliderSize}
           accessibilityLabel={t('play_detail_setting_volume')}
-          accessibilityValueFormatter={(value) => t('play_detail_setting_volume') + ' ' + Math.trunc(value)}
         />
       </View>
     </View>

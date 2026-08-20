@@ -12,11 +12,9 @@ export interface SliderProps {
   onValueChange?: (value: number) => void
   step?: number
   accessibilityLabel?: string
-  /** 用来自定义无障碍播报数值的格式化函数，如 (v) => (v / 100).toFixed(2) + 'x' */
-  accessibilityValueFormatter?: (value: number) => string
 }
 
-export default memo(({ value, minimumValue, maximumValue, onSlidingStart, onSlidingComplete, onValueChange, step = 1, accessibilityLabel, accessibilityValueFormatter }: SliderProps) => {
+export default memo(({ value, minimumValue, maximumValue, onSlidingStart, onSlidingComplete, onValueChange, step = 1, accessibilityLabel }: SliderProps) => {
   const theme = useTheme()
   const infoRef = useRef({
     progressWidth: 0,
@@ -100,9 +98,7 @@ export default memo(({ value, minimumValue, maximumValue, onSlidingStart, onSlid
       accessible={true}
       accessibilityRole="adjustable"
       accessibilityLabel={accessibilityLabel}
-      accessibilityValue={accessibilityValueFormatter
-        ? { now: Math.round(a11yValue), min: minimumValue, max: maximumValue, text: accessibilityValueFormatter(a11yValue) }
-        : { now: Math.round(a11yValue), min: minimumValue, max: maximumValue }}
+      accessibilityValue={{ now: Math.round(a11yValue), min: minimumValue, max: maximumValue }}
       accessibilityActions={[
         { name: 'increment' },
         { name: 'decrement' },
