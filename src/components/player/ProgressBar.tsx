@@ -1,5 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { View, PanResponder, AccessibilityInfo } from 'react-native'
+import { View, PanResponder } from 'react-native'
 import { createStyle } from '@/utils/tools'
 import { useTheme } from '@/store/theme/hook'
 import { scaleSizeW, scaleSizeH } from '@/utils/pixelRatio'
@@ -59,32 +59,44 @@ const PreassBar = memo(({ onDragState, setDragProgress, onSetProgress, progress,
 
   // 防抖：防止快速连续 seek 导致静音
   const a11yDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // 无障碍调整期间禁止被外部 progress 同步回跳
+  const a11yPendingRef = useRef(false)
+  const [a11yProgress, setA11yProgress] = useState(progress)
+
+  useEffect(() => {
+    if (a11yPendingRef.current) return
+    setA11yProgress(progress)
+  }, [progress])
 
   const progressPercent = Math.round(progress * 100)
+  const a11yPercent = Math.round(a11yProgress * 100)
 
   const handleAccessibilityAction = useCallback((event: { nativeEvent: { actionName: string } }) => {
     const step = 0.05
-    let newProgress = progress
+    let newProgress = a11yProgress
     switch (event.nativeEvent.actionName) {
       case 'increment':
-        newProgress = Math.min(1, progress + step)
+        newProgress = Math.min(1, a11yProgress + step)
         break
       case 'decrement':
-        newProgress = Math.max(0, progress - step)
+        newProgress = Math.max(0, a11yProgress - step)
         break
       default:
         return
     }
+    // 本地值立即更新，accessibilityValue 随之变化，TalkBack 原生播报新值
+    a11yPendingRef.current = true
+    setA11yProgress(newProgress)
     // 防抖：300ms 内连续操作只执行最后一次 seek
     if (a11yDebounceRef.current) {
       clearTimeout(a11yDebounceRef.current)
     }
     a11yDebounceRef.current = setTimeout(() => {
       a11yDebounceRef.current = null
+      a11yPendingRef.current = false
       onSetProgress(newProgress)
     }, 300)
-    AccessibilityInfo.announceForAccessibility(Math.round(newProgress * 100) + '%')
-  }, [progress, onSetProgress])
+  }, [a11yProgress, onSetProgress])
 
   return <View
     onLayout={onLayout}
@@ -93,6 +105,12 @@ const PreassBar = memo(({ onDragState, setDragProgress, onSetProgress, progress,
     accessible={true}
     accessibilityRole="adjustable"
     accessibilityLabel={progressPercent + '%'}
+    accessibilityValue={{
+      now: a11yPercent,
+      min: 0,
+      max: 100,
+      text: a11yPercent + '%',
+    }}
     accessibilityActions={[
       { name: 'increment' },
       { name: 'decrement' },

@@ -1,9 +1,9 @@
-import { memo, useCallback, useRef, useState } from 'react'
-import { View, PanResponder, AccessibilityInfo, type LayoutChangeEvent } from 'react-native'
+import { memo, useCallback, useEffect, useRef, useState } from 'react'
+import { View, PanResponder, type LayoutChangeEvent } from 'react-native'
 import { createStyle } from '@/utils/tools'
 import { useTheme } from '@/store/theme/hook'
 
-export type SliderProps = {
+export interface SliderProps {
   value: number
   minimumValue: number
   maximumValue: number
@@ -23,6 +23,11 @@ export default memo(({ value, minimumValue, maximumValue, onSlidingStart, onSlid
     isDragging: false,
   })
   const [dragValue, setDragValue] = useState(value)
+  const [a11yValue, setA11yValue] = useState(value)
+
+  useEffect(() => {
+    setA11yValue(value)
+  }, [value])
 
   const valueToRatio = useCallback((val: number) => {
     return (val - minimumValue) / (maximumValue - minimumValue)
@@ -72,26 +77,23 @@ export default memo(({ value, minimumValue, maximumValue, onSlidingStart, onSlid
 
   const handleAccessibilityAction = useCallback((event: { nativeEvent: { actionName: string } }) => {
     const stepSize = Math.max(step, (maximumValue - minimumValue) / 20)
-    let newValue = displayValue
+    let newValue = a11yValue
     switch (event.nativeEvent.actionName) {
       case 'increment':
-        newValue = clampValue(displayValue + stepSize)
+        newValue = clampValue(a11yValue + stepSize)
         break
       case 'decrement':
-        newValue = clampValue(displayValue - stepSize)
+        newValue = clampValue(a11yValue - stepSize)
         break
       default:
         return
     }
+    // 本地值立即更新，accessibilityValue 随之变化，TalkBack 原生播报新值
+    setA11yValue(newValue)
     setDragValue(newValue)
     onValueChange?.(newValue)
     onSlidingComplete?.(newValue)
-    if (accessibilityValueFormatter) {
-      AccessibilityInfo.announceForAccessibility(accessibilityValueFormatter(newValue))
-    } else {
-      AccessibilityInfo.announceForAccessibility(String(Math.round(newValue)))
-    }
-  }, [displayValue, minimumValue, maximumValue, step, clampValue, onValueChange, onSlidingComplete, accessibilityValueFormatter])
+  }, [a11yValue, minimumValue, maximumValue, step, clampValue, onValueChange, onSlidingComplete])
 
   return (
     <View style={styles.container} onLayout={onLayout} {...panResponder.panHandlers}
@@ -99,8 +101,8 @@ export default memo(({ value, minimumValue, maximumValue, onSlidingStart, onSlid
       accessibilityRole="adjustable"
       accessibilityLabel={accessibilityLabel}
       accessibilityValue={accessibilityValueFormatter
-        ? { now: Math.round(displayValue), min: minimumValue, max: maximumValue, text: accessibilityValueFormatter(displayValue) }
-        : { now: Math.round(displayValue), min: minimumValue, max: maximumValue }}
+        ? { now: Math.round(a11yValue), min: minimumValue, max: maximumValue, text: accessibilityValueFormatter(a11yValue) }
+        : { now: Math.round(a11yValue), min: minimumValue, max: maximumValue }}
       accessibilityActions={[
         { name: 'increment' },
         { name: 'decrement' },
