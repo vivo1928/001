@@ -1,5 +1,5 @@
 import { memo, useCallback, useEffect, useRef, useState } from 'react'
-import { View } from 'react-native'
+import { View, AccessibilityInfo } from 'react-native'
 import RNSlider from '@react-native-community/slider'
 import { useTheme } from '@/store/theme/hook'
 
@@ -35,6 +35,7 @@ export default memo(({ value, minimumValue, maximumValue, onSlidingStart, onSlid
   const handleValueChange = useCallback((val: number) => {
     setSliderValue(val)
     onValueChange?.(val)
+    AccessibilityInfo.announceForAccessibility(String(Math.round(val)))
     if (!isTouchingRef.current) {
       onSlidingComplete?.(val)
     }
