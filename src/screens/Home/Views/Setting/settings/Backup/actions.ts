@@ -190,12 +190,7 @@ const exportAllList = async(path: string) => {
     type: 'playList_v2',
     data: await getAllLists(),
   }))
-
-  try {
-    await handleSaveFile(path + '/lx_list.lxmc', data)
-  } catch (error: any) {
-    log.error(error.stack)
-  }
+  await handleSaveFile(path + '/lx_list.lxmc', data)
 }
 export const handleExportList = (path: string) => {
   toast(global.i18n.t('setting_backup_part_export_list_tip_zip'))
