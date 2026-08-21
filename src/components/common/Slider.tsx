@@ -35,8 +35,8 @@ export default memo(({ value, minimumValue, maximumValue, onSlidingStart, onSlid
   const handleValueChange = useCallback((val: number) => {
     setSliderValue(val)
     onValueChange?.(val)
-    AccessibilityInfo.announceForAccessibility(String(Math.round(val)))
     if (!isTouchingRef.current) {
+      AccessibilityInfo.announceForAccessibility(String(Math.round(val)))
       onSlidingComplete?.(val)
     }
   }, [onValueChange, onSlidingComplete])
