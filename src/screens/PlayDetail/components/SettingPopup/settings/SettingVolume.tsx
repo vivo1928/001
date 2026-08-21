@@ -54,7 +54,7 @@ const Volume = () => {
           onSlidingStart={handleSlidingStart}
           step={1}
           value={sliderSize}
-          accessibilityLabel={t('play_detail_setting_volume')}
+          accessibilityLabel={`${t('play_detail_setting_volume')} ${sliderSize}`}
         />
       </View>
     </View>

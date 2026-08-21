@@ -154,7 +154,7 @@ export default forwardRef<SpeedPopupType, { currentRate: number, onRateChange: (
                         step={1}
                         onValueChange={handleSliderValueChange}
                         onSlidingComplete={handleSliderComplete}
-                        accessibilityLabel={t('play_detail_setting_playback_rate')}
+                        accessibilityLabel={`${t('play_detail_setting_playback_rate')} ${(sliderValue / 100).toFixed(2)}x`}
                       />
                     </View>
                     <Text size={12} color={theme['c-font-label']} style={speedStyles.speedMark}>3.00x</Text>
