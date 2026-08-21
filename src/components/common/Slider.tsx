@@ -47,6 +47,25 @@ export default memo(({ value, minimumValue, maximumValue, onSlidingStart, onSlid
     setTimeout(() => { pendingRef.current = false }, 300)
   }, [onSlidingComplete])
 
+  const handleAccessibilityAction = useCallback((event: { nativeEvent: { actionName: string } }) => {
+    const stepSize = Math.max(step, (maximumValue - minimumValue) / 20)
+    let newValue = sliderValue
+    switch (event.nativeEvent.actionName) {
+      case 'increment':
+        newValue = Math.min(maximumValue, sliderValue + stepSize)
+        break
+      case 'decrement':
+        newValue = Math.max(minimumValue, sliderValue - stepSize)
+        break
+      default:
+        return
+    }
+    if (newValue === sliderValue) return
+    setSliderValue(newValue)
+    onValueChange?.(newValue)
+    onSlidingComplete?.(newValue)
+  }, [sliderValue, minimumValue, maximumValue, step, onValueChange, onSlidingComplete])
+
   return (
     <View style={{ flexShrink: 0, flexGrow: 1, height: 40, justifyContent: 'center' }}>
       <RNSlider
@@ -62,7 +81,18 @@ export default memo(({ value, minimumValue, maximumValue, onSlidingStart, onSlid
         onValueChange={handleValueChange}
         onSlidingComplete={handleSlidingComplete}
         importantForAccessibility="yes"
+        accessibilityRole="adjustable"
         accessibilityLabel={accessibilityLabel}
+        accessibilityValue={{
+          now: Math.round(sliderValue),
+          min: minimumValue,
+          max: maximumValue,
+        }}
+        accessibilityActions={[
+          { name: 'increment' },
+          { name: 'decrement' },
+        ]}
+        onAccessibilityAction={handleAccessibilityAction}
       />
     </View>
   )
