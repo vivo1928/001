@@ -6,8 +6,9 @@ import musicSdk from '@/utils/musicSdk'
 
 const LIMIT = 30
 const FETCH_TIMEOUT = 15000
-// 各源歌手接口单次可请求的歌曲数（mg 接口 pageSize 受限保持 30，其余源按 100）
+// 各源歌手接口单次可请求的歌曲数（kw 接口 rn 上限约 90 取 30 最稳妥，mg 接口 pageSize 受限保持 30，其余源按 100）
 const SOURCE_FETCH_LIMIT: Record<string, number> = {
+  kw: 30,
   tx: 100,
   kg: 100,
   wy: 100,
@@ -206,6 +207,11 @@ if (sourcePage === 0) fetchSingerInfo()
     }
     // kw 等无歌手歌曲 API 的源，首次分页请求时补充歌手简介（失败不影响列表）
     if (sourcePage === 0) fetchSingerInfo()
+  }
+  // 严格过滤：musicSearch 降级路径可能混入其他歌手翻唱，仅保留歌手名包含目标歌手名的条目
+  if (singerName) {
+    const nameLower = singerName.toLowerCase()
+    result.list = result.list.filter((m: any) => (m.singer || '').toLowerCase().includes(nameLower))
   }
 
   if (listCache !== cache.get(listKey)) throw new Error('cache mismatch')
