@@ -188,11 +188,33 @@ export default {
   async getSingerSongList(singerid, page, limit) {
     if (!singerid) throw new Error('歌手不存在')
     let singerInfo = singerInfoCache.get(singerid)
-    if (!singerInfo) {
-      singerInfo = (await this.getSingerInfo(singerid).catch(() => null))?.info || null
-      if (singerInfo) singerInfoCache.set(singerid, singerInfo)
+    let singerName = singerInfo?.name || ''
+    // 快速路径：用轻量级 artist 搜索 API 获取歌手名，避免 getSingerInfo 的鉴权链耗时
+    if (!singerName) {
+      try {
+        const resp = await httpFetch(`https://search.kuwo.cn/r.s?client=kt&artistid=${singerid}&pn=0&rn=1&ft=artist&cluster=0&strategy=2012&encoding=utf8&rformat=json&vermerge=1&mobi=1&issubtitle=1`, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/69.0.3497.100 Safari/537.36',
+            Referer: 'https://www.kuwo.cn/',
+          },
+        })
+        const { body } = await resp.promise
+        const list = body?.abslist || []
+        if (list.length && list[0].ARTIST) {
+          singerName = decodeName(list[0].ARTIST)
+          singerInfoCache.set(singerid, { name: singerName })
+          singerInfo = singerInfoCache.get(singerid)
+        }
+      } catch {}
     }
-    const singerName = singerInfo?.name || ''
+    // 兜底：getSingerInfo 鉴权链（慢，仅在快速路径失败时使用）
+    if (!singerName) {
+      singerInfo = (await this.getSingerInfo(singerid).catch(() => null))?.info || null
+      if (singerInfo) {
+        singerName = singerInfo.name || ''
+        singerInfoCache.set(singerid, singerInfo)
+      }
+    }
     const searchParams = singerName
       ? `all=${encodeURIComponent(singerName)}&artistid=${singerid}`
       : `artistid=${singerid}`
