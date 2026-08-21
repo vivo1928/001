@@ -1,6 +1,6 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react'
 
-import { search } from '@/core/search/singer'
+import { search, clearListInfo } from '@/core/search/singer'
 import Songlist, { type SonglistProps, type SonglistType } from '@/screens/Home/Views/SongList/components/Songlist'
 import searchSingerState, { type Source } from '@/store/search/singer/state'
 import { navigations } from '@/navigation'
@@ -80,6 +80,11 @@ export default forwardRef<SingerListType, {}>((props, ref) => {
   const loadList = async (text: string, source: Source) => {
     clearRetryTimer() // 新搜索取消之前的重试
     listRef.current?.setList([], false, false)
+    // 新搜索时清除旧缓存，避免上次搜索结果残留
+    if (searchSingerState.searchText != text) {
+      clearListInfo(source)
+      if (searchSingerState.source != source) clearListInfo(searchSingerState.source)
+    }
     if (searchSingerState.searchText == text && searchSingerState.source == source && searchSingerState.listInfos[searchSingerState.source]!.list.length) {
       requestAnimationFrame(() => {
         const mappedList = searchSingerState.listInfos[searchSingerState.source]!.list.map(mapToSonglistItem)

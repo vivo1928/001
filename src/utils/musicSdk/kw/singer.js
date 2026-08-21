@@ -1,6 +1,7 @@
 import { httpFetch } from '../../request'
 import { decodeName } from '../../index'
 import { getToken, tokenRequest, wbdCrypto } from './util'
+import musicSearch from './musicSearch'
 
 // 解码 HTML 实体
 const decodeHtml = (str) => String(str || '')
@@ -89,6 +90,19 @@ async function getSingerInfoViaWbd(singerid) {
   return null
 }
 
+// 歌手信息缓存，避免分页时重复请求
+const singerInfoCache = new Map()
+
+// 过滤酷我曲库中资讯站/专访/纯伴奏等非歌曲杂质
+const isNoiseItem = (item) => {
+  const artist = decodeName(item.ARTIST || '')
+  const name = decodeName(item.SONGNAME || '')
+  if (/资讯站/.test(artist)) return true
+  if (/专访/.test(name)) return true
+  if (/伴奏/.test(name)) return true
+  return false
+}
+
 export default {
   /**
    * 按歌手名搜索歌手ID（供跨源兜底使用）
@@ -169,6 +183,76 @@ export default {
       source: 'kw',
       singerid,
       info,
+    }
+  },
+  async getSingerSongList(singerid, page, limit) {
+    if (!singerid) throw new Error('歌手不存在')
+    let singerInfo = singerInfoCache.get(singerid)
+    let singerName = singerInfo?.name || ''
+    // 快速路径：用轻量级 artist 搜索 API 获取歌手名，避免 getSingerInfo 的鉴权链耗时
+    if (!singerName) {
+      try {
+        const resp = await httpFetch(`https://search.kuwo.cn/r.s?client=kt&artistid=${singerid}&pn=0&rn=1&ft=artist&cluster=0&strategy=2012&encoding=utf8&rformat=json&vermerge=1&mobi=1&issubtitle=1`, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/69.0.3497.100 Safari/537.36',
+            Referer: 'https://www.kuwo.cn/',
+          },
+        })
+        const { body } = await resp.promise
+        const list = body?.abslist || []
+        if (list.length && list[0].ARTIST) {
+          singerName = decodeName(list[0].ARTIST)
+          singerInfoCache.set(singerid, { name: singerName })
+          singerInfo = singerInfoCache.get(singerid)
+        }
+      } catch {}
+    }
+    // 兜底：getSingerInfo 鉴权链（慢，仅在快速路径失败时使用）
+    if (!singerName) {
+      singerInfo = (await this.getSingerInfo(singerid).catch(() => null))?.info || null
+      if (singerInfo) {
+        singerName = singerInfo.name || ''
+        singerInfoCache.set(singerid, singerInfo)
+      }
+    }
+    const searchParams = singerName
+      ? `all=${encodeURIComponent(singerName)}&artistid=${singerid}`
+      : `artistid=${singerid}`
+    const requestObj = httpFetch(`https://search.kuwo.cn/r.s?client=kt&${searchParams}&pn=${page - 1}&rn=${limit}&ft=music&cluster=0&strategy=2012&encoding=utf8&rformat=json&vermerge=1&mobi=1&issubtitle=1`, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/69.0.3497.100 Safari/537.36',
+        Referer: 'https://www.kuwo.cn/',
+      },
+    })
+    const { body } = await requestObj.promise
+    if (!body || (body.TOTAL !== '0' && body.SHOW === '0')) throw new Error('获取歌手歌曲列表失败: 无数据')
+    const rawList = body.abslist || []
+    if (!rawList.length) throw new Error('获取歌手歌曲列表失败: 歌曲列表为空')
+    const total = Math.max(0, parseInt(body.TOTAL) || 0)
+    const filteredList = rawList.filter(item => {
+      if (isNoiseItem(item)) return false
+      if (singerName) {
+        const artist = decodeName(item.ARTIST || '')
+        if (!artist.includes(singerName)) return false
+      }
+      return true
+    })
+    const filteredCount = rawList.length - filteredList.length
+    const list = musicSearch.handleResult(filteredList)
+    if (!list.length) throw new Error('获取歌手歌曲列表失败: 歌曲列表为空')
+    return {
+      source: 'kw',
+      list,
+      id: `kw__singer_${singerid}`,
+      singerid,
+      total: filteredCount ? Math.max(0, total - filteredCount) : total,
+      limit,
+      allPage: Math.ceil((filteredCount ? Math.max(0, total - filteredCount) : total) / limit) || 1,
+      info: {
+        name: singerInfo?.name || '',
+        img: singerInfo?.img || '',
+        desc: singerInfo?.desc || '',
+      },
     }
   },
   async getSingerAlbumList(singerid, page, limit) {

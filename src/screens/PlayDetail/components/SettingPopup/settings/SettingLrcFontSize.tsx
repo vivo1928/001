@@ -49,6 +49,7 @@ const LrcFontSize = ({ direction }: {
           onSlidingStart={handleSlidingStart}
           step={2}
           value={sliderSize}
+          accessibilityLabel={`${t('play_detail_setting_lrc_font_size')} ${sliderSize}`}
         />
       </View>
     </View>

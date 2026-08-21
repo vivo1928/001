@@ -18,10 +18,9 @@ export interface SpeedPopupType {
 // 预设倍速值
 const SPEED_PRESETS = [0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.5, 3.0]
 
-const MIN_SPEED = 50  // 0.50x
+const MIN_SPEED = 50 // 0.50x
 const MAX_SPEED = 300 // 3.00x
 
-const formatSpeed = (value: number) => (value / 100).toFixed(2) + 'x'
 
 const SpeedPresetButton = ({ speed, active, onPress }: {
   speed: number
@@ -54,7 +53,7 @@ const SpeedPresetButton = ({ speed, active, onPress }: {
   )
 }
 
-export default forwardRef<SpeedPopupType, { currentRate: number; onRateChange: (rate: number) => void }>(
+export default forwardRef<SpeedPopupType, { currentRate: number, onRateChange: (rate: number) => void }>(
   ({ currentRate, onRateChange }, ref) => {
     const popupRef = useRef<PopupType>(null)
     const [visible, setVisible] = useState(false)
@@ -113,7 +112,7 @@ export default forwardRef<SpeedPopupType, { currentRate: number; onRateChange: (
     return (
       visible
         ? (
-          <Popup ref={popupRef} title={t('play_detail_setting_playback_rate')} onHide={() => setVisible(false)}>
+          <Popup ref={popupRef} title={t('play_detail_setting_playback_rate')} onHide={() => { setVisible(false) }}>
             <ScrollView>
               <View style={speedStyles.container} onStartShouldSetResponder={() => true}>
                 {/* 当前速率显示 */}
@@ -155,8 +154,7 @@ export default forwardRef<SpeedPopupType, { currentRate: number; onRateChange: (
                         step={1}
                         onValueChange={handleSliderValueChange}
                         onSlidingComplete={handleSliderComplete}
-                        accessibilityLabel={t('play_detail_setting_playback_rate')}
-                        accessibilityValueFormatter={formatSpeed}
+                        accessibilityLabel={`${t('play_detail_setting_playback_rate')} ${(sliderValue / 100).toFixed(2)}x`}
                       />
                     </View>
                     <Text size={12} color={theme['c-font-label']} style={speedStyles.speedMark}>3.00x</Text>

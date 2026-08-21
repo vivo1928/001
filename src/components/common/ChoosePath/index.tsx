@@ -7,7 +7,7 @@ import List, { type ListType } from './List'
 import ConfirmAlert, { type ConfirmAlertType } from '@/components/common/ConfirmAlert'
 import { toast, TEMP_FILE_PATH, checkStoragePermissions, requestStoragePermission, confirmDialog } from '@/utils/tools'
 import { useI18n } from '@/lang'
-import { selectFile, unlink } from '@/utils/fs'
+import { selectFile, selectManagedFolder, unlink } from '@/utils/fs'
 import { useUnmounted } from '@/utils/hooks'
 import settingState from '@/store/setting/state'
 import { log } from '@/utils/log'
@@ -52,15 +52,17 @@ export default forwardRef<ChoosePathType, ChoosePathProps>(({
 
   useImperativeHandle(ref, () => ({
     show(options) {
-      if (!settingState.setting['common.useSystemFileSelector'] || options.dirOnly) {
-        // if (options.isPersist) {
+      if (!settingState.setting['common.useSystemFileSelector']) {
         void handleOpenExternalStorage(options)
-        // } else {
-        //   void selectManagedFolder().then((dir) => {
-        //     if (!dir || isUnmounted.current) return
-        //     listRef.current?.show(options.title, dir.path, options.dirOnly, options.filter)
-        //   })
-        // }
+      } else if (options.dirOnly) {
+        void selectManagedFolder(true).then((dir) => {
+          if (!dir || isUnmounted.current) return
+          onConfirm(dir.path)
+        }).catch(err => {
+          if (isUnmounted.current) return
+          log.warn('open document tree failed: ' + err.message)
+          void handleOpenExternalStorage(options)
+        })
       } else {
         void selectFile({
           extTypes: options.filter,
