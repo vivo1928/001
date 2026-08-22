@@ -10,6 +10,7 @@ import {
 import { requestStoragePermission } from '@/utils/permissions'
 import { formatMusicName } from '@/utils/tools'
 import settingState from '@/store/setting/state'
+import { toast } from '@/utils/tools'
 
 /**
  * 音质到文件扩展名的映射表
@@ -367,6 +368,7 @@ class DownloadManager {
       })
       const actualQuality = urlResult.quality || task.quality
       if (actualQuality !== task.quality) {
+        toast(`该品质不可用，已降级为 ${actualQuality}`)
         task.quality = actualQuality
         const path = this.getDownloadPath(task.musicInfo, actualQuality, task.subDir)
         task.filePath = path.filePath
