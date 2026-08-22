@@ -1,4 +1,4 @@
-import RNFS from 'react-native-fs'
+import type RNFS from 'react-native-fs'
 import { handleGetOnlineMusicUrl } from '@/core/music/utils'
 import {
   downloadFile,
@@ -20,10 +20,13 @@ const QUALITY_EXT_MAP: Record<string, LX.Download.FileExt> = {
   '192k': 'mp3',
   '64k': 'mp3',
   '32k': 'mp3',
-  'flac': 'flac',
-  'flac24bit': 'flac',
-  'ape': 'ape',
-  'wav': 'wav',
+  flac: 'flac',
+  flac24bit: 'flac',
+  hires: 'flac',
+  master: 'flac',
+  atmos: 'flac',
+  ape: 'ape',
+  wav: 'wav',
 }
 
 /**
@@ -88,14 +91,14 @@ export type DownloadCompleteCallback = (taskId: string, success: boolean, error?
 // ---------------------------------------------------------------------------
 
 class DownloadManager {
-  private queue: DownloadTask[] = []
+  private readonly queue: DownloadTask[] = []
   private isProcessing = false
-  private onProgress: DownloadProgressCallback
-  private onComplete: DownloadCompleteCallback
+  private readonly onProgress: DownloadProgressCallback
+  private readonly onComplete: DownloadCompleteCallback
   private currentJobId: number | null = null
   private currentTaskId: string | null = null
   private readonly downloadDir: string
-  private abortController: AbortController | null = null
+  private readonly abortController: AbortController | null = null
 
   constructor(
     onProgress: DownloadProgressCallback = () => {},
@@ -116,7 +119,7 @@ class DownloadManager {
    * 文件名格式：按设置 download.fileName 决定（默认"歌名 - 歌手"）
    * 如有子目录则在基础下载目录下创建子目录
    */
-  getDownloadPath(musicInfo: LX.Music.MusicInfoOnline, quality: LX.Quality, subDir?: string): { filePath: string; fileName: string } {
+  getDownloadPath(musicInfo: LX.Music.MusicInfoOnline, quality: LX.Quality, subDir?: string): { filePath: string, fileName: string } {
     const ext = getFileExt(quality)
     const fileNameFormat = settingState.setting['download.fileName']
     const fileName = `${sanitizeFileName(formatMusicName(fileNameFormat, musicInfo.name, musicInfo.singer))}.${ext}`
@@ -262,7 +265,7 @@ class DownloadManager {
   /**
    * 获取队列中各状态的任务数量统计
    */
-  getStats(): { total: number; completed: number; failed: number; downloading: number } {
+  getStats(): { total: number, completed: number, failed: number, downloading: number } {
     return {
       total: this.queue.length,
       completed: this.queue.filter((t) => t.status === 'completed').length,
@@ -343,8 +346,8 @@ class DownloadManager {
   /**
    * 等待指定时间
    */
-  private delay(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms))
+  private async delay(ms: number): Promise<void> {
+    await new Promise(resolve => setTimeout(resolve, ms))
   }
 
   /**
