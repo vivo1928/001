@@ -69,9 +69,15 @@ export default forwardRef<DownloadQualityModalType>((_props, ref) => {
   const getAvailableQualities = (): LX.Quality[] => {
     if (!musicInfo) return []
     const _qualitys = musicInfo.meta._qualitys
-    // 只显示歌曲实际支持的音质（来自 API 响应），按 QUALITY_DISPLAY_ORDER 排序
     const qualities = Object.keys(_qualitys) as LX.Quality[]
-    return QUALITY_DISPLAY_ORDER.filter(q => _qualitys[q] != null)
+    const allQualities = new Set(qualities.filter(q => _qualitys[q] != null))
+    // 歌曲支持 flac24bit 时，补全可能的高级音质（hires/atmos/atmos_plus/master）
+    if (_qualitys.flac24bit != null) {
+      for (const q of ['hires', 'atmos', 'atmos_plus', 'master'] as LX.Quality[]) {
+        allQualities.add(q)
+      }
+    }
+    return QUALITY_DISPLAY_ORDER.filter(q => allQualities.has(q))
   }
 
   return (

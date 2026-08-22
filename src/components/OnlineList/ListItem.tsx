@@ -15,14 +15,16 @@ export const ITEM_HEIGHT = scaleSizeH(LIST_ITEM_HEIGHT)
 
 const useQualityTag = (musicInfo: LX.Music.MusicInfoOnline) => {
   const t = useI18n()
+  // 歌曲支持 flac24bit 时，视为可支持高级音质
+  const hasHiRes = musicInfo.meta._qualitys.flac24bit != null
   let info: { type: BadgeType | null, text: string } = { type: null, text: '' }
-  if (musicInfo.meta._qualitys.master) {
+  if (musicInfo.meta._qualitys.master ?? hasHiRes) {
     info.type = 'normal'
     info.text = t('quality_master')
-  } else if (musicInfo.meta._qualitys.atmos_plus) {
+  } else if (musicInfo.meta._qualitys.atmos_plus ?? hasHiRes) {
     info.type = 'normal'
     info.text = t('quality_atmos_plus')
-  } else if (musicInfo.meta._qualitys.atmos) {
+  } else if (musicInfo.meta._qualitys.atmos ?? hasHiRes) {
     info.type = 'normal'
     info.text = t('quality_atmos')
   } else if (musicInfo.meta._qualitys.hires ?? musicInfo.meta._qualitys.flac24bit) {
