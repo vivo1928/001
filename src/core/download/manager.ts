@@ -378,16 +378,20 @@ class DownloadManager {
     }
 
     // 与播放一致：音质逐级降级重试，避免首选品质拿不到就直接失败
+    // 降级切换前等待 30 秒：给后端/网络缓冲时间，避免短暂失败立即降质
     const qualityOrder = buildQualityFallbackOrder(task.quality, task.musicInfo)
     let lastErr: unknown
     for (let attempt = 0; attempt < 3; attempt++) {
       const isRefresh = attempt > 0
-      for (const q of qualityOrder) {
+      for (let qi = 0; qi < qualityOrder.length; qi++) {
+        const q = qualityOrder[qi]
         try {
           return await fetchUrlAt(q as LX.Quality, isRefresh)
         } catch (err: any) {
           lastErr = err
           console.log(`[DownloadManager] URL fetch ${q} (attempt ${attempt + 1}) failed: ${err?.message || err}`)
+          // 降级到下一音质前等待 30 秒
+          if (qi < qualityOrder.length - 1) await this.delay(30000)
         }
       }
       if (attempt < 2) await this.delay(500 * (attempt + 1))
