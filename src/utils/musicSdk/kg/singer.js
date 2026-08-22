@@ -235,12 +235,12 @@ export default {
       // 降级：返回基本信息 + 各音质 hash 填主 hash（保证后端能返回链接，避免播放降级到慢 CDN）
       listData = infoList.map(item => {
         const mainHash = item.hash || ''
-        const mkTypes = (extra) => Object.assign({
-          '128k': { size: '', hash: mainHash },
-          '320k': { size: '', hash: mainHash },
-          flac: { size: '', hash: mainHash },
-        }, extra)
-        const hashArr = Object.entries(mkTypes({})).filter(([, v]) => v.hash).map(([k, v]) => ({ type: k, size: v.size, hash: v.hash }))
+        const qualityMap = { '128k': {}, '320k': {}, flac: {}, hires: {}, atmos: {}, master: {} }
+        const mkTypes = () => Object.fromEntries(
+          Object.keys(qualityMap).map(q => [q, { size: '', hash: mainHash }]),
+        )
+        const _types = mkTypes()
+        const types = Object.keys(qualityMap).map(q => ({ type: q, size: '', hash: mainHash }))
         return {
           singer: stripHtml(item.author_name || ''),
           name: stripHtml(item.songname || ''),
@@ -253,8 +253,8 @@ export default {
           lrc: null,
           hash: mainHash,
           otherSource: null,
-          types: hashArr,
-          _types: mkTypes({}),
+          types,
+          _types,
           typeUrl: {},
         }
       })
