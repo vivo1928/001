@@ -82,7 +82,6 @@ const isCurrentMusicInfoChanged = (curMusicInfo: LX.Music.MusicInfo | LX.Downloa
 }
 
 let cancelDelayRetry: (() => void) | null = null
-let playbackCacheTimer: number | null = null
 const delayRetry = async(musicInfo: LX.Music.MusicInfo | LX.Download.ListItem, isRefresh = false): Promise<string | null> => {
   // if (cancelDelayRetry) cancelDelayRetry()
   return new Promise<string | null>((resolve, reject) => {
@@ -147,29 +146,23 @@ export const setMusicUrl = (musicInfo: LX.Music.MusicInfo | LX.Download.ListItem
   // addLoadTimeout()
   if (!diffCurrentMusicInfo(musicInfo)) return
   if (cancelDelayRetry) cancelDelayRetry()
-  if (playbackCacheTimer) {
-    BackgroundTimer.clearTimeout(playbackCacheTimer)
-    playbackCacheTimer = null
-  }
   global.lx.gettingUrlId = createGettingUrlId(musicInfo)
   // 首次播放强制 isRefresh=true，避免缓存过期 URL 导致播放缓冲
   void getMusicPlayUrl(musicInfo, isRefresh ?? true).then(async(url) => {
     if (!url) return
     setResource(musicInfo, url, playerState.progress.nowPlayTime)
-    // 远程链接 → 等待 15 秒若仍处于缓冲，再整体下载到缓存并切换本地文件
+    // 远程链接 → 立即整体下载到播放缓存；下载完成若仍处于缓冲/连接中则切换本地文件
     if (/^https?:/i.test(url)) {
-      playbackCacheTimer = BackgroundTimer.setTimeout(async() => {
-        playbackCacheTimer = null
-        if (isCurrentMusicInfoChanged(musicInfo)) return
-        const state = await TrackPlayer.getState().catch(() => null)
-        if (state !== State.Buffering) return
-        const musicInfoOnline = 'progress' in musicInfo ? musicInfo.metadata.musicInfo : musicInfo
-        const path = await cachePlaybackMusic(musicInfoOnline, url)
+      const musicInfoOnline = 'progress' in musicInfo ? musicInfo.metadata.musicInfo : musicInfo
+      cachePlaybackMusic(musicInfoOnline, url).then(async path => {
         if (!path) return
         if (isCurrentMusicInfoChanged(musicInfo)) return
-        const position = await TrackPlayer.getPosition().catch(() => 0)
-        setResource(musicInfo, path, position)
-      }, 15000)
+        const state = await TrackPlayer.getState().catch(() => null)
+        if (state === State.Buffering || state === State.Connecting || state === State.Ready) {
+          const position = await TrackPlayer.getPosition().catch(() => 0)
+          setResource(musicInfo, path, position)
+        }
+      }).catch(() => {})
     }
   }).catch((err: any) => {
     console.log(err)
