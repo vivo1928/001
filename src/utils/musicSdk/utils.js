@@ -12,15 +12,19 @@ export const QUALITYS = ['master', 'atmos', 'flac24bit', 'flac', 'wav', 'ape', '
 /**
  * 扩展歌曲音质列表：将源 qualityList 中缺失的高品质补入 _types
  * 确保自定义源声明的高级音质（如 master/atmos/hires）在 UI 中可选
+ * 兼容 raw SDK 格式（_types 在顶层）和 toNewMusicInfo 转换后的格式（在 meta._qualitys）
  */
 export const extendQualityTypes = (musicInfo) => {
   if (!musicInfo || !musicInfo.source) return
   const sourceQualitys = global.lx.qualityList[musicInfo.source]
   if (!sourceQualitys?.length) return
+  const types = musicInfo.types || musicInfo.meta?.qualitys
+  const _types = musicInfo._types || musicInfo.meta?._qualitys
+  if (!types || !_types) return
   for (const q of sourceQualitys) {
-    if (musicInfo._types[q] != null) continue
-    musicInfo.types.push({ type: q, size: '' })
-    musicInfo._types[q] = { size: '' }
+    if (_types[q] != null) continue
+    types.push({ type: q, size: '' })
+    _types[q] = { size: '' }
   }
 }
 
