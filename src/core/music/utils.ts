@@ -220,11 +220,15 @@ export const getPlayQuality = (highQuality: LX.Quality, musicInfo: LX.Music.Musi
   if (TRY_QUALITYS_LIST.includes(highQuality as TryQualityType)) {
     let list = global.lx.qualityList[musicInfo.source]
 
-    let t = TRY_QUALITYS_LIST
-      .slice(TRY_QUALITYS_LIST.indexOf(highQuality as TryQualityType))
-      .find(q => musicInfo.meta._qualitys[q] && list?.includes(q))
-
-    if (t) type = t
+    // 优先尝试首选音质（即使 _qualitys 不包含该音质，自定义音源可能仍能返回）
+    if (list?.includes(highQuality)) {
+      type = highQuality
+    } else {
+      let t = TRY_QUALITYS_LIST
+        .slice(TRY_QUALITYS_LIST.indexOf(highQuality as TryQualityType))
+        .find(q => musicInfo.meta._qualitys[q] && list?.includes(q))
+      if (t) type = t
+    }
   }
   return type
 }
