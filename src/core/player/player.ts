@@ -1,4 +1,6 @@
 import { isInitialized, initial as playerInitial, isEmpty, setPause, setPlay, setResource, setStop, initTrackInfo } from '@/plugins/player'
+import TrackPlayer, { State } from 'react-native-track-player'
+import { cachePlaybackMusic } from '@/core/playbackCache'
 import {
   setStatusText,
 } from '@/core/player/playStatus'
@@ -146,9 +148,22 @@ export const setMusicUrl = (musicInfo: LX.Music.MusicInfo | LX.Download.ListItem
   if (cancelDelayRetry) cancelDelayRetry()
   global.lx.gettingUrlId = createGettingUrlId(musicInfo)
   // 首次播放强制 isRefresh=true，避免缓存过期 URL 导致播放缓冲
-  void getMusicPlayUrl(musicInfo, isRefresh ?? true).then((url) => {
+  void getMusicPlayUrl(musicInfo, isRefresh ?? true).then(async(url) => {
     if (!url) return
     setResource(musicInfo, url, playerState.progress.nowPlayTime)
+    // 远程链接 → 后台整体下载到播放缓存，下载完成且仍在缓冲则切换本地文件
+    if (/^https?:/i.test(url)) {
+      const musicInfoOnline = 'progress' in musicInfo ? musicInfo.metadata.musicInfo : musicInfo
+      cachePlaybackMusic(musicInfoOnline, url).then(async path => {
+        if (!path) return
+        if (isCurrentMusicInfoChanged(musicInfo)) return
+        const state = await TrackPlayer.getState().catch(() => null)
+        if (state === State.Buffering) {
+          const position = await TrackPlayer.getPosition().catch(() => 0)
+          setResource(musicInfo, path, position)
+        }
+      }).catch(() => {})
+    }
   }).catch((err: any) => {
     console.log(err)
     setStatusText(err.message as string)

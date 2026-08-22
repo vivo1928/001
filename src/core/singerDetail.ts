@@ -135,7 +135,7 @@ const getListLimit = async(source: LX.OnlineSource, singerId: string, page: numb
   }
 
   const sdk = musicSdk[source] as {
-    singer?: { getSingerSongList?: (singerid: string, page: number, limit: number) => Promise<{ list: any[], total: number, limit: number, info?: any }> }
+    singer?: { getSingerSongList?: (singerid: string, page: number, limit: number, singerName?: string) => Promise<{ list: any[], total: number, limit: number, info?: any }> }
     musicSearch?: { search: (name: string, page: number, limit: number) => Promise<{ list: any[], total: number, limit: number, allPage: number }> }
   }
   if (!sdk) throw new Error('source not found: ' + source)
@@ -285,7 +285,7 @@ export const getListDetail = async(id: string, page: number, isRefresh = false):
 export const getListDetailAll = async(id: string, isRefresh = false): Promise<{ list: LX.Music.MusicInfoOnline[], isComplete: boolean, total: number }> => {
   const [source, singerId] = id.split('__') as [LX.OnlineSource, string]
   const sdk = musicSdk[source] as {
-    singer?: { getSingerSongList?: (singerid: string, page: number, limit: number) => Promise<{ list: any[], total: number, limit: number, info?: any }> }
+    singer?: { getSingerSongList?: (singerid: string, page: number, limit: number, singerName?: string) => Promise<{ list: any[], total: number, limit: number, info?: any }> }
     musicSearch?: { search: (name: string, page: number, limit: number) => Promise<{ list: any[], total: number, limit: number, allPage: number }> }
   }
   if (!sdk) throw new Error('source not found: ' + source)
@@ -368,7 +368,7 @@ export const getListDetailAll = async(id: string, isRefresh = false): Promise<{ 
   }
   return {
     list: resultList,
-    isComplete: retryFailed.length === 0,
+    isComplete: !stopFetch,
     total: firstPage.total,
   }
 }

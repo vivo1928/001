@@ -7,6 +7,9 @@ import { updateListMusics } from '@/core/list'
 import settingState from '@/store/setting/state'
 
 import {
+  getPlaybackCachePath,
+} from '@/core/playbackCache'
+import {
   buildLyricInfo,
   getPlayQuality,
   handleGetOnlineLyricInfo,
@@ -53,6 +56,14 @@ export const getMusicUrl = async({ musicInfo, quality, isRefresh, allowToggleSou
   //   // return Promise.reject(new Error('该歌曲没有可播放的音频'))
   // }
   const targetQuality = quality ?? getPlayQuality(settingState.setting['player.playQuality'], musicInfo)
+
+  // 播放缓存命中：直接返回本地文件路径，避免流式缓冲（本地文件不受 isRefresh 影响）
+  let cachedPath = ''
+  if (!(musicInfo.meta as any)?.toggleMusicInfo) {
+    cachedPath = await getPlaybackCachePath(musicInfo) ?? ''
+  }
+  if (cachedPath) return cachedPath
+
   const cachedUrl = await getStoreMusicUrl(musicInfo, targetQuality)
   if (cachedUrl && !isRefresh) return cachedUrl
 
