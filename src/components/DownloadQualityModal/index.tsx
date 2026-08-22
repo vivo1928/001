@@ -62,15 +62,7 @@ export default forwardRef<DownloadQualityModalType>((_props, ref) => {
     if (qualityInfo?.size) return qualityInfo.size
     // 回退到 _qualitys 字典
     const q = musicInfo.meta._qualitys?.[quality]
-    if (q?.size) return q.size
-    // 再回退到源 qualityList 中最高可用音质的 size
-    for (const q of [...QUALITY_DISPLAY_ORDER].reverse()) {
-      const info = musicInfo.meta.qualitys?.find(i => i.type === q)
-      if (info?.size) return info.size
-      const x = musicInfo.meta._qualitys?.[q]
-      if (x?.size) return x.size
-    }
-    return null
+    return q?.size ?? null
   }
 
   const getAvailableQualities = (): LX.Quality[] => {

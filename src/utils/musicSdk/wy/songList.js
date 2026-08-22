@@ -144,13 +144,10 @@ export default {
           size,
         }
       }
-      if (_types.flac24bit) {
-        for (const q of ['hires', 'atmos', 'master']) {
-          if (!_types[q]) {
-            const s = _types.flac24bit?.size ?? ''; types.push({ type: q, size: s })
-            _types[q] = { size: s }
-          }
-        }
+      // 补齐 hires/atmos/master
+      for (const q of ['hires', 'atmos', 'master']) {
+        types.push({ type: q, size: '' })
+        _types[q] = { size: s }
       }
       switch (privilege.maxbr) {
         case 999000:

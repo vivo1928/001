@@ -80,13 +80,10 @@ const toMusicInfo = (item) => {
     _types.flac24bit = { size, hash: item.audio_info.hash_high }
   }
 
-  if (_types.flac24bit) {
-    for (const q of ['hires', 'atmos', 'master']) {
-      if (!_types[q]) {
-        const s = _types.flac24bit?.size ?? ''; types.push({ type: q, size: s })
-        _types[q] = { size: s }
-      }
-    }
+  // 补齐 hires/atmos/master
+  for (const q of ['hires', 'atmos', 'master']) {
+    types.push({ type: q, size: '' })
+    _types[q] = { size: s }
   }
 
   return {
@@ -131,13 +128,10 @@ const searchToMusicInfo = (rawData) => {
     types.push({ type: 'flac24bit', size, hash: rawData.ResFileHash })
     _types.flac24bit = { size, hash: rawData.ResFileHash }
   }
-  if (_types.flac24bit) {
-    for (const q of ['hires', 'atmos', 'master']) {
-      if (!_types[q]) {
-        const s = _types.flac24bit?.size ?? ''; types.push({ type: q, size: s })
-        _types[q] = { size: s }
-      }
-    }
+  // 补齐 hires/atmos/master
+  for (const q of ['hires', 'atmos', 'master']) {
+    types.push({ type: q, size: '' })
+    _types[q] = { size: s }
   }
   return {
     singer: decodeName(rawData.SingerName || ''),

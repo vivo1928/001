@@ -138,13 +138,10 @@ export default {
           size,
         }
       }
-      if (_types.flac24bit) {
-        for (const q of ['hires', 'atmos', 'master']) {
-          if (!_types[q]) {
-            types.push({ type: q, size: _types.flac24bit?.size ?? '' })
-            _types[q] = { size: _types.flac24bit?.size ?? '' }
-          }
-        }
+      // 补齐 hires/atmos/master
+      for (const q of ['hires', 'atmos', 'master']) {
+        types.push({ type: q, size: '' })
+        _types[q] = { size: '' }
       }
       // types.reverse()
       return {
