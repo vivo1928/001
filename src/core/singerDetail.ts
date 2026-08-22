@@ -3,6 +3,7 @@ import singerDetailActions from '@/store/singerDetail/action'
 import { type ListDetailInfo } from '@/store/singerDetail/state'
 import { deduplicationList, toNewMusicInfo } from '@/utils'
 import musicSdk from '@/utils/musicSdk'
+import { extendQualityTypes } from '@/utils/musicSdk/utils'
 
 const LIMIT = 30
 const FETCH_TIMEOUT = 10000
@@ -216,6 +217,7 @@ if (sourcePage === 0) fetchSingerInfo()
 
   if (listCache !== cache.get(listKey)) throw new Error('cache mismatch')
   result.list = deduplicationList(result.list.map((m: any) => toNewMusicInfo(m)) as LX.Music.MusicInfoOnline[])
+  result.list.forEach(extendQualityTypes)
   let p = page
   sourcePage++
   const tempList = listCache.get(tempListKey) as LX.Music.MusicInfoOnline[]

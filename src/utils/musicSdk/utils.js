@@ -8,6 +8,22 @@ import { decodeName } from '../index'
  */
 
 export const QUALITYS = ['master', 'atmos', 'flac24bit', 'flac', 'wav', 'ape', '320k', '192k', '128k']
+
+/**
+ * 扩展歌曲音质列表：将源 qualityList 中缺失的高品质补入 _types
+ * 确保自定义源声明的高级音质（如 master/atmos/hires）在 UI 中可选
+ */
+export const extendQualityTypes = (musicInfo) => {
+  if (!musicInfo || !musicInfo.source) return
+  const sourceQualitys = global.lx.qualityList[musicInfo.source]
+  if (!sourceQualitys?.length) return
+  for (const q of sourceQualitys) {
+    if (musicInfo._types[q] != null) continue
+    musicInfo.types.push({ type: q, size: '' })
+    musicInfo._types[q] = { size: '' }
+  }
+}
+
 export const getMusicType = (info, type) => {
   const list = global.lx.qualityList[info.source]
   if (!list) return '128k'
