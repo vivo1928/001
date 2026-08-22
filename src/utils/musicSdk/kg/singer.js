@@ -232,23 +232,32 @@ export default {
       listData = await getMusicInfosByList(infoList)
     } catch (err) {
       console.warn(`[kg singer] getMusicInfosByList failed, returning raw list: ${err.message}`)
-      // 降级：返回基本信息，不包含音质详情
-      listData = infoList.map(item => ({
-        singer: stripHtml(item.author_name || ''),
-        name: stripHtml(item.songname || ''),
-        albumName: stripHtml(item.album_name || ''),
-        albumId: item.album_id || '',
-        songmid: item.audio_id || item.hash,
-        source: 'kg',
-        interval: 0,
-        img: null,
-        lrc: null,
-        hash: item.hash,
-        otherSource: null,
-        types: [{ type: '128k', size: '', hash: item.hash }],
-        _types: { '128k': { size: '', hash: item.hash } },
-        typeUrl: {},
-      }))
+      // 降级：返回基本信息 + 各音质 hash 填主 hash（保证后端能返回链接，避免播放降级到慢 CDN）
+      listData = infoList.map(item => {
+        const mainHash = item.hash || ''
+        const mkTypes = (extra) => Object.assign({
+          '128k': { size: '', hash: mainHash },
+          '320k': { size: '', hash: mainHash },
+          flac: { size: '', hash: mainHash },
+        }, extra)
+        const hashArr = Object.entries(mkTypes({})).filter(([, v]) => v.hash).map(([k, v]) => ({ type: k, size: v.size, hash: v.hash }))
+        return {
+          singer: stripHtml(item.author_name || ''),
+          name: stripHtml(item.songname || ''),
+          albumName: stripHtml(item.album_name || ''),
+          albumId: item.album_id || '',
+          songmid: item.audio_id || mainHash,
+          source: 'kg',
+          interval: 0,
+          img: null,
+          lrc: null,
+          hash: mainHash,
+          otherSource: null,
+          types: hashArr,
+          _types: mkTypes({}),
+          typeUrl: {},
+        }
+      })
     }
     // 可选获取歌手信息，失败不影响主流程
     const singerInfo = await this.getSingerInfo(singerid).catch(() => null)

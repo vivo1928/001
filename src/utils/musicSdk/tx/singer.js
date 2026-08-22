@@ -112,6 +112,11 @@ const formatSongList = (rawList) => {
         _types.flac24bit = { size }
       }
     }
+    // file 信息缺失时补默认 128k，确保 _types 非空（自定义音源能返回链接）
+    if (!types.length) {
+      types.push({ type: '128k', size: '' })
+      _types['128k'] = { size: '' }
+    }
     const albumId = item.album?.mid || ''
     const albumName = item.album?.name || ''
     return {

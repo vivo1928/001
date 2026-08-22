@@ -115,7 +115,14 @@ export default {
       })
       if (!list || !list.songList) return Promise.reject(new Error('Get singer song list error.'))
 
-      const songList = filterMusicInfoList(list.songList)
+      const songList = filterMusicInfoList(list.songList).map(item => {
+        // audioFormats 信息缺失时补默认 128k，确保 _types 非空（自定义音源能返回链接）
+        if (item.types && !item.types.length) {
+          item.types = [{ type: '128k', size: '' }]
+          item._types = { '128k': { size: '' } }
+        }
+        return item
+      })
       const singerInfo = await this.getSingerInfo(singerid).catch(() => ({}))
 
       return {
