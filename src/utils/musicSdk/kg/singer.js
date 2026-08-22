@@ -245,8 +245,8 @@ export default {
         lrc: null,
         hash: item.hash,
         otherSource: null,
-        types: [],
-        _types: {},
+        types: [{ type: '128k', size: '', hash: item.hash }],
+        _types: { '128k': { size: '', hash: item.hash } },
         typeUrl: {},
       }))
     }
