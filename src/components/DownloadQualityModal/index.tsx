@@ -69,20 +69,9 @@ export default forwardRef<DownloadQualityModalType>((_props, ref) => {
   const getAvailableQualities = (): LX.Quality[] => {
     if (!musicInfo) return []
     const _qualitys = musicInfo.meta._qualitys
-    // 从歌曲 _qualitys 和源 qualityList 合并去重，按 QUALITY_DISPLAY_ORDER 排序
-    const sourceQualities = global.lx.qualityList[musicInfo.source] ?? []
-    const allQualities = new Set<LX.Quality>()
-    for (const q of Object.keys(_qualitys) as LX.Quality[]) {
-      if (_qualitys[q] != null) allQualities.add(q)
-    }
-    for (const q of sourceQualities) {
-      if (!_qualitys[q]) allQualities.add(q)
-    }
-    // 通用高级音质补全：即使源 qualityList 未声明，也确保下载可选
-    for (const q of ['hires', 'atmos', 'atmos_plus', 'master'] as LX.Quality[]) {
-      allQualities.add(q)
-    }
-    return QUALITY_DISPLAY_ORDER.filter(q => allQualities.has(q))
+    // 只显示歌曲实际支持的音质（来自 API 响应），按 QUALITY_DISPLAY_ORDER 排序
+    const qualities = Object.keys(_qualitys) as LX.Quality[]
+    return QUALITY_DISPLAY_ORDER.filter(q => _qualitys[q] != null)
   }
 
   return (
