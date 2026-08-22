@@ -46,6 +46,15 @@ export default {
         hash: rawData.ResFileHash,
       }
     }
+    // 补齐 hires/atmos/master 填充（与 flac24bit 同 hash）
+    if (_types.flac24bit) {
+      for (const q of ['hires', 'atmos', 'master']) {
+        if (!_types[q]) {
+          types.push({ type: q, size: '', hash: rawData.ResFileHash })
+          _types[q] = { size: '', hash: rawData.ResFileHash }
+        }
+      }
+    }
     return {
       id: 'kg_' + rawData.Audioid,
       singer: decodeName(formatSingerName(rawData.Singers, 'name')),

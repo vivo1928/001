@@ -52,6 +52,24 @@ export default {
                 size: info[4].toLocaleUpperCase(),
               }
               break
+            case '10000':
+              types.push({ type: 'hires', size: info[4] })
+              _types.hires = {
+                size: info[4].toLocaleUpperCase(),
+              }
+              break
+            case '11000':
+              types.push({ type: 'atmos', size: info[4] })
+              _types.atmos = {
+                size: info[4].toLocaleUpperCase(),
+              }
+              break
+            case '12000':
+              types.push({ type: 'master', size: info[4] })
+              _types.master = {
+                size: info[4].toLocaleUpperCase(),
+              }
+              break
             case '2000':
               types.push({ type: 'flac', size: info[4] })
               _types.flac = {
