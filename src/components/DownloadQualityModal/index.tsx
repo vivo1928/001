@@ -21,6 +21,9 @@ const QUALITY_MAP: Record<LX.Quality, string> = {
   atmos: 'download_quality_atmos',
 }
 
+// 音质显示顺序（低→高）
+const QUALITY_DISPLAY_ORDER: LX.Quality[] = ['32k', '64k', '128k', '192k', '320k', 'ape', 'wav', 'flac', 'flac24bit', 'hires', 'atmos', 'master']
+
 export interface DownloadQualityModalType {
   show: (musicInfo: LX.Music.MusicInfoOnline, options: { onSelect: (quality: LX.Quality) => void, showFileSize?: boolean }) => void
 }
@@ -59,14 +62,30 @@ export default forwardRef<DownloadQualityModalType>((_props, ref) => {
     if (qualityInfo?.size) return qualityInfo.size
     // 回退到 _qualitys 字典
     const q = musicInfo.meta._qualitys?.[quality]
-    return q?.size ?? null
+    if (q?.size) return q.size
+    // 再回退到源 qualityList 中最高可用音质的 size
+    for (const q of [...QUALITY_DISPLAY_ORDER].reverse()) {
+      const info = musicInfo.meta.qualitys?.find(i => i.type === q)
+      if (info?.size) return info.size
+      const x = musicInfo.meta._qualitys?.[q]
+      if (x?.size) return x.size
+    }
+    return null
   }
 
   const getAvailableQualities = (): LX.Quality[] => {
     if (!musicInfo) return []
     const _qualitys = musicInfo.meta._qualitys
-    const qualities = Object.keys(_qualitys) as LX.Quality[]
-    return qualities.filter(q => _qualitys[q] != null)
+    // 从歌曲 _qualitys 和源 qualityList 合并去重，按 QUALITY_DISPLAY_ORDER 排序
+    const sourceQualities = global.lx.qualityList[musicInfo.source] ?? []
+    const allQualities = new Set<LX.Quality>()
+    for (const q of Object.keys(_qualitys) as LX.Quality[]) {
+      if (_qualitys[q] != null) allQualities.add(q)
+    }
+    for (const q of sourceQualities) {
+      if (!_qualitys[q]) allQualities.add(q)
+    }
+    return QUALITY_DISPLAY_ORDER.filter(q => allQualities.has(q))
   }
 
   return (
