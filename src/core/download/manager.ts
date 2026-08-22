@@ -377,17 +377,18 @@ class DownloadManager {
       return urlResult.url
     }
 
-    try {
-      return await fetchUrl(false)
-    } catch (err: any) {
-      // 首次获取 URL 失败，尝试刷新后再获取一次
-      console.log(`[DownloadManager] first URL fetch failed, retrying with refresh: ${err?.message || err}`)
+    // 多次重试（含刷新），应对音源后端偶发失败（如 QQ 音乐）
+    let lastErr: unknown
+    for (let attempt = 0; attempt < 3; attempt++) {
       try {
-        return await fetchUrl(true)
-      } catch (err2: any) {
-        throw new Error(`获取下载链接失败: ${err2?.message || err?.message || '未知错误'}`)
+        return await fetchUrl(attempt > 0)
+      } catch (err: any) {
+        lastErr = err
+        console.log(`[DownloadManager] URL fetch attempt ${attempt + 1} failed: ${err?.message || err}`)
+        if (attempt < 2) await this.delay(500 * (attempt + 1))
       }
     }
+    throw new Error(`获取下载链接失败: ${lastErr instanceof Error ? lastErr.message : '未知错误'}`)
   }
 
   /**
