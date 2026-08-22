@@ -25,6 +25,7 @@ const QUALITY_EXT_MAP: Record<string, LX.Download.FileExt> = {
   hires: 'flac',
   master: 'flac',
   atmos: 'flac',
+  atmos_plus: 'flac',
   ape: 'ape',
   wav: 'wav',
 }

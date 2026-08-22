@@ -9,6 +9,17 @@ import { updateSetting } from '@/core/common'
 import { useI18n } from '@/lang'
 import { TRY_QUALITYS_LIST } from '@/core/music/utils'
 
+const QUALITY_LABEL_MAP: Record<string, string> = {
+  '128k': '128k',
+  '320k': '320k',
+  flac: 'FLAC',
+  flac24bit: '24bit',
+  hires: 'Hi-Res',
+  atmos: '全景声',
+  atmos_plus: '杜比全景声',
+  master: '母带',
+}
+
 const useActive = (id: LX.Quality) => {
   const q = useSettingValue('player.playQuality')
   const isActive = useMemo(() => q == id, [q, id])
@@ -34,7 +45,7 @@ export default memo(() => {
     <SubTitle title={t('setting_play_play_quality')}>
       <View style={styles.list}>
         {
-          playQualityList.map((q) => <Item name={q} id={q} key={q} />)
+          playQualityList.map((q) => <Item name={QUALITY_LABEL_MAP[q] ?? q} id={q} key={q} />)
         }
       </View>
     </SubTitle>

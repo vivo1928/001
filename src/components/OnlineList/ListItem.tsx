@@ -22,6 +22,9 @@ const useQualityTag = (musicInfo: LX.Music.MusicInfoOnline) => {
   if (hasSourceQuality('master')) {
     info.type = 'normal'
     info.text = t('quality_master')
+  } else if (hasSourceQuality('atmos_plus')) {
+    info.type = 'normal'
+    info.text = t('quality_atmos_plus')
   } else if (hasSourceQuality('atmos')) {
     info.type = 'normal'
     info.text = t('quality_atmos')

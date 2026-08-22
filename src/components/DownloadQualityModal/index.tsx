@@ -19,10 +19,11 @@ const QUALITY_MAP: Record<LX.Quality, string> = {
   hires: 'download_quality_hires',
   master: 'download_quality_master',
   atmos: 'download_quality_atmos',
+  atmos_plus: 'download_quality_atmos_plus',
 }
 
 // 音质显示顺序（低→高）
-const QUALITY_DISPLAY_ORDER: LX.Quality[] = ['32k', '64k', '128k', '192k', '320k', 'ape', 'wav', 'flac', 'flac24bit', 'hires', 'atmos', 'master']
+const QUALITY_DISPLAY_ORDER: LX.Quality[] = ['32k', '64k', '128k', '192k', '320k', 'ape', 'wav', 'flac', 'flac24bit', 'hires', 'atmos', 'atmos_plus', 'master']
 
 export interface DownloadQualityModalType {
   show: (musicInfo: LX.Music.MusicInfoOnline, options: { onSelect: (quality: LX.Quality) => void, showFileSize?: boolean }) => void

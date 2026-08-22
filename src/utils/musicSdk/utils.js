@@ -7,21 +7,30 @@ import { decodeName } from '../index'
  * @param {*} type
  */
 
-export const QUALITYS = ['master', 'atmos', 'flac24bit', 'flac', 'wav', 'ape', '320k', '192k', '128k']
+export const QUALITYS = ['master', 'atmos_plus', 'atmos', 'flac24bit', 'flac', 'wav', 'ape', '320k', '192k', '128k']
 
 /**
  * 扩展歌曲音质列表：将源 qualityList 中缺失的高品质补入 _types
  * 确保自定义源声明的高级音质（如 master/atmos/hires）在 UI 中可选
  * 兼容 raw SDK 格式（_types 在顶层）和 toNewMusicInfo 转换后的格式（在 meta._qualitys）
  */
+const COMMON_HIGH_QUALITYS = ['hires', 'atmos', 'atmos_plus', 'master']
 export const extendQualityTypes = (musicInfo) => {
   if (!musicInfo || !musicInfo.source) return
   const sourceQualitys = global.lx.qualityList[musicInfo.source]
-  if (!sourceQualitys?.length) return
   const types = musicInfo.types || musicInfo.meta?.qualitys
   const _types = musicInfo._types || musicInfo.meta?._qualitys
   if (!types || !_types) return
-  for (const q of sourceQualitys) {
+  // 从源 qualityList 补齐
+  if (sourceQualitys?.length) {
+    for (const q of sourceQualitys) {
+      if (_types[q] != null) continue
+      types.push({ type: q, size: '' })
+      _types[q] = { size: '' }
+    }
+  }
+  // 统一补齐通用高级音质（即使源 qualityList 未声明）
+  for (const q of COMMON_HIGH_QUALITYS) {
     if (_types[q] != null) continue
     types.push({ type: q, size: '' })
     _types[q] = { size: '' }
