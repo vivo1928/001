@@ -69,13 +69,13 @@ export default forwardRef<DownloadQualityModalType>((_props, ref) => {
   const getAvailableQualities = (): LX.Quality[] => {
     if (!musicInfo) return []
     const _qualitys = musicInfo.meta._qualitys
-    const qualities = Object.keys(_qualitys) as LX.Quality[]
-    const allQualities = new Set(qualities.filter(q => _qualitys[q] != null))
-    // 歌曲支持 flac24bit 时，补全可能的高级音质（hires/atmos/atmos_plus/master）
-    if (_qualitys.flac24bit != null) {
-      for (const q of ['hires', 'atmos', 'atmos_plus', 'master'] as LX.Quality[]) {
-        allQualities.add(q)
-      }
+    const sourceQualities = global.lx.qualityList[musicInfo.source] ?? []
+    const allQualities = new Set<LX.Quality>()
+    for (const q of Object.keys(_qualitys) as LX.Quality[]) {
+      if (_qualitys[q] != null) allQualities.add(q)
+    }
+    for (const q of sourceQualities) {
+      if (!_qualitys[q]) allQualities.add(q)
     }
     return QUALITY_DISPLAY_ORDER.filter(q => allQualities.has(q))
   }

@@ -15,25 +15,26 @@ export const ITEM_HEIGHT = scaleSizeH(LIST_ITEM_HEIGHT)
 
 const useQualityTag = (musicInfo: LX.Music.MusicInfoOnline) => {
   const t = useI18n()
-  // 歌曲支持 flac24bit 时，视为可支持高级音质
-  const hasHiRes = musicInfo.meta._qualitys.flac24bit != null
+  const source = musicInfo.source
+  const sourceQualitys = global.lx.qualityList[source] ?? []
+  const hasQuality = (q: LX.Quality) => musicInfo.meta._qualitys[q] != null || sourceQualitys.includes(q)
   let info: { type: BadgeType | null, text: string } = { type: null, text: '' }
-  if (musicInfo.meta._qualitys.master ?? hasHiRes) {
+  if (hasQuality('master')) {
     info.type = 'normal'
     info.text = t('quality_master')
-  } else if (musicInfo.meta._qualitys.atmos_plus ?? hasHiRes) {
+  } else if (hasQuality('atmos_plus')) {
     info.type = 'normal'
     info.text = t('quality_atmos_plus')
-  } else if (musicInfo.meta._qualitys.atmos ?? hasHiRes) {
+  } else if (hasQuality('atmos')) {
     info.type = 'normal'
     info.text = t('quality_atmos')
-  } else if (musicInfo.meta._qualitys.hires ?? musicInfo.meta._qualitys.flac24bit) {
+  } else if (hasQuality('hires') || hasQuality('flac24bit')) {
     info.type = 'secondary'
     info.text = t('quality_lossless_24bit')
-  } else if (musicInfo.meta._qualitys.flac ?? musicInfo.meta._qualitys.ape) {
+  } else if (hasQuality('flac') || hasQuality('ape')) {
     info.type = 'secondary'
     info.text = t('quality_lossless')
-  } else if (musicInfo.meta._qualitys['320k']) {
+  } else if (hasQuality('320k')) {
     info.type = 'tertiary'
     info.text = t('quality_high_quality')
   }
