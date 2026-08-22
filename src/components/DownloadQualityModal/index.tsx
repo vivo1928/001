@@ -9,13 +9,16 @@ import Text from '@/components/common/Text'
 const QUALITY_MAP: Record<LX.Quality, string> = {
   '128k': 'download_quality_standard',
   '320k': 'download_quality_high',
-  'flac': 'download_quality_lossless',
-  'flac24bit': 'download_quality_24bit',
+  flac: 'download_quality_lossless',
+  flac24bit: 'download_quality_24bit',
   '192k': 'download_quality_high',
-  'ape': 'download_quality_lossless',
-  'wav': 'download_quality_lossless',
+  ape: 'download_quality_lossless',
+  wav: 'download_quality_lossless',
   '64k': 'download_quality_standard',
   '32k': 'download_quality_standard',
+  hires: 'download_quality_hires',
+  master: 'download_quality_master',
+  atmos: 'download_quality_atmos',
 }
 
 export interface DownloadQualityModalType {
