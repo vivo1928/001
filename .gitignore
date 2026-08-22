@@ -72,3 +72,4 @@ buck-out/
 
 # Local knowledge base (keep local only, do not commit)
 /.monkeycode/
+kw-decrypt-proxy/
