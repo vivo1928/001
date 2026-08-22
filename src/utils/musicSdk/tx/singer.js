@@ -115,8 +115,9 @@ const formatSongList = (rawList) => {
     // 补齐完整分级音质（flac24bit/flac/320k/128k/hires/atmos/master），确保播放可从设置档向下递进
     for (const q of ['flac24bit', 'flac', '320k', '128k', 'hires', 'atmos', 'master']) {
       if (!_types[q]) {
-        types.push({ type: q, size: '' })
-        _types[q] = { size: '' }
+        const size = (q === 'hires' || q === 'atmos' || q === 'master') ? (_types.flac24bit?.size ?? '') : ''
+        types.push({ type: q, size })
+        _types[q] = { size }
       }
     }
     const albumId = item.album?.mid || ''

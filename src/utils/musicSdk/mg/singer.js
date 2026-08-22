@@ -121,8 +121,9 @@ export default {
         if (!item._types) item._types = {}
         for (const q of ['flac24bit', 'flac', '320k', '128k', 'hires', 'atmos', 'master']) {
           if (!item._types[q]) {
-            item.types.push({ type: q, size: '' })
-            item._types[q] = { size: '' }
+            const size = (q === 'hires' || q === 'atmos' || q === 'master') ? (item._types.flac24bit?.size ?? '') : ''
+            item.types.push({ type: q, size })
+            item._types[q] = { size }
           }
         }
         return item
