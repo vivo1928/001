@@ -217,6 +217,7 @@ if (sourcePage === 0) fetchSingerInfo()
   if (listCache !== cache.get(listKey)) throw new Error('cache mismatch')
   result.list = deduplicationList(result.list.map((m: any) => toNewMusicInfo(m)) as LX.Music.MusicInfoOnline[])
   let p = page
+  sourcePage++
   const tempList = listCache.get(tempListKey) as LX.Music.MusicInfoOnline[]
   if (tempList) {
     listCache.delete(tempListKey)
@@ -231,7 +232,6 @@ if (sourcePage === 0) fetchSingerInfo()
     })
     p++
   }
-  sourcePage++
   do {
     if (result.list.length < LIMIT && sourcePage < Math.ceil(result.total / result.limit)) {
       listCache.set(tempListKey, result.list.splice(0, LIMIT))
@@ -296,14 +296,14 @@ export const getListDetailAll = async(id: string, isRefresh = false): Promise<{ 
   const PAGES_PER_BATCH = 6
   const MAX_RETRY = 1
 
-  const fetchPage = async(sourcePage: number): Promise<{ list: any[], total: number, limit: number }> => {
+  const fetchPage = async(sourcePage: number): Promise<{ list: any[] | null, total: number, limit: number }> => {
     if (hasSingerApi) {
       const r = await withTimeout(
         sdk.singer!.getSingerSongList!(singerId, sourcePage, fetchLimit, singerName),
         FETCH_TIMEOUT,
         `Singer API timeout for source: ${source}, page: ${sourcePage}`,
       )
-      if (!r || !r.list || !r.list.length) throw new Error(`Singer API returned empty list, page: ${sourcePage}`)
+      if (!r || !r.list || !r.list.length) return { list: null, total: 0, limit: fetchLimit }
       if (r.info) singerDetailActions.setSingerInfo(r.info)
       return { list: r.list, total: r.total || 0, limit: r.limit || fetchLimit }
     }
@@ -318,6 +318,7 @@ export const getListDetailAll = async(id: string, isRefresh = false): Promise<{ 
   }
 
   const firstPage = await fetchPage(1)
+  if (!firstPage.list) throw new Error('Singer API returned empty list on first page')
   const allSongs: any[] = firstPage.list
   const maxSourcePage = Math.ceil(firstPage.total / firstPage.limit)
   if (maxSourcePage <= 1) {
@@ -328,7 +329,9 @@ export const getListDetailAll = async(id: string, isRefresh = false): Promise<{ 
     }
   }
 
-  const pages = Array.from({ length: maxSourcePage - 1 }, (_, i) => i + 2)
+  const PAGES_MAX = 100
+  const totalPages = Math.min(maxSourcePage - 1, PAGES_MAX)
+  const pages = Array.from({ length: totalPages }, (_, i) => i + 2)
   const failedPages: number[] = []
   const collect = async(pageList: number[]) => {
     const results = await Promise.allSettled(pageList.map(p =>
@@ -364,8 +367,13 @@ export const getListDetailAll = async(id: string, isRefresh = false): Promise<{ 
     console.warn(`[singerDetail] pages still failed after retry: ${retryFailed.join(',')}, total=${firstPage.total}`)
   }
 
+  let resultList = deduplicationList(allSongs.map(m => toNewMusicInfo(m)) as LX.Music.MusicInfoOnline[])
+  if (singerName) {
+    const nameLower = singerName.toLowerCase()
+    resultList = resultList.filter(m => (m.singer || '').toLowerCase().includes(nameLower))
+  }
   return {
-    list: deduplicationList(allSongs.map(m => toNewMusicInfo(m)) as LX.Music.MusicInfoOnline[]),
+    list: resultList,
     isComplete: retryFailed.length === 0,
     total: firstPage.total,
   }
