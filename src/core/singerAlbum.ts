@@ -1,6 +1,5 @@
 import { deduplicationList, toNewMusicInfo } from '@/utils'
 import musicSdk from '@/utils/musicSdk'
-import { extendQualityTypes } from '@/utils/musicSdk/utils'
 
 const LIMIT = 20
 const FETCH_TIMEOUT = 8000
@@ -155,10 +154,7 @@ export const getAlbumSongs = async(id: string, source: LX.OnlineSource, albumNam
     const allPage = page1Result.allPage || (total > limit ? Math.ceil(total / limit) : 1)
 
     // 如果只有一页，直接返回
-    if (allPage <= 1) {
-      allSongs.forEach(extendQualityTypes)
-      return allSongs
-    }
+    if (allPage <= 1) return allSongs
 
     // 获取剩余页面的歌曲
     const remainingPages: number[] = []
@@ -188,7 +184,6 @@ export const getAlbumSongs = async(id: string, source: LX.OnlineSource, albumNam
     }
 
     console.log(`[singerAlbum] getAlbumSongs: total=${total}, fetched=${allSongs.length}, allPage=${allPage}`)
-    allSongs.forEach(extendQualityTypes)
     return allSongs
   } catch (err: any) {
     console.warn(`[singerAlbum] getAlbumSongs error: ${err?.message || err}`)

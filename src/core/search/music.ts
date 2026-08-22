@@ -1,7 +1,6 @@
 import searchMusicState, { type Source } from '@/store/search/music/state'
 import searchMusicActions, { type SearchResult } from '@/store/search/music/action'
 import musicSdk from '@/utils/musicSdk'
-import { extendQualityTypes } from '@/utils/musicSdk/utils'
 
 export const setSource: typeof searchMusicActions['setSource'] = (source) => {
   searchMusicActions.setSource(source)
@@ -42,9 +41,6 @@ export const search = async(text: string, page: number, sourceId: Source): Promi
       if (key != listInfo.key) return []
       setSearchText(text)
       setSource(sourceId)
-      for (const result of results) {
-        if (result.list) result.list.forEach(extendQualityTypes)
-      }
       return setListInfo(results, page, text)
     })
   } else {
@@ -54,7 +50,6 @@ export const search = async(text: string, page: number, sourceId: Source): Promi
       if (key != listInfo.key) return []
       setSearchText(text)
       setSource(sourceId)
-      if (data.list) data.list.forEach(extendQualityTypes)
       return setListInfo(data, page, text)
     }) ?? Promise.reject(new Error('source not found: ' + sourceId))).catch((err: any) => {
       if (listInfo.list.length && page == 1) clearListInfo(sourceId)

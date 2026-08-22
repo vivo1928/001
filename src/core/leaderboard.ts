@@ -2,7 +2,6 @@ import leaderboardState, { type Board, type ListDetailInfo } from '@/store/leade
 import leaderboardActions from '@/store/leaderboard/action'
 import { deduplicationList, toNewMusicInfo } from '@/utils'
 import musicSdk from '@/utils/musicSdk'
-import { extendQualityTypes } from '@/utils/musicSdk/utils'
 
 /**
  * 获取排行榜内单页歌曲
@@ -77,7 +76,6 @@ const getListLimit = async(source: LX.OnlineSource, bangId: string, page: number
   return musicSdk[source]?.leaderboard.getList(bangId, sourcePage + 1).then((result: ListDetailInfo) => {
     if (listCache !== cache.get(listKey)) return
     result.list = deduplicationList(result.list.map(m => toNewMusicInfo(m)) as LX.Music.MusicInfoOnline[])
-    result.list.forEach(extendQualityTypes)
     let p = page
     const tempList = listCache.get(tempListKey) as ListDetailInfo['list']
     if (tempList) {
