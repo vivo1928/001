@@ -49,6 +49,7 @@ const filterSongList = (rawList, singerid, privileges) => {
       songmid: item.id,
       img: (item.al?.picUrl) || (item.album?.picUrl) || '',
       lrc: null,
+      otherSource: null,
       types,
       _types,
       typeUrl: {},
