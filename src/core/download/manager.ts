@@ -1,5 +1,6 @@
 import type RNFS from 'react-native-fs'
 import { handleGetOnlineMusicUrl } from '@/core/music/utils'
+import { buildQualityFallbackOrder } from '@/core/music/online'
 import {
   downloadFile,
   stopDownload,
@@ -8,9 +9,8 @@ import {
   externalStorageDirectoryPath,
 } from '@/utils/fs'
 import { requestStoragePermission } from '@/utils/permissions'
-import { formatMusicName } from '@/utils/tools'
+import { formatMusicName, toast } from '@/utils/tools'
 import settingState from '@/store/setting/state'
-import { toast } from '@/utils/tools'
 
 /**
  * 音质到文件扩展名的映射表
@@ -358,15 +358,15 @@ class DownloadManager {
    * 避免出现"标签显示无损、实际是降级音质"的格式不匹配
    */
   private async fetchDownloadUrl(task: DownloadTask): Promise<string> {
-    const fetchUrl = async(isRefresh: boolean): Promise<string> => {
+    const fetchUrlAt = async(quality: LX.Quality, isRefresh: boolean): Promise<string> => {
       const urlResult = await handleGetOnlineMusicUrl({
         musicInfo: task.musicInfo,
-        quality: task.quality,
+        quality,
         onToggleSource: () => {},
         isRefresh,
         allowToggleSource: true,
       })
-      const actualQuality = urlResult.quality || task.quality
+      const actualQuality = urlResult.quality || quality
       if (actualQuality !== task.quality) {
         toast(`该品质不可用，已降级为 ${actualQuality}`)
         task.quality = actualQuality
@@ -377,16 +377,20 @@ class DownloadManager {
       return urlResult.url
     }
 
-    // 多次重试（含刷新），应对音源后端偶发失败（如 QQ 音乐）
+    // 与播放一致：音质逐级降级重试，避免首选品质拿不到就直接失败
+    const qualityOrder = buildQualityFallbackOrder(task.quality, task.musicInfo)
     let lastErr: unknown
     for (let attempt = 0; attempt < 3; attempt++) {
-      try {
-        return await fetchUrl(attempt > 0)
-      } catch (err: any) {
-        lastErr = err
-        console.log(`[DownloadManager] URL fetch attempt ${attempt + 1} failed: ${err?.message || err}`)
-        if (attempt < 2) await this.delay(500 * (attempt + 1))
+      const isRefresh = attempt > 0
+      for (const q of qualityOrder) {
+        try {
+          return await fetchUrlAt(q as LX.Quality, isRefresh)
+        } catch (err: any) {
+          lastErr = err
+          console.log(`[DownloadManager] URL fetch ${q} (attempt ${attempt + 1}) failed: ${err?.message || err}`)
+        }
       }
+      if (attempt < 2) await this.delay(500 * (attempt + 1))
     }
     throw new Error(`获取下载链接失败: ${lastErr instanceof Error ? lastErr.message : '未知错误'}`)
   }

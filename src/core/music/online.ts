@@ -44,7 +44,7 @@ export const setPic = (datas: {
 /**
  * 音质降级顺序：从首选音质开始，按 qualityList 顺序向更低音质递减
  */
-const buildQualityFallbackOrder = (targetQuality: LX.Quality, musicInfo: LX.Music.MusicInfoOnline): string[] => {
+export const buildQualityFallbackOrder = (targetQuality: LX.Quality, musicInfo: LX.Music.MusicInfoOnline): string[] => {
   const list: string[] = (global.lx.qualityList as Partial<Record<string, string[]>> | undefined)?.[musicInfo.source] ?? []
   const order: string[] = [targetQuality]
   if (!list.length) return order
