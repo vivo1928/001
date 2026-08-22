@@ -15,26 +15,23 @@ export const ITEM_HEIGHT = scaleSizeH(LIST_ITEM_HEIGHT)
 
 const useQualityTag = (musicInfo: LX.Music.MusicInfoOnline) => {
   const t = useI18n()
-  const source = musicInfo.source
-  const sourceQualitys = global.lx.qualityList[source] ?? []
-  const hasQuality = (q: LX.Quality) => musicInfo.meta._qualitys[q] != null || sourceQualitys.includes(q)
   let info: { type: BadgeType | null, text: string } = { type: null, text: '' }
-  if (hasQuality('master')) {
+  if (musicInfo.meta._qualitys.master) {
     info.type = 'normal'
     info.text = t('quality_master')
-  } else if (hasQuality('atmos_plus')) {
+  } else if (musicInfo.meta._qualitys.atmos_plus) {
     info.type = 'normal'
     info.text = t('quality_atmos_plus')
-  } else if (hasQuality('atmos')) {
+  } else if (musicInfo.meta._qualitys.atmos) {
     info.type = 'normal'
     info.text = t('quality_atmos')
-  } else if (hasQuality('hires') || hasQuality('flac24bit')) {
+  } else if (musicInfo.meta._qualitys.hires ?? musicInfo.meta._qualitys.flac24bit) {
     info.type = 'secondary'
     info.text = t('quality_lossless_24bit')
-  } else if (hasQuality('flac') || hasQuality('ape')) {
+  } else if (musicInfo.meta._qualitys.flac ?? musicInfo.meta._qualitys.ape) {
     info.type = 'secondary'
     info.text = t('quality_lossless')
-  } else if (hasQuality('320k')) {
+  } else if (musicInfo.meta._qualitys['320k']) {
     info.type = 'tertiary'
     info.text = t('quality_high_quality')
   }

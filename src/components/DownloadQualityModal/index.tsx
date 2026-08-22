@@ -69,15 +69,8 @@ export default forwardRef<DownloadQualityModalType>((_props, ref) => {
   const getAvailableQualities = (): LX.Quality[] => {
     if (!musicInfo) return []
     const _qualitys = musicInfo.meta._qualitys
-    const sourceQualities = global.lx.qualityList[musicInfo.source] ?? []
-    const allQualities = new Set<LX.Quality>()
-    for (const q of Object.keys(_qualitys) as LX.Quality[]) {
-      if (_qualitys[q] != null) allQualities.add(q)
-    }
-    for (const q of sourceQualities) {
-      if (!_qualitys[q]) allQualities.add(q)
-    }
-    return QUALITY_DISPLAY_ORDER.filter(q => allQualities.has(q))
+    const qualities = Object.keys(_qualitys) as LX.Quality[]
+    return QUALITY_DISPLAY_ORDER.filter(q => _qualitys[q] != null)
   }
 
   return (
