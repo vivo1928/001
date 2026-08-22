@@ -78,6 +78,10 @@ export default forwardRef<DownloadQualityModalType>((_props, ref) => {
     for (const q of sourceQualities) {
       if (!_qualitys[q]) allQualities.add(q)
     }
+    // 通用高级音质补全：即使源 qualityList 未声明，也确保下载可选
+    for (const q of ['hires', 'atmos', 'atmos_plus', 'master'] as LX.Quality[]) {
+      allQualities.add(q)
+    }
     return QUALITY_DISPLAY_ORDER.filter(q => allQualities.has(q))
   }
 

@@ -56,11 +56,6 @@ export default {
           size,
         }
       }
-      // 补齐 hires/atmos/master（与 flac24bit 同源）
-      for (const q of ['hires', 'atmos', 'master']) {
-        types.push({ type: q, size: '' })
-        _types[q] = { size: '' }
-      }
       switch (privilege.maxbr) {
         case 999000:
           size = item.sq ? sizeFormate(item.sq.size) : null

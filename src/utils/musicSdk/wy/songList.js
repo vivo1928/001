@@ -144,11 +144,6 @@ export default {
           size,
         }
       }
-      // 补齐 hires/atmos/master
-      for (const q of ['hires', 'atmos', 'master']) {
-        types.push({ type: q, size: '' })
-        _types[q] = { size: s }
-      }
       switch (privilege.maxbr) {
         case 999000:
           size = null

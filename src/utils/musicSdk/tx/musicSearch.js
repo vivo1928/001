@@ -116,11 +116,6 @@ export default {
           size,
         }
       }
-      // 补齐 hires/atmos/master（与 flac24bit 同源）
-      for (const q of ['hires', 'atmos', 'master']) {
-        types.push({ type: q, size: '' })
-        _types[q] = { size: '' }
-      }
       // types.reverse()
       let albumId = ''
       let albumName = ''

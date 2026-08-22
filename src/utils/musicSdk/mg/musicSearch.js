@@ -169,12 +169,6 @@ export default {
               break
           }
         })
-        // 补齐 hires/atmos/master（与 flac24bit 同源）
-        for (const q of ['hires', 'atmos', 'master']) {
-          types.push({ type: q, size: '' })
-          _types[q] = { size: '' }
-        }
-
         let img = data.img3 || data.img2 || data.img1 || null
         if (img && !/https?:/.test(data.img3)) img = 'http://d.musicapp.migu.cn' + img
 

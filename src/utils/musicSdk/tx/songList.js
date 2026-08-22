@@ -258,11 +258,6 @@ export default {
           size,
         }
       }
-      // 补齐 hires/atmos/master
-      for (const q of ['hires', 'atmos', 'master']) {
-        types.push({ type: q, size: '' })
-        _types[q] = { size: '' }
-      }
       // types.reverse()
       return {
         singer: formatSingerName(item.singer, 'name'),

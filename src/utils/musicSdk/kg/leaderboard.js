@@ -126,11 +126,6 @@ export default {
           hash: item.hash_high,
         }
       }
-      // 补齐 hires/atmos/master
-      for (const q of ['hires', 'atmos', 'master']) {
-        types.push({ type: q, size: '' })
-        _types[q] = { size: s }
-      }
       return {
         singer: formatSingerName(item.authors, 'author_name'),
         name: decodeName(item.songname),

@@ -260,12 +260,6 @@ export default {
       }
       types.reverse()
 
-      // 补齐 hires/atmos/master
-      for (const q of ['hires', 'atmos', 'master']) {
-        types.push({ type: q, size: '' })
-        _types[q] = { size: s }
-      }
-
       return {
         singer: item.artists.map(s => s.name).join('、'),
         name: item.name,
@@ -434,12 +428,6 @@ export default {
         }
       }
       types.reverse()
-
-      // 补齐 hires/atmos/master
-      for (const q of ['hires', 'atmos', 'master']) {
-        types.push({ type: q, size: '' })
-        _types[q] = { size: '' }
-      }
 
       return {
         singer: formatSinger(decodeName(item.artist)),

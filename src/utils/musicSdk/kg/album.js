@@ -80,12 +80,6 @@ const toMusicInfo = (item) => {
     _types.flac24bit = { size, hash: item.audio_info.hash_high }
   }
 
-  // 补齐 hires/atmos/master
-  for (const q of ['hires', 'atmos', 'master']) {
-    types.push({ type: q, size: '' })
-    _types[q] = { size: s }
-  }
-
   return {
     singer: decodeName(item.author_name),
     name: decodeName(item.songname),
@@ -127,11 +121,6 @@ const searchToMusicInfo = (rawData) => {
     let size = sizeFormate(rawData.ResFileSize)
     types.push({ type: 'flac24bit', size, hash: rawData.ResFileHash })
     _types.flac24bit = { size, hash: rawData.ResFileHash }
-  }
-  // 补齐 hires/atmos/master
-  for (const q of ['hires', 'atmos', 'master']) {
-    types.push({ type: q, size: '' })
-    _types[q] = { size: s }
   }
   return {
     singer: decodeName(rawData.SingerName || ''),

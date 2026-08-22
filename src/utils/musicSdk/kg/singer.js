@@ -235,7 +235,7 @@ export default {
       // 降级：返回基本信息 + 各音质 hash 填主 hash（保证后端能返回链接，避免播放降级到慢 CDN）
       listData = infoList.map(item => {
         const mainHash = item.hash || ''
-        const qualityMap = { '128k': {}, '320k': {}, flac: {}, hires: {}, atmos: {}, master: {} }
+        const qualityMap = { '128k': {}, '320k': {}, flac: {}, hires: {}, atmos: {}, atmos_plus: {}, master: {} }
         const mkTypes = () => Object.fromEntries(
           Object.keys(qualityMap).map(q => [q, { size: '', hash: mainHash }]),
         )

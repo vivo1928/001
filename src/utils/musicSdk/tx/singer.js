@@ -115,7 +115,7 @@ const formatSongList = (rawList) => {
     // 补齐完整分级音质（flac24bit/flac/320k/128k/hires/atmos/master），确保播放可从设置档向下递进
     for (const q of ['flac24bit', 'flac', '320k', '128k', 'hires', 'atmos', 'master']) {
       if (!_types[q]) {
-        const size = (q === 'hires' || q === 'atmos' || q === 'master') ? '' : ''
+        const size = (q === 'hires' || q === 'atmos' || q === 'atmos_plus' || q === 'master') ? '' : ''
         types.push({ type: q, size })
         _types[q] = { size }
       }

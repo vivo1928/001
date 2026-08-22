@@ -79,12 +79,6 @@ export default {
         types.push({ type: 'flac24bit', size })
         _types.flac24bit = { size }
       }
-      // 补齐 hires/atmos/master
-      for (const q of ['hires', 'atmos', 'master']) {
-        types.push({ type: q, size: '' })
-        _types[q] = { size: '' }
-      }
-
       return {
         singer: formatSingerName(songInfo.singer, 'name'),
         name: songInfo.title || songInfo.name,

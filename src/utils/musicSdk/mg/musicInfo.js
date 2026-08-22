@@ -62,12 +62,6 @@ export const filterMusicInfoList = (rawList) => {
       }
     })
 
-    // 补齐 hires/atmos/master
-    for (const q of ['hires', 'atmos', 'master']) {
-      types.push({ type: q, size: '' })
-      _types[q] = { size: '' }
-    }
-
     const intervalTest = /(\d\d:\d\d)$/.test(item.length)
 
     list.push({
@@ -135,12 +129,6 @@ export const filterMusicInfoListV5 = (rawList) => {
           break
       }
     })
-
-    // 补齐 hires/atmos/master
-    for (const q of ['hires', 'atmos', 'master']) {
-      types.push({ type: q, size: '' })
-      _types[q] = { size: '' }
-    }
 
     list.push({
       singer: formatSingerName(item.singerList, 'name'),
