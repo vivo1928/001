@@ -33,8 +33,8 @@ const filterSongList = (rawList, singerid, privileges) => {
       types.push({ type: '192k', size: '' })
       _types['192k'] = { size: '' }
     }
-    // 补齐完整分级音质（flac24bit/flac/320k/128k），确保播放可从设置档向下递进
-    for (const q of ['flac24bit', 'flac', '320k', '128k']) {
+    // 补齐完整分级音质（flac24bit/flac/320k/128k/hires/atmos/master），确保播放可从设置档向下递进
+    for (const q of ['flac24bit', 'flac', '320k', '128k', 'hires', 'atmos', 'master']) {
       if (!_types[q]) {
         types.push({ type: q, size: '' })
         _types[q] = { size: '' }

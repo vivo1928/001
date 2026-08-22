@@ -126,6 +126,14 @@ export default {
           hash: item.hash_high,
         }
       }
+      if (_types.flac24bit) {
+        for (const q of ['hires', 'atmos', 'master']) {
+          if (!_types[q]) {
+            types.push({ type: q, size: '' })
+            _types[q] = { size: '' }
+          }
+        }
+      }
       return {
         singer: formatSingerName(item.authors, 'author_name'),
         name: decodeName(item.songname),

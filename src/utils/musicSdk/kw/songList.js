@@ -260,6 +260,15 @@ export default {
       }
       types.reverse()
 
+      if (_types.flac24bit) {
+        for (const q of ['hires', 'atmos', 'master']) {
+          if (!_types[q]) {
+            types.push({ type: q, size: '' })
+            _types[q] = { size: '' }
+          }
+        }
+      }
+
       return {
         singer: item.artists.map(s => s.name).join('、'),
         name: item.name,
@@ -429,11 +438,20 @@ export default {
       }
       types.reverse()
 
+      if (_types.flac24bit) {
+        for (const q of ['hires', 'atmos', 'master']) {
+          if (!_types[q]) {
+            types.push({ type: q, size: '' })
+            _types[q] = { size: '' }
+          }
+        }
+      }
+
       return {
         singer: formatSinger(decodeName(item.artist)),
         name: decodeName(item.name),
         albumName: decodeName(item.album),
-        albumId: item.albumid,
+        albumid: item.albumid,
         songmid: item.id,
         source: 'kw',
         interval: formatPlayTime(parseInt(item.duration)),

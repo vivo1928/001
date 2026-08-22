@@ -854,6 +854,14 @@ export default {
           hash: item.audio_info.hash_high,
         }
       }
+      if (_types.flac24bit) {
+        for (const q of ['hires', 'atmos', 'master']) {
+          if (!_types[q]) {
+            types.push({ type: q, size: '' })
+            _types[q] = { size: '' }
+          }
+        }
+      }
       list.push({
         singer: decodeName(item.author_name),
         name: decodeName(item.songname),

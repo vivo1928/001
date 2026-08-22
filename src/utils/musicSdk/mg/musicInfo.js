@@ -62,6 +62,15 @@ export const filterMusicInfoList = (rawList) => {
       }
     })
 
+    if (_types.flac24bit) {
+      for (const q of ['hires', 'atmos', 'master']) {
+        if (!_types[q]) {
+          types.push({ type: q, size: '' })
+          _types[q] = { size: '' }
+        }
+      }
+    }
+
     const intervalTest = /(\d\d:\d\d)$/.test(item.length)
 
     list.push({
@@ -129,6 +138,15 @@ export const filterMusicInfoListV5 = (rawList) => {
           break
       }
     })
+
+    if (_types.flac24bit) {
+      for (const q of ['hires', 'atmos', 'master']) {
+        if (!_types[q]) {
+          types.push({ type: q, size: '' })
+          _types[q] = { size: '' }
+        }
+      }
+    }
 
     list.push({
       singer: formatSingerName(item.singerList, 'name'),

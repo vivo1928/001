@@ -258,6 +258,14 @@ export default {
           size,
         }
       }
+      if (_types.flac24bit) {
+        for (const q of ['hires', 'atmos', 'master']) {
+          if (!_types[q]) {
+            types.push({ type: q, size: '' })
+            _types[q] = { size: '' }
+          }
+        }
+      }
       // types.reverse()
       return {
         singer: formatSingerName(item.singer, 'name'),
