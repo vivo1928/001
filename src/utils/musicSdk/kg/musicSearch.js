@@ -50,8 +50,10 @@ export default {
     if (_types.flac24bit) {
       for (const q of ['hires', 'atmos', 'master']) {
         if (!_types[q]) {
-          types.push({ type: q, size: '', hash: rawData.ResFileHash })
-          _types[q] = { size: '', hash: rawData.ResFileHash }
+          const s = _types.flac24bit?.size ?? ''
+          const h = _types.flac24bit?.hash ?? rawData.ResFileHash
+          types.push({ type: q, size: s, hash: h })
+          _types[q] = { size: s, hash: h }
         }
       }
     }

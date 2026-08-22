@@ -83,8 +83,8 @@ const toMusicInfo = (item) => {
   if (_types.flac24bit) {
     for (const q of ['hires', 'atmos', 'master']) {
       if (!_types[q]) {
-        types.push({ type: q, size: '' })
-        _types[q] = { size: '' }
+        const s = _types.flac24bit?.size ?? ''; types.push({ type: q, size: s })
+        _types[q] = { size: s }
       }
     }
   }
@@ -134,8 +134,8 @@ const searchToMusicInfo = (rawData) => {
   if (_types.flac24bit) {
     for (const q of ['hires', 'atmos', 'master']) {
       if (!_types[q]) {
-        types.push({ type: q, size: '' })
-        _types[q] = { size: '' }
+        const s = _types.flac24bit?.size ?? ''; types.push({ type: q, size: s })
+        _types[q] = { size: s }
       }
     }
   }
