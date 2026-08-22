@@ -217,18 +217,26 @@ export const TRY_QUALITYS_LIST = ['flac24bit', 'flac', '320k'] as const
 type TryQualityType = typeof TRY_QUALITYS_LIST[number]
 export const getPlayQuality = (highQuality: LX.Quality, musicInfo: LX.Music.MusicInfoOnline): LX.Quality => {
   let type: LX.Quality = '128k'
-  if (TRY_QUALITYS_LIST.includes(highQuality as TryQualityType)) {
-    let list = global.lx.qualityList[musicInfo.source]
+  let list = global.lx.qualityList[musicInfo.source]
+  if (!list?.length) return type
 
-    // 优先尝试首选音质（即使 _qualitys 不包含该音质，自定义音源可能仍能返回）
-    if (list?.includes(highQuality)) {
-      type = highQuality
-    } else {
-      let t = TRY_QUALITYS_LIST
-        .slice(TRY_QUALITYS_LIST.indexOf(highQuality as TryQualityType))
-        .find(q => musicInfo.meta._qualitys[q] && list?.includes(q))
-      if (t) type = t
+  // 首选音质直接可用（不依赖 _qualitys，自定义音源可能仍能返回）
+  if (list.includes(highQuality)) return highQuality
+
+  // 从首选音质在 qualityList 的位置开始，向高音质遍历
+  // 再向低音质遍历，取第一个 _qualitys 中存在的音质
+  const idx = list.indexOf(highQuality)
+  if (idx >= 0) {
+    for (let i = idx + 1; i < list.length; i++) {
+      if (musicInfo.meta._qualitys[list[i]]) return list[i]
     }
+    for (let i = idx - 1; i >= 0; i--) {
+      if (musicInfo.meta._qualitys[list[i]]) return list[i]
+    }
+  }
+  // 首选音质不在 qualityList 中，从高到低遍历
+  for (let i = list.length - 1; i >= 0; i--) {
+    if (musicInfo.meta._qualitys[list[i]]) return list[i]
   }
   return type
 }
