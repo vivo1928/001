@@ -5,7 +5,7 @@ import { deduplicationList, toNewMusicInfo } from '@/utils'
 import musicSdk from '@/utils/musicSdk'
 
 const LIMIT = 30
-const FETCH_TIMEOUT = 10000
+const FETCH_TIMEOUT = 8000
 // 各源歌手接口单次可请求的歌曲数（kw 接口 rn 上限约 90 取 30 最稳妥，mg 接口 pageSize 受限保持 30，其余源按 100）
 const SOURCE_FETCH_LIMIT: Record<string, number> = {
   kw: 30,
@@ -154,7 +154,7 @@ const getListLimit = async(source: LX.OnlineSource, singerId: string, page: numb
     try {
       const fetchLimit = SOURCE_FETCH_LIMIT[source] || 100
       result = await withTimeout(
-        sdk.singer!.getSingerSongList!(singerId, sourcePage + 1, fetchLimit),
+        sdk.singer!.getSingerSongList!(singerId, sourcePage + 1, fetchLimit, singerName),
         FETCH_TIMEOUT,
         `Singer API timeout for source: ${source}`,
       )
@@ -299,7 +299,7 @@ export const getListDetailAll = async(id: string, isRefresh = false): Promise<{ 
   const fetchPage = async(sourcePage: number): Promise<{ list: any[], total: number, limit: number }> => {
     if (hasSingerApi) {
       const r = await withTimeout(
-        sdk.singer!.getSingerSongList!(singerId, sourcePage, fetchLimit),
+        sdk.singer!.getSingerSongList!(singerId, sourcePage, fetchLimit, singerName),
         FETCH_TIMEOUT,
         `Singer API timeout for source: ${source}, page: ${sourcePage}`,
       )
