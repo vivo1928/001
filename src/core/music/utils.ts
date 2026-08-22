@@ -223,9 +223,6 @@ export const getPlayQuality = (highQuality: LX.Quality, musicInfo: LX.Music.Musi
   // 首选音质直接可用（不依赖 _qualitys，自定义音源可能仍能返回）
   if (list.includes(highQuality)) return highQuality
 
-  // 自定义源未声明但 _qualitys 中存在（经 extendQualityTypes 补齐），直接使用
-  if (musicInfo.meta._qualitys[highQuality] != null) return highQuality
-
   // 首选音质不在 qualityList，从设置档向下（更低音质）遍历取可用的
   const idx = list.indexOf(highQuality)
   if (idx >= 0) {
