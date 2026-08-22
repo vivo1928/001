@@ -5,10 +5,10 @@ import { deduplicationList, toNewMusicInfo } from '@/utils'
 import musicSdk from '@/utils/musicSdk'
 
 const LIMIT = 30
-const FETCH_TIMEOUT = 8000
-// 各源歌手接口单次可请求的歌曲数（kw 接口 rn 上限约 90 取 30 最稳妥，mg 接口 pageSize 受限保持 30，其余源按 100）
+const FETCH_TIMEOUT = 10000
+const MUSIC_SEARCH_TIMEOUT = 8000
+// 各源歌手接口单次可请求的歌曲数（mg 接口 pageSize 受限保持 30，其余源按 100）
 const SOURCE_FETCH_LIMIT: Record<string, number> = {
-  kw: 30,
   tx: 100,
   kg: 100,
   wy: 100,
@@ -179,7 +179,7 @@ const getListLimit = async(source: LX.OnlineSource, singerId: string, page: numb
       if (!sdk?.musicSearch) throw new Error('musicSearch not supported for source: ' + source)
       result = await withTimeout(
         sdk.musicSearch.search(singerName, sourcePage + 1, LIMIT),
-        FETCH_TIMEOUT,
+        MUSIC_SEARCH_TIMEOUT,
         `musicSearch timeout for source: ${source}`,
       )
       result = {
@@ -196,7 +196,7 @@ if (sourcePage === 0) fetchSingerInfo()
     if (!sdk?.musicSearch) throw new Error('musicSearch not supported for source: ' + source)
     result = await withTimeout(
       sdk.musicSearch.search(singerName, sourcePage + 1, LIMIT),
-      FETCH_TIMEOUT,
+      MUSIC_SEARCH_TIMEOUT,
       `musicSearch timeout for source: ${source}`,
     )
     result = {
@@ -311,7 +311,7 @@ export const getListDetailAll = async(id: string, isRefresh = false): Promise<{ 
     if (!sdk.musicSearch) throw new Error('musicSearch not supported for source: ' + source)
     const r = await withTimeout(
       sdk.musicSearch.search(singerName, sourcePage, LIMIT),
-      FETCH_TIMEOUT,
+      MUSIC_SEARCH_TIMEOUT,
       `musicSearch timeout for source: ${source}, page: ${sourcePage}`,
     )
     return { list: r.list || [], total: r.total || 0, limit: LIMIT }
