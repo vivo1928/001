@@ -329,11 +329,13 @@ export const getListDetailAll = async(id: string, isRefresh = false): Promise<{ 
     }
   }
 
-  const PAGES_MAX = 100
+  const PAGES_MAX = 50
   const totalPages = Math.min(maxSourcePage - 1, PAGES_MAX)
   const pages = Array.from({ length: totalPages }, (_, i) => i + 2)
+  let stopFetch = false
   const failedPages: number[] = []
   const collect = async(pageList: number[]) => {
+    if (stopFetch) return
     const results = await Promise.allSettled(pageList.map(p =>
       fetchPage(p).then(r => ({ page: p, list: r.list })).catch(err => {
         console.warn(`[singerDetail] fetch page ${p} failed: ${err?.message || err}`)
@@ -341,30 +343,22 @@ export const getListDetailAll = async(id: string, isRefresh = false): Promise<{ 
       }),
     ))
     for (const r of results) {
-      if (r.status === 'fulfilled' && r.value.list) allSongs.push(...r.value.list)
-      else if (r.status === 'fulfilled' && !r.value.list) failedPages.push(r.value.page)
+      if (r.status === 'fulfilled' && r.value.list) {
+        allSongs.push(...r.value.list)
+      } else if (r.status === 'fulfilled' && !r.value.list) {
+        // API 返回空页，说明已无更多歌曲，停止后续拉取
+        stopFetch = true
+        break
+      }
     }
   }
 
-  for (let i = 0; i < pages.length; i += PAGES_PER_BATCH) {
+  for (let i = 0; i < pages.length && !stopFetch; i += PAGES_PER_BATCH) {
     await collect(pages.slice(i, i + PAGES_PER_BATCH))
   }
 
-  // 失败页重试一次
-  const retryFailed: number[] = []
-  for (let attempt = 0; attempt <= MAX_RETRY && failedPages.length; attempt++) {
-    const current = [...failedPages]
-    failedPages.length = 0
-    const results = await Promise.allSettled(current.map(p =>
-      fetchPage(p).then(r => ({ page: p, list: r.list })).catch(() => ({ page: p, list: null as any[] | null })),
-    ))
-    for (const r of results) {
-      if (r.status === 'fulfilled' && r.value.list) allSongs.push(...r.value.list)
-      else if (r.status === 'fulfilled') retryFailed.push(r.value.page)
-    }
-  }
-  if (retryFailed.length) {
-    console.warn(`[singerDetail] pages still failed after retry: ${retryFailed.join(',')}, total=${firstPage.total}`)
+  if (stopFetch) {
+    console.log(`[singerDetail] stopped fetching at page after ${pages[0] + Math.floor(allSongs.length / firstPage.limit)}, total=${firstPage.total}`)
   }
 
   let resultList = deduplicationList(allSongs.map(m => toNewMusicInfo(m)) as LX.Music.MusicInfoOnline[])

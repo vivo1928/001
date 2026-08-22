@@ -1,12 +1,43 @@
 const { eapiRequest, directRequest } = require('./utils/index')
 
-const filterSongList = (rawList, singerid) => {
+const filterSongList = (rawList, singerid, privileges) => {
   if (!rawList || !Array.isArray(rawList)) return []
+  const privMap = new Map()
+  if (privileges) {
+    for (const p of privileges) {
+      if (p && p.id) privMap.set(p.id, p)
+    }
+  }
   return rawList.map(item => {
     const artists = (item.ar || item.artists || []).map(a => a.name).join('、')
     const types = []
     const _types = {}
-    // 简化处理：只返回基本信息，由 getMusicInfosByList 补充详情
+    const priv = privMap.get(item.id) || item.privilege || {}
+    const maxbr = priv.maxbr || 0
+    if (maxbr >= 999000) {
+      types.push({ type: 'flac', size: '' })
+      _types.flac = { size: '' }
+    }
+    if (maxbr >= 320000 && maxbr < 999000) {
+      types.push({ type: '320k', size: '' })
+      _types['320k'] = { size: '' }
+    }
+    if (maxbr >= 128000) {
+      const has128 = !types.some(t => t.type === '320k' || t.type === 'flac')
+      if (has128 || maxbr < 320000) {
+        types.push({ type: '128k', size: '' })
+        _types['128k'] = { size: '' }
+      }
+    }
+    if (maxbr >= 192000 && maxbr < 320000) {
+      types.push({ type: '192k', size: '' })
+      _types['192k'] = { size: '' }
+    }
+    // 若 maxbr 为 0 或 undefined，补一个默认 128k 让下载至少有一个选项
+    if (!types.length) {
+      types.push({ type: '128k', size: '' })
+      _types['128k'] = { size: '' }
+    }
     return {
       id: 'wy_' + item.id,
       singer: artists || '',
@@ -131,7 +162,7 @@ module.exports = {
     }
     const songs = body.songs || []
     if (!songs.length) throw new Error('获取歌手歌曲列表失败: 歌曲列表为空')
-    const list = filterSongList(songs, singerid)
+    const list = filterSongList(songs, singerid, body.privileges)
     const singerInfo = await this.getSingerInfo(singerid).catch(() => null)
     return {
       source: 'wy',
