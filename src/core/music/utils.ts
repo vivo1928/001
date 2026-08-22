@@ -214,7 +214,7 @@ export const getOnlineOtherSourcePicByLocal = async(musicInfo: LX.Music.MusicInf
 }
 
 export const TRY_QUALITYS_LIST = ['flac24bit', 'flac', '320k'] as const
-type TryQualityType = typeof TRY_QUALITYS_LIST[number]
+
 export const getPlayQuality = (highQuality: LX.Quality, musicInfo: LX.Music.MusicInfoOnline): LX.Quality => {
   let type: LX.Quality = '128k'
   let list = global.lx.qualityList[musicInfo.source]
@@ -223,18 +223,14 @@ export const getPlayQuality = (highQuality: LX.Quality, musicInfo: LX.Music.Musi
   // 首选音质直接可用（不依赖 _qualitys，自定义音源可能仍能返回）
   if (list.includes(highQuality)) return highQuality
 
-  // 从首选音质在 qualityList 的位置开始，向高音质遍历
-  // 再向低音质遍历，取第一个 _qualitys 中存在的音质
+  // 首选音质不在 qualityList，从设置档向下（更低音质）遍历取可用的
   const idx = list.indexOf(highQuality)
   if (idx >= 0) {
-    for (let i = idx + 1; i < list.length; i++) {
-      if (musicInfo.meta._qualitys[list[i]]) return list[i]
-    }
-    for (let i = idx - 1; i >= 0; i--) {
+    for (let i = idx; i >= 0; i--) {
       if (musicInfo.meta._qualitys[list[i]]) return list[i]
     }
   }
-  // 首选音质不在 qualityList 中，从高到低遍历
+  // 完全不在 qualityList 时，从最高音质向下取可用
   for (let i = list.length - 1; i >= 0; i--) {
     if (musicInfo.meta._qualitys[list[i]]) return list[i]
   }

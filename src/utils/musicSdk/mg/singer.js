@@ -116,10 +116,14 @@ export default {
       if (!list || !list.songList) return Promise.reject(new Error('Get singer song list error.'))
 
       const songList = filterMusicInfoList(list.songList).map(item => {
-        // audioFormats 信息缺失时补默认 128k，确保 _types 非空（自定义音源能返回链接）
-        if (item.types && !item.types.length) {
-          item.types = [{ type: '128k', size: '' }]
-          item._types = { '128k': { size: '' } }
+        // 补齐完整分级音质（flac24bit/flac/320k/128k），确保播放可从设置档向下递进
+        if (!item.types) item.types = []
+        if (!item._types) item._types = {}
+        for (const q of ['flac24bit', 'flac', '320k', '128k']) {
+          if (!item._types[q]) {
+            item.types.push({ type: q, size: '' })
+            item._types[q] = { size: '' }
+          }
         }
         return item
       })

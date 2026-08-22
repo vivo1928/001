@@ -33,10 +33,12 @@ const filterSongList = (rawList, singerid, privileges) => {
       types.push({ type: '192k', size: '' })
       _types['192k'] = { size: '' }
     }
-    // 若 maxbr 为 0 或 undefined，补一个默认 128k 让下载至少有一个选项
-    if (!types.length) {
-      types.push({ type: '128k', size: '' })
-      _types['128k'] = { size: '' }
+    // 补齐完整分级音质（flac24bit/flac/320k/128k），确保播放可从设置档向下递进
+    for (const q of ['flac24bit', 'flac', '320k', '128k']) {
+      if (!_types[q]) {
+        types.push({ type: q, size: '' })
+        _types[q] = { size: '' }
+      }
     }
     return {
       id: 'wy_' + item.id,
