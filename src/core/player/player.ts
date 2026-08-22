@@ -145,7 +145,8 @@ export const setMusicUrl = (musicInfo: LX.Music.MusicInfo | LX.Download.ListItem
   if (!diffCurrentMusicInfo(musicInfo)) return
   if (cancelDelayRetry) cancelDelayRetry()
   global.lx.gettingUrlId = createGettingUrlId(musicInfo)
-  void getMusicPlayUrl(musicInfo, isRefresh).then((url) => {
+  // 首次播放强制 isRefresh=true，避免缓存过期 URL 导致播放缓冲
+  void getMusicPlayUrl(musicInfo, isRefresh ?? true).then((url) => {
     if (!url) return
     setResource(musicInfo, url, playerState.progress.nowPlayTime)
   }).catch((err: any) => {
