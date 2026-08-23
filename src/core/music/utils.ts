@@ -13,6 +13,13 @@ import BackgroundTimer from 'react-native-background-timer'
 import { apis } from '@/utils/musicSdk/api-source'
 import { extendQualityTypes } from '@/utils/musicSdk/utils'
 
+// ── 单歌临时音质覆盖 ──
+// 播放详情页手动切换音质时设置，切歌后清空
+let tempPlayQuality: LX.Quality | null = null
+export const setTempPlayQuality = (q: LX.Quality | null) => { tempPlayQuality = q }
+export const getTempPlayQuality = (): LX.Quality | null => tempPlayQuality
+export const clearTempPlayQuality = () => { tempPlayQuality = null }
+
 
 const getOtherSourcePromises = new Map()
 export const existTimeExp = /\[\d{1,2}:.*\d{1,4}\]/
@@ -220,6 +227,20 @@ export const getPlayQuality = (highQuality: LX.Quality, musicInfo: LX.Music.Musi
   let type: LX.Quality = '128k'
   let list = global.lx.qualityList[musicInfo.source]
   if (!list?.length) return type
+
+  // 单歌临时音质覆盖（播放详情页手动切换）
+  const override = getTempPlayQuality()
+  if (override) {
+    if (list.includes(override)) return override
+    // 覆盖音质不在 qualityList 中时，从设置档向下遍历取可用
+    const idx = list.indexOf(override)
+    if (idx >= 0) {
+      for (let i = idx; i >= 0; i--) {
+        if (musicInfo.meta._qualitys[list[i]]) return list[i]
+      }
+    }
+    // 完全不可用时回退到全局默认逻辑
+  }
 
   // 扩展音质列表：将 qualityList 中缺失的高品质补入 _qualitys，确保播放时能正确选用
   extendQualityTypes(musicInfo)

@@ -9,6 +9,7 @@ import SettingPlaybackRate from './settings/SettingPlaybackRate'
 import SettingLrcFontSize from './settings/SettingLrcFontSize'
 import SettingLrcAlign from './settings/SettingLrcAlign'
 import SettingEqualizer from './settings/SettingEqualizer'
+import SettingPlayQuality from './settings/SettingPlayQuality'
 
 export interface SettingPopupProps extends Omit<PopupProps, 'children'> {
   direction: 'vertical' | 'horizontal'
@@ -23,6 +24,10 @@ export default forwardRef<SettingPopupType, SettingPopupProps>(({ direction, ...
   const popupRef = useRef<PopupType>(null)
   // console.log('render import export')
   const t = useI18n()
+
+  const closeSettingPopup = useRef(() => {
+    popupRef.current?.setVisible(false)
+  }).current
 
   useImperativeHandle(ref, () => ({
     show() {
@@ -46,6 +51,7 @@ export default forwardRef<SettingPopupType, SettingPopupProps>(({ direction, ...
               <SettingLyricProgress />
               <SettingVolume />
               <SettingPlaybackRate />
+              <SettingPlayQuality onCloseSettingPopup={closeSettingPopup} />
               <SettingLrcFontSize direction={direction} />
               <SettingLrcAlign />
               <SettingEqualizer />

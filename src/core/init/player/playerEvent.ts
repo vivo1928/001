@@ -5,6 +5,7 @@ import { isActive } from '@/utils/tools'
 import BackgroundTimer from 'react-native-background-timer'
 import playerState from '@/store/player/state'
 import { setNowPlayTime } from '@/core/player/progress'
+import { clearTempPlayQuality } from '@/core/music/utils'
 
 
 export default () => {
@@ -149,6 +150,7 @@ export default () => {
     prevTimeoutId = null
     clearDelayNextTimeout()
     clearLoadingTimeout()
+    clearTempPlayQuality()
   }
 
   // const handlePlayedStop = () => {
