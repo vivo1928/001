@@ -151,8 +151,9 @@ const handlePlayMusic = async(musicInfo: LX.Player.PlayMusic, url: string, time:
 // console.log(tracks, time)
   const tracks = buildTracks(musicInfo, url)
   const track = tracks[0]
-  // await updateMusicInfo(track)
-  const currentTrackIndex = await TrackPlayer.getCurrentTrack()
+  // 重置播放器，清除旧队列，避免快速切歌时 ExoPlayer 进入错误状态
+  list.length = 0
+  await TrackPlayer.reset()
   await TrackPlayer.add(tracks).then(() => list.push(...tracks))
   const queue = await TrackPlayer.getQueue() as LX.Player.Track[]
   await TrackPlayer.skip(queue.findIndex(t => t.id == track.id))
