@@ -23,6 +23,8 @@ export const extendQualityTypes = (musicInfo) => {
   if (!types || !_types) return
   for (const q of sourceQualitys) {
     if (_types[q] != null) continue
+    // 只补高品质（master/hires/atmos/atmos_plus），320k 及以下由 SDK 原生处理
+    if (q === '128k' || q === '192k' || q === '320k') continue
     types.push({ type: q, size: '' })
     _types[q] = { size: '' }
   }
