@@ -69,9 +69,18 @@ export default forwardRef<DownloadQualityModalType>((_props, ref) => {
   const getAvailableQualities = (): LX.Quality[] => {
     if (!musicInfo) return []
     const _qualitys = musicInfo.meta._qualitys
+    const sourceQualities = global.lx.qualityList[musicInfo.source] ?? []
     const allQualities = new Set<LX.Quality>()
+    // API 实际返回的音质
     for (const q of Object.keys(_qualitys) as LX.Quality[]) {
       if (_qualitys[q] != null) allQualities.add(q)
+    }
+    // 补充插件声明但 API 未返回的高级音质（flac24bit 及以上）
+    for (const q of sourceQualities) {
+      if (_qualitys[q] != null) continue
+      if (QUALITY_DISPLAY_ORDER.indexOf(q) > QUALITY_DISPLAY_ORDER.indexOf('flac24bit')) {
+        allQualities.add(q)
+      }
     }
     return QUALITY_DISPLAY_ORDER.filter(q => allQualities.has(q))
   }
