@@ -38,7 +38,7 @@ public class EqualizerAudioProcessor implements AudioProcessor {
 
     @Override
     public AudioFormat configure(AudioFormat inputAudioFormat) throws UnhandledAudioFormatException {
-        if (inputAudioFormat.encoding != C.ENCODING_PCM_16BIT) {
+        if (inputAudioFormat.encoding != C.ENCODING_PCM_16BIT && inputAudioFormat.encoding != C.ENCODING_PCM_FLOAT) {
             throw new UnhandledAudioFormatException(inputAudioFormat);
         }
         this.sampleRateHz = inputAudioFormat.sampleRate;
@@ -47,7 +47,7 @@ public class EqualizerAudioProcessor implements AudioProcessor {
 
         // 通知均衡器采样率变化
         equalizer.setSampleRate(sampleRateHz);
-        Log.d(TAG, "Configured: SR=" + sampleRateHz + " channels=" + channelCount);
+        Log.d(TAG, "Configured: SR=" + sampleRateHz + " channels=" + channelCount + " encoding=" + encoding);
 
         return inputAudioFormat;
     }
