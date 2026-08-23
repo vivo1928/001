@@ -8,6 +8,7 @@ import {
   extname,
   temporaryDirectoryPath,
 } from '@/utils/fs'
+import settingState from '@/store/setting/state'
 
 /**
  * 播放缓存模块
@@ -96,6 +97,8 @@ export const cachePlaybackMusic = async(
   const path = getCachePath(key, url)
   const task = (async(): Promise<string | null> => {
     try {
+      // 检查缓存大小限制，超出时淘汰最旧文件
+      await enforceCacheLimit()
       await mkdir(CACHE_DIR).catch(() => {})
       const result = await downloadFile(url, path, {
         connectionTimeout: 30000,
@@ -122,6 +125,26 @@ export const cachePlaybackMusic = async(
   })()
   downloadTasks.set(key, task)
   return task
+}
+
+/**
+ * 检查缓存大小限制，超出时淘汰最旧条目
+ */
+const enforceCacheLimit = async(): Promise<void> => {
+  const maxSizeMB = parseInt(settingState.setting['player.cacheSize']) || 0
+  if (maxSizeMB <= 0) return
+  const maxSizeBytes = maxSizeMB * 1024 * 1024
+  let total = 0
+  for (const entry of cacheIndex.values()) total += entry.size
+  if (total <= maxSizeBytes) return
+  // 按添加顺序淘汰最旧条目，直到低于限制
+  const entries = [...cacheIndex.entries()]
+  for (const [key, entry] of entries) {
+    if (total <= maxSizeBytes) break
+    await unlink(entry.path).catch(() => {})
+    cacheIndex.delete(key)
+    total -= entry.size
+  }
 }
 
 /**

@@ -36,6 +36,7 @@ export default forwardRef<QualitySelectPopupType, { onCloseSettingPopup?: () => 
   const [visible, setVisible] = useState(false)
   const [loading, setLoading] = useState(false)
   const [qualities, setQualities] = useState<LX.Quality[]>([])
+  const [pluginQualities, setPluginQualities] = useState<LX.Quality[]>([])
   const [musicInfo, setMusicInfo] = useState<LX.Music.MusicInfoOnline | null>(null)
   const [error, setError] = useState('')
 
@@ -44,6 +45,7 @@ export default forwardRef<QualitySelectPopupType, { onCloseSettingPopup?: () => 
       setMusicInfo(mi)
       setError('')
       setQualities([])
+      setPluginQualities([])
       setLoading(true)
       if (visible) popupRef.current?.setVisible(true)
       else {
@@ -62,22 +64,24 @@ export default forwardRef<QualitySelectPopupType, { onCloseSettingPopup?: () => 
       const source = mi.source
       const sourceQualitys = global.lx.qualityList[source] ?? []
       const _qualitys = mi.meta._qualitys ?? {}
-      // 合并：_qualitys 中的（API 实际返回）+ qualityList 中补充的
+      // 只显示 API 实际返回的音质（_qualitys 中有数据），避免误导用户
       const merged = new Set<LX.Quality>()
       for (const q of sourceQualitys) {
         if (_qualitys[q] != null) {
           merged.add(q)
         }
       }
-      // 补充插件声明但 API 未返回的高级音质
+      // 同时补充插件声明中 API 未返回的高级音质，以 "(插件)" 标注
+      const pluginQualities: LX.Quality[] = []
       for (const q of sourceQualitys) {
         if (_qualitys[q] == null) {
-          merged.add(q)
+          pluginQualities.push(q)
         }
       }
       const result = Array.from(merged)
       setQualities(result)
-      if (result.length === 0) {
+      setPluginQualities(pluginQualities)
+      if (result.length === 0 && pluginQualities.length === 0) {
         setError(t('play_detail_quality_no_available'))
       }
     } catch (e: any) {
@@ -147,6 +151,30 @@ export default forwardRef<QualitySelectPopupType, { onCloseSettingPopup?: () => 
                 </TouchableOpacity>
               )
             })}
+            {pluginQualities.length > 0 && (
+              <>
+                <View style={styles.pluginDivider} />
+                {pluginQualities.map((q) => {
+                  const label = (QUALITY_LABEL_MAP[q] || q) + ' (插件)'
+                  const isActive = currentQuality === q
+                  return (
+                    <TouchableOpacity
+                      key={q}
+                      style={[styles.qualityRow, isActive && { backgroundColor: theme['c-primary-alpha'] || 'rgba(0,0,0,0.05)' }]}
+                      onPress={() => handleSelect(q)}
+                    >
+                      <Text
+                        size={15}
+                        color={theme['c-font-label']}
+                      >
+                        {label}
+                      </Text>
+                      {isActive && <Text size={12} color={theme['c-primary']}>{t('play_detail_quality_current')}</Text>}
+                    </TouchableOpacity>
+                  )
+                })}
+              </>
+            )}
           </ScrollView>
         )}
       </View>
@@ -182,5 +210,11 @@ const styles = createStyle({
     alignItems: 'center',
     paddingVertical: 12,
     paddingHorizontal: 15,
+  },
+  pluginDivider: {
+    height: 1,
+    backgroundColor: 'rgba(128,128,128,0.2)',
+    marginHorizontal: 15,
+    marginVertical: 4,
   },
 })
