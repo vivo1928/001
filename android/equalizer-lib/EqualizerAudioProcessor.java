@@ -38,7 +38,10 @@ public class EqualizerAudioProcessor implements AudioProcessor {
 
     @Override
     public AudioFormat configure(AudioFormat inputAudioFormat) throws UnhandledAudioFormatException {
-        if (inputAudioFormat.encoding != C.ENCODING_PCM_16BIT && inputAudioFormat.encoding != C.ENCODING_PCM_FLOAT) {
+        if (inputAudioFormat.encoding != C.ENCODING_PCM_16BIT
+                && inputAudioFormat.encoding != C.ENCODING_PCM_FLOAT
+                && inputAudioFormat.encoding != C.ENCODING_PCM_24BIT
+                && inputAudioFormat.encoding != C.ENCODING_PCM_32BIT) {
             throw new UnhandledAudioFormatException(inputAudioFormat);
         }
         this.sampleRateHz = inputAudioFormat.sampleRate;
@@ -69,8 +72,7 @@ public class EqualizerAudioProcessor implements AudioProcessor {
         if (remaining == 0) return;
 
         if (!equalizer.isEnabled()) {
-            // 均衡器未启用时透传。不能直接返回 input 的切片视图：
-            // 其底层存储会被 ExoPlayer 复用覆盖，必须拷贝到自有缓冲区。
+            // 均衡器未启用时透传
             if (pendingOutputBuffer == null || pendingOutputBuffer.capacity() < remaining) {
                 pendingOutputBuffer = ByteBuffer.allocateDirect(remaining).order(ByteOrder.LITTLE_ENDIAN);
             }
@@ -85,7 +87,11 @@ public class EqualizerAudioProcessor implements AudioProcessor {
             return;
         }
 
-        int frameSize = channelCount * 2; // 16-bit PCM = 2 bytes per sample
+        boolean isFloat = encoding == C.ENCODING_PCM_FLOAT;
+        boolean is24Bit = encoding == C.ENCODING_PCM_24BIT;
+        boolean is32Bit = encoding == C.ENCODING_PCM_32BIT;
+        int bytesPerSample = isFloat || is32Bit ? 4 : (is24Bit ? 3 : 2);
+        int frameSize = channelCount * bytesPerSample;
         int frameCount = remaining / frameSize;
         int totalSamples = frameCount * channelCount;
 
@@ -95,16 +101,31 @@ public class EqualizerAudioProcessor implements AudioProcessor {
             processingBufferCapacity = totalSamples;
         }
 
-        // 确保输出ByteBuffer足够大
-        int outputSize = remaining;
-        if (pendingOutputBuffer == null || pendingOutputBuffer.capacity() < outputSize) {
-            pendingOutputBuffer = ByteBuffer.allocateDirect(outputSize).order(ByteOrder.LITTLE_ENDIAN);
+        // 将输入数据转为 16-bit short 数组
+        if (isFloat) {
+            for (int i = 0; i < totalSamples; i++) {
+                float f = input.getFloat(position + i * 4);
+                float clamped = Math.max(-1f, Math.min(1f, f));
+                processingBuffer[i] = (short)(clamped * 32767f);
+            }
+        } else if (is32Bit) {
+            for (int i = 0; i < totalSamples; i++) {
+                int s = input.getInt(position + i * 4);
+                processingBuffer[i] = (short)(s >> 16);
+            }
+        } else if (is24Bit) {
+            for (int i = 0; i < totalSamples; i++) {
+                int off = position + i * 3;
+                int s = (input.get(off) & 0xFF)
+                      | ((input.get(off + 1) & 0xFF) << 8)
+                      | ((input.get(off + 2) & 0xFF) << 16);
+                if ((s & 0x800000) != 0) s |= 0xFF000000;
+                processingBuffer[i] = (short)(s >> 8);
+            }
+        } else {
+            ShortBuffer inputShortBuf = input.asShortBuffer();
+            inputShortBuf.get(processingBuffer, 0, totalSamples);
         }
-        pendingOutputBuffer.clear();
-
-        // 从输入 ByteBuffer 读取 short 数据（保持原有字节序）
-        ShortBuffer inputShortBuf = input.asShortBuffer();
-        inputShortBuf.get(processingBuffer, 0, totalSamples);
 
         // 处理音频数据
         if (channelCount == 2) {
@@ -112,16 +133,40 @@ public class EqualizerAudioProcessor implements AudioProcessor {
         } else if (channelCount == 1) {
             equalizer.processMono(processingBuffer, 0, frameCount);
         } else {
-            // 多声道情况：处理前两个声道，其余声道保持不变
-            // 简化处理：对交织数据只处理每帧前两个采样
             equalizer.processStereo(processingBuffer, 0, frameCount);
         }
 
-        // 将处理后的数据写入输出 ByteBuffer
-        ShortBuffer outputShortBuf = pendingOutputBuffer.asShortBuffer();
-        outputShortBuf.put(processingBuffer, 0, totalSamples);
+        // 输出缓冲区大小：处理后的 16-bit 或原格式
+        int outputSize = frameCount * frameSize;
+        if (pendingOutputBuffer == null || pendingOutputBuffer.capacity() < outputSize) {
+            pendingOutputBuffer = ByteBuffer.allocateDirect(outputSize).order(ByteOrder.LITTLE_ENDIAN);
+        }
+        pendingOutputBuffer.clear();
+
+        // 将处理后的数据写入输出
+        if (isFloat) {
+            for (int i = 0; i < totalSamples; i++) {
+                float f = processingBuffer[i] / 32767f;
+                pendingOutputBuffer.putFloat(f);
+            }
+        } else if (is32Bit) {
+            for (int i = 0; i < totalSamples; i++) {
+                pendingOutputBuffer.putInt(processingBuffer[i] << 16);
+            }
+        } else if (is24Bit) {
+            for (int i = 0; i < totalSamples; i++) {
+                int s = processingBuffer[i] << 8;
+                pendingOutputBuffer.put((byte)(s & 0xFF));
+                pendingOutputBuffer.put((byte)((s >> 8) & 0xFF));
+                pendingOutputBuffer.put((byte)((s >> 16) & 0xFF));
+            }
+        } else {
+            ShortBuffer outputShortBuf = pendingOutputBuffer.asShortBuffer();
+            outputShortBuf.put(processingBuffer, 0, totalSamples);
+            pendingOutputBuffer.position(outputSize);
+        }
+        pendingOutputBuffer.limit(pendingOutputBuffer.position());
         pendingOutputBuffer.position(0);
-        pendingOutputBuffer.limit(outputSize);
 
         // 消费输入数据
         input.position(limit);
