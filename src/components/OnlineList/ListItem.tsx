@@ -15,9 +15,7 @@ export const ITEM_HEIGHT = scaleSizeH(LIST_ITEM_HEIGHT)
 
 const useQualityTag = (musicInfo: LX.Music.MusicInfoOnline) => {
   const t = useI18n()
-  const source = musicInfo.source
-  const sourceQualitys = global.lx.qualityList[source] ?? []
-  const hasQuality = (q: LX.Quality) => musicInfo.meta._qualitys[q] != null || sourceQualitys.includes(q) || ['hires', 'atmos', 'atmos_plus', 'master'].includes(q)
+  const hasQuality = (q: LX.Quality) => musicInfo.meta._qualitys[q] != null && musicInfo.meta._qualitys[q].size !== ''
   let info: { type: BadgeType | null, text: string } = { type: null, text: '' }
   if (hasQuality('master')) {
     info.type = 'normal'

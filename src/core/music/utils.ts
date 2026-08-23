@@ -11,6 +11,7 @@ import settingState from '@/store/setting/state'
 import { requestMsg } from '@/utils/message'
 import BackgroundTimer from 'react-native-background-timer'
 import { apis } from '@/utils/musicSdk/api-source'
+import { extendQualityTypes } from '@/utils/musicSdk/utils'
 
 
 const getOtherSourcePromises = new Map()
@@ -220,10 +221,13 @@ export const getPlayQuality = (highQuality: LX.Quality, musicInfo: LX.Music.Musi
   let list = global.lx.qualityList[musicInfo.source]
   if (!list?.length) return type
 
-  // 首选音质直接可用（不依赖 _qualitys，自定义音源可能仍能返回）
-  if (list.includes(highQuality)) return highQuality
+  // 扩展音质列表：将 qualityList 中缺失的高品质补入 _qualitys，确保播放时能正确选用
+  extendQualityTypes(musicInfo)
 
-  // 首选音质不在 qualityList，从设置档向下（更低音质）遍历取可用的
+  // 首选音质直接可用（需检查 _qualitys 确保该音质确实可用）
+  if (list.includes(highQuality) && musicInfo.meta._qualitys?.[highQuality] != null) return highQuality
+
+  // 首选音质不在 qualityList 或 _qualitys 不可用，从设置档向下遍历取可用的
   const idx = list.indexOf(highQuality)
   if (idx >= 0) {
     for (let i = idx; i >= 0; i--) {
