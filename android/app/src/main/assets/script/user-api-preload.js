@@ -151,11 +151,11 @@ globalThis.lx_setup = (key, id, name, description, version, author, homepage, ra
   }
   const allSources = ['kw', 'kg', 'tx', 'wy', 'mg', 'local']
   const supportQualitys = {
-    kw: ['128k', '320k', 'flac', 'flac24bit'],
-    kg: ['128k', '320k', 'flac', 'flac24bit'],
-    tx: ['128k', '320k', 'flac', 'flac24bit'],
-    wy: ['128k', '320k', 'flac', 'flac24bit'],
-    mg: ['128k', '320k', 'flac', 'flac24bit'],
+    kw: ['128k', '320k', 'flac', 'flac24bit', 'hires', 'master', 'atmos', 'atmos_plus'],
+    kg: ['128k', '320k', 'flac', 'flac24bit', 'hires', 'master', 'atmos', 'atmos_plus'],
+    tx: ['128k', '192k', '320k', 'flac', 'flac24bit', 'hires', 'master', 'atmos', 'atmos_plus'],
+    wy: ['128k', '320k', 'flac', 'flac24bit', 'hires', 'master', 'atmos', 'atmos_plus'],
+    mg: ['128k', '320k', 'flac', 'flac24bit', 'hires', 'master', 'atmos', 'atmos_plus'],
     local: [],
   }
   const supportActions = {
