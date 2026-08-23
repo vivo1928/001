@@ -8,7 +8,6 @@ import {
   extname,
   temporaryDirectoryPath,
 } from '@/utils/fs'
-import settingState from '@/store/setting/state'
 
 /**
  * 播放缓存模块
@@ -81,19 +80,18 @@ export const getPlaybackCachePath = async(musicInfo: Pick<LX.Music.MusicInfoOnli
 /**
  * 后台下载歌曲到本地缓存
  * 同歌并发去重；下载完成后追加到内存索引
+ * @param maxSizeMB 缓存大小上限（MB），0 或负数表示禁用缓存
  */
 export const cachePlaybackMusic = async(
   musicInfo: Pick<LX.Music.MusicInfoOnline, 'id'>,
   url: string,
+  maxSizeMB = 0,
 ): Promise<string | null> => {
   if (!url || !/^https?:/i.test(url)) return null
+  if (maxSizeMB <= 0) return null
   await initPlaybackCache()
   const key = getKey(musicInfo)
   if (cacheIndex.has(key)) return cacheIndex.get(key)!.path
-
-  // 缓存大小设为 0 时禁用播放缓存
-  const maxSizeMB = parseInt(settingState.setting['player.cacheSize']) || 0
-  if (maxSizeMB <= 0) return null
 
   const existing = downloadTasks.get(key)
   if (existing) return existing
@@ -102,7 +100,7 @@ export const cachePlaybackMusic = async(
   const task = (async(): Promise<string | null> => {
     try {
       // 检查缓存大小限制，超出时淘汰最旧文件
-      await enforceCacheLimit()
+      await enforceCacheLimit(maxSizeMB)
       await mkdir(CACHE_DIR).catch(() => {})
       const result = await downloadFile(url, path, {
         connectionTimeout: 30000,
@@ -134,8 +132,7 @@ export const cachePlaybackMusic = async(
 /**
  * 检查缓存大小限制，超出时淘汰最旧条目
  */
-const enforceCacheLimit = async(): Promise<void> => {
-  const maxSizeMB = parseInt(settingState.setting['player.cacheSize']) || 0
+const enforceCacheLimit = async(maxSizeMB: number): Promise<void> => {
   if (maxSizeMB <= 0) return
   const maxSizeBytes = maxSizeMB * 1024 * 1024
   let total = 0

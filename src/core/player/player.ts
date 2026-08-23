@@ -154,7 +154,8 @@ export const setMusicUrl = (musicInfo: LX.Music.MusicInfo | LX.Download.ListItem
     // 远程链接 → 立即整体下载到播放缓存；下载完成若仍处于缓冲/连接中则切换本地文件
     if (/^https?:/i.test(url)) {
       const musicInfoOnline = 'progress' in musicInfo ? musicInfo.metadata.musicInfo : musicInfo
-      cachePlaybackMusic(musicInfoOnline, url).then(async path => {
+      const cacheSize = settingState.setting['player.cacheSize'] ? parseInt(settingState.setting['player.cacheSize']) : 0
+      cachePlaybackMusic(musicInfoOnline, url, cacheSize).then(async path => {
         if (!path) return
         if (isCurrentMusicInfoChanged(musicInfo)) return
         const state = await TrackPlayer.getState().catch(() => null)
