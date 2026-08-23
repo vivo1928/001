@@ -91,6 +91,10 @@ export const cachePlaybackMusic = async(
   const key = getKey(musicInfo)
   if (cacheIndex.has(key)) return cacheIndex.get(key)!.path
 
+  // 缓存大小设为 0 时禁用播放缓存
+  const maxSizeMB = parseInt(settingState.setting['player.cacheSize']) || 0
+  if (maxSizeMB <= 0) return null
+
   const existing = downloadTasks.get(key)
   if (existing) return existing
 
