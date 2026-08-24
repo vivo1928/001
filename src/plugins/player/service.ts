@@ -15,6 +15,35 @@ let isInitialized = false
 // 防止快速连续 seek 导致静音（用锁代替延迟，确保立即响应）
 let isJumping = false
 
+// 缓冲进度采样
+let bufferSampleTimer: ReturnType<typeof setInterval> | null = null
+let bufferSampleCount = 0
+
+const stopBufferSampling = () => {
+  if (bufferSampleTimer) {
+    clearInterval(bufferSampleTimer)
+    bufferSampleTimer = null
+  }
+  bufferSampleCount = 0
+}
+
+const startBufferSampling = () => {
+  stopBufferSampling()
+  bufferSampleTimer = setInterval(() => {
+    bufferSampleCount++
+    void Promise.all([
+      TrackPlayer.getBufferedPosition(),
+      TrackPlayer.getPosition(),
+      TrackPlayer.getDuration(),
+    ]).then(([buffered, position, duration]) => {
+      collectDebugLog('buffer', 'sample=', bufferSampleCount, 'buffered=', buffered.toFixed(1), 'pos=', position.toFixed(1), 'dur=', duration.toFixed(1))
+    }).catch((e: any) => {
+      collectDebugLog('buffer', 'sample error=', e?.message ?? e)
+    })
+    if (bufferSampleCount > 15) stopBufferSampling()
+  }, 2000)
+}
+
 // let retryTrack: LX.Player.Track | null = null
 // let retryGetUrlId: string | null = null
 // let retryGetUrlNum = 0
@@ -137,10 +166,12 @@ const registerPlaybackService = async() => {
         global.app_event.pause()
         break
       case TPState.Playing:
+        stopBufferSampling()
         global.app_event.playerPlaying()
         global.app_event.play()
         break
       case TPState.Buffering:
+        startBufferSampling()
         global.app_event.pause()
         global.app_event.playerWaiting()
         break
