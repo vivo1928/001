@@ -66,7 +66,7 @@ export default () => {
         prevTimeoutId = playerState.musicInfo.id
         if (musicInfo && retryNum < getMaxRetryNum()) refreshUrl(musicInfo)
       }
-    }, 15000)
+    }, 25000)
   }
   const clearLoadingTimeout = () => {
     if (!loadingTimeout) return
