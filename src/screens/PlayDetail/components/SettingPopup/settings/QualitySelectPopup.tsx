@@ -8,6 +8,7 @@ import { createStyle } from '@/utils/tools'
 import { getMusicUrl } from '@/core/music/online'
 import { setResource } from '@/plugins/player'
 import { setTempPlayQuality, getTempPlayQuality } from '@/core/music/utils'
+import { clearPlaybackCacheById } from '@/core/playbackCache'
 import playerState from '@/store/player/state'
 import settingState from '@/store/setting/state'
 
@@ -93,6 +94,8 @@ export default forwardRef<QualitySelectPopupType, { onCloseSettingPopup?: () => 
     try {
       const position = playerState.progress.nowPlayTime
       setTempPlayQuality(q)
+      // 切换音质前清除该歌曲的播放缓存，避免直接返回旧缓存
+      await clearPlaybackCacheById(musicInfo.id)
       const url = await getMusicUrl({ musicInfo, quality: q, isRefresh: true, allowToggleSource: false, onToggleSource: () => {} })
       if (!url) {
         setTempPlayQuality(null)

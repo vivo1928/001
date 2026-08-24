@@ -159,6 +159,18 @@ export const getPlaybackCacheSize = async(): Promise<number> => {
 }
 
 /**
+ * 清除指定歌曲的播放缓存
+ */
+export const clearPlaybackCacheById = async(musicId: string): Promise<void> => {
+  await initPlaybackCache()
+  const entry = cacheIndex.get(musicId)
+  if (entry) {
+    await unlink(entry.path).catch(() => {})
+    cacheIndex.delete(musicId)
+  }
+}
+
+/**
  * 清除播放缓存
  */
 export const clearPlaybackCache = async(): Promise<void> => {
