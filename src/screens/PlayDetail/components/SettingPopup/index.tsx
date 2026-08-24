@@ -10,6 +10,7 @@ import SettingLrcFontSize from './settings/SettingLrcFontSize'
 import SettingLrcAlign from './settings/SettingLrcAlign'
 import SettingEqualizer from './settings/SettingEqualizer'
 import SettingPlayQuality from './settings/SettingPlayQuality'
+import SettingDebugLog from './settings/SettingDebugLog'
 
 export interface SettingPopupProps extends Omit<PopupProps, 'children'> {
   direction: 'vertical' | 'horizontal'
@@ -55,6 +56,7 @@ export default forwardRef<SettingPopupType, SettingPopupProps>(({ direction, ...
               <SettingLrcFontSize direction={direction} />
               <SettingLrcAlign />
               <SettingEqualizer />
+              <SettingDebugLog />
             </View>
           </ScrollView>
         </Popup>
