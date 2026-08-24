@@ -417,6 +417,7 @@ const handlePlayNext = async(playMusicInfo: LX.Player.PlayMusicInfo) => {
  * @returns
  */
 export const playNext = async(isAutoToggle = false): Promise<void> => {
+  collectDebugLog('player', 'playNext isAutoToggle=', isAutoToggle)
   if (playerState.tempPlayList.length) { // 如果稍后播放列表存在歌曲则直接播放改列表的歌曲
     const playMusicInfo = playerState.tempPlayList[0]
     removeTempPlayList(0)
@@ -603,6 +604,7 @@ export const playPrev = async(isAutoToggle = false): Promise<void> => {
  * 恢复播放
  */
 export const play = () => {
+  collectDebugLog('player', 'play isEmpty=', isEmpty(), 'gettingUrlId=', global.lx.gettingUrlId)
   if (playerState.playMusicInfo.musicInfo == null) return
   if (isEmpty()) {
     if (createGettingUrlId(playerState.playMusicInfo.musicInfo) != global.lx.gettingUrlId) setMusicUrl(playerState.playMusicInfo.musicInfo)
@@ -615,6 +617,7 @@ export const play = () => {
  * 暂停播放
  */
 export const pause = async() => {
+  collectDebugLog('player', 'pause')
   await setPause()
 }
 
@@ -622,6 +625,7 @@ export const pause = async() => {
  * 停止播放
  */
 export const stop = async() => {
+  collectDebugLog('player', 'stop')
   await setStop()
   setTimeout(() => {
     global.app_event.stop()
@@ -632,6 +636,8 @@ export const stop = async() => {
  * 播放、暂停播放切换
  */
 export const togglePlay = () => {
+  collectDebugLog('player', 'togglePlay')
+  // ... rest of function
   global.lx.isPlayedStop &&= false
   if (playerState.isPlay) {
     void pause()

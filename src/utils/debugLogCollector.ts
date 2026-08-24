@@ -1,43 +1,67 @@
 import Clipboard from '@react-native-clipboard/clipboard'
 import { toast } from '@/utils/tools'
 
+declare const __DEV__: boolean
+
 let logs: string[] = []
 let timer: ReturnType<typeof setTimeout> | null = null
 
-// ── 播放缓冲监控 ──
+// 播放缓冲监控
 let stallTimer: ReturnType<typeof setTimeout> | null = null
 let stallTriggered = false
 let sessionStart = 0
 let stateSeq = 0
 let lastState = ''
 const STALL_TIMEOUT = 15000
+const MAX_LOGS = 500
+
+const isDev = () => {
+  try { return __DEV__ } catch { return false }
+}
+
+export const isDebugLogEnabled = () => isDev()
+
+const formatArg = (a: any): string => {
+  if (a == null) return String(a)
+  if (typeof a == 'string') return a
+  try { return JSON.stringify(a) } catch { return String(a) }
+}
+
+const elapsed = () => (sessionStart ? `+${Date.now() - sessionStart}ms` : '')
 
 export const clearDebugLogs = () => {
+  if (!isDev()) return
   logs = []
   stallTriggered = false
   stateSeq = 0
   lastState = ''
 }
 
-const formatArg = (a: any): string => {
-  if (a == null) return String(a)
-  if (typeof a == 'string') return a
-  try {
-    return JSON.stringify(a)
-  } catch {
-    return String(a)
-  }
-}
-
-const elapsed = () => (sessionStart ? `+${Date.now() - sessionStart}ms` : '')
-
 export const collectDebugLog = (tag: string, ...args: any[]) => {
+  if (!isDev()) return
   const line = `[${tag}] ${elapsed()} ${args.map(formatArg).join(' ')}`.trimEnd()
   logs.push(line)
+  if (logs.length > MAX_LOGS) logs.splice(0, logs.length - MAX_LOGS)
   console.log(line)
 }
 
+export const getAllLogs = (): string => logs.join('\n')
+
+export const getLogCount = (): number => logs.length
+
+export const copyAllLogsToClipboard = () => {
+  if (!isDev()) return
+  const content = logs.join('\n')
+  if (!content) {
+    toast('暂无日志', 'short')
+    return
+  }
+  Clipboard.setString(content)
+  toast(`已复制 ${logs.length} 条日志到剪贴板`, 'long')
+}
+
 export const flushDebugLogs = (showToast = false) => {
+  if (!isDev()) return
   if (!logs.length) return
   const content = logs.join('\n')
   logs = []
@@ -47,6 +71,7 @@ export const flushDebugLogs = (showToast = false) => {
 }
 
 export const scheduleCopyDebugLogs = (delay = 1600) => {
+  if (!isDev()) return
   if (timer) clearTimeout(timer)
   timer = setTimeout(() => {
     timer = null
@@ -54,8 +79,9 @@ export const scheduleCopyDebugLogs = (delay = 1600) => {
   }, delay)
 }
 
-// 开始一次播放会话的缓冲监控（在开始获取 URL 前调用）
+// 播放缓冲监控
 export const startPlaybackBufferWatch = () => {
+  if (!isDev()) return
   clearDebugLogs()
   sessionStart = Date.now()
   if (stallTimer) clearTimeout(stallTimer)
@@ -71,8 +97,8 @@ const onStallDetected = () => {
   flushDebugLogs(true)
 }
 
-// 上报 TrackPlayer 状态，用于判断缓冲是否卡住
 export const reportPlaybackState = (state: string) => {
+  if (!isDev()) return
   if (!stallTimer && !sessionStart) return
   if (!stallTimer) return
   stateSeq++
@@ -84,8 +110,8 @@ export const reportPlaybackState = (state: string) => {
   }
 }
 
-// 停止监控（播放完成/出错等）
 export const stopPlaybackBufferWatch = () => {
+  if (!isDev()) return
   if (stallTimer) clearTimeout(stallTimer)
   stallTimer = null
   sessionStart = 0

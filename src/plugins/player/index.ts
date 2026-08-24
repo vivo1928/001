@@ -29,7 +29,9 @@ const initial = async({ volume, playRate, cacheSize, isHandleAudioFocus, isEnabl
   await migratePlayerCache()
   await TrackPlayer.setupPlayer({
     maxCacheSize: cacheSize * 1024,
-    maxBuffer: 1000,
+    minBuffer: 15000,
+    maxBuffer: 60000,
+    playBuffer: 5000,
     waitForBuffer: true,
     handleAudioFocus: isHandleAudioFocus,
     audioOffload: isEnableAudioOffload,
