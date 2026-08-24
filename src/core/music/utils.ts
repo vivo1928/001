@@ -331,17 +331,20 @@ export const handleGetOnlineMusicUrl = async({ musicInfo, quality, onToggleSourc
   if (!await global.lx.apiInitPromise[0]) throw new Error('source init failed')
   // console.log(musicInfo.source)
   const targetQuality = quality ?? getPlayQuality(settingState.setting['player.playQuality'], musicInfo)
+  console.log('[getUrl] handleGetOnlineMusicUrl musicInfo.id=', musicInfo.id, 'source=', musicInfo.source, 'quality=', quality, 'targetQuality=', targetQuality, 'isRefresh=', isRefresh, '_qualitys=', JSON.stringify(musicInfo.meta?._qualitys))
 
   let reqPromise
   try {
     reqPromise = musicSdk[musicInfo.source].getMusicUrl(toOldMusicInfo(musicInfo), targetQuality).promise
   } catch (err: any) {
+    console.log('[getUrl] musicSdk.getMusicUrl threw synchronously', err)
     reqPromise = Promise.reject(err)
   }
   return reqPromise.then(({ url, type }: { url: string, type: LX.Quality }) => {
+    console.log('[getUrl] SDK returned url=', url, 'type=', type)
     return { musicInfo, url, quality: type, isFromCache: false }
   }).catch(async(err: any) => {
-    console.log(err)
+    console.log('[getUrl] SDK getMusicUrl rejected:', err?.message)
     if (!allowToggleSource || err.message == requestMsg.tooManyRequests) throw err
     onToggleSource()
     // eslint-disable-next-line @typescript-eslint/promise-function-async
