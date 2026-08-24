@@ -80,7 +80,11 @@ export default forwardRef<QualitySelectPopupType, { onCloseSettingPopup?: () => 
   }, [t])
 
   const handleSelect = useCallback(async (q: LX.Quality) => {
-    if (!musicInfo) return
+    console.log('[QualitySelect] handleSelect called, q=', q, 'musicInfo=', musicInfo?.id)
+    if (!musicInfo) {
+      console.log('[QualitySelect] musicInfo is null, returning')
+      return
+    }
     setLoading(false)
     setQualities([])
     popupRef.current?.setVisible(false)
@@ -92,16 +96,22 @@ export default forwardRef<QualitySelectPopupType, { onCloseSettingPopup?: () => 
 
     try {
       const position = playerState.progress.nowPlayTime
+      console.log('[QualitySelect] setting temp quality to', q, 'position=', position)
       setTempPlayQuality(q)
       // isRefresh=true 已保证绕过 URL 缓存获取新 URL，无需额外清除播放缓存
       // 保留旧缓存可避免 CDN 慢时播放器无资源可用
+      console.log('[QualitySelect] calling getMusicUrl with quality=', q)
       const url = await getMusicUrl({ musicInfo, quality: q, isRefresh: true, allowToggleSource: false, onToggleSource: () => {} })
+      console.log('[QualitySelect] getMusicUrl returned url=', url)
       if (!url) {
+        console.log('[QualitySelect] url is empty, resetting temp quality')
         setTempPlayQuality(null)
         return
       }
+      console.log('[QualitySelect] calling setResource with url=', url)
       setResource(musicInfo, url, position)
-    } catch {
+    } catch (err) {
+      console.log('[QualitySelect] error:', err)
       setTempPlayQuality(null)
     }
   }, [musicInfo])
