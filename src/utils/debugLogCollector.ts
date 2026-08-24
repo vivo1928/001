@@ -1,7 +1,9 @@
 import Clipboard from '@react-native-clipboard/clipboard'
 import { toast } from '@/utils/tools'
 
-declare const __DEV__: boolean
+// 调试日志总开关
+// 发布正式版时将此值改为 false 即可禁用全部日志功能
+const ENABLE_DEBUG_LOG = true
 
 let logs: string[] = []
 let timer: ReturnType<typeof setTimeout> | null = null
@@ -15,11 +17,9 @@ let lastState = ''
 const STALL_TIMEOUT = 15000
 const MAX_LOGS = 500
 
-const isDev = () => {
-  try { return __DEV__ } catch { return false }
-}
+const isEnabled = () => ENABLE_DEBUG_LOG
 
-export const isDebugLogEnabled = () => isDev()
+export const isDebugLogEnabled = () => isEnabled()
 
 const formatArg = (a: any): string => {
   if (a == null) return String(a)
@@ -30,7 +30,7 @@ const formatArg = (a: any): string => {
 const elapsed = () => (sessionStart ? `+${Date.now() - sessionStart}ms` : '')
 
 export const clearDebugLogs = () => {
-  if (!isDev()) return
+  if (!isEnabled()) return
   logs = []
   stallTriggered = false
   stateSeq = 0
@@ -38,7 +38,7 @@ export const clearDebugLogs = () => {
 }
 
 export const collectDebugLog = (tag: string, ...args: any[]) => {
-  if (!isDev()) return
+  if (!isEnabled()) return
   const line = `[${tag}] ${elapsed()} ${args.map(formatArg).join(' ')}`.trimEnd()
   logs.push(line)
   if (logs.length > MAX_LOGS) logs.splice(0, logs.length - MAX_LOGS)
@@ -50,7 +50,7 @@ export const getAllLogs = (): string => logs.join('\n')
 export const getLogCount = (): number => logs.length
 
 export const copyAllLogsToClipboard = () => {
-  if (!isDev()) return
+  if (!isEnabled()) return
   const content = logs.join('\n')
   if (!content) {
     toast('暂无日志', 'short')
@@ -61,7 +61,7 @@ export const copyAllLogsToClipboard = () => {
 }
 
 export const flushDebugLogs = (showToast = false) => {
-  if (!isDev()) return
+  if (!isEnabled()) return
   if (!logs.length) return
   const content = logs.join('\n')
   logs = []
@@ -71,7 +71,7 @@ export const flushDebugLogs = (showToast = false) => {
 }
 
 export const scheduleCopyDebugLogs = (delay = 1600) => {
-  if (!isDev()) return
+  if (!isEnabled()) return
   if (timer) clearTimeout(timer)
   timer = setTimeout(() => {
     timer = null
@@ -79,9 +79,9 @@ export const scheduleCopyDebugLogs = (delay = 1600) => {
   }, delay)
 }
 
-// 播放缓冲监控
+// 开始一次播放会话的缓冲监控（在开始获取 URL 前调用）
 export const startPlaybackBufferWatch = () => {
-  if (!isDev()) return
+  if (!isEnabled()) return
   clearDebugLogs()
   sessionStart = Date.now()
   if (stallTimer) clearTimeout(stallTimer)
@@ -97,8 +97,9 @@ const onStallDetected = () => {
   flushDebugLogs(true)
 }
 
+// 上报 TrackPlayer 状态，用于判断缓冲是否卡住
 export const reportPlaybackState = (state: string) => {
-  if (!isDev()) return
+  if (!isEnabled()) return
   if (!stallTimer && !sessionStart) return
   if (!stallTimer) return
   stateSeq++
@@ -110,8 +111,9 @@ export const reportPlaybackState = (state: string) => {
   }
 }
 
+// 停止监控（播放完成/出错等）
 export const stopPlaybackBufferWatch = () => {
-  if (!isDev()) return
+  if (!isEnabled()) return
   if (stallTimer) clearTimeout(stallTimer)
   stallTimer = null
   sessionStart = 0

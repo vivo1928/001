@@ -10,7 +10,6 @@ import ConfirmAlert, { type ConfirmAlertType } from '@/components/common/Confirm
 import CheckBoxItem from '../../components/CheckBoxItem'
 import { useI18n } from '@/lang'
 import Text from '@/components/common/Text'
-import { isDebugLogEnabled, copyAllLogsToClipboard, getLogCount } from '@/utils/debugLogCollector'
 
 export default memo(() => {
   const t = useI18n()
@@ -69,9 +68,6 @@ export default memo(() => {
         </View>
         <View style={styles.btn}>
           <Button onPress={openLogModal}>{t('setting_other_log_btn_show')}</Button>
-          {isDebugLogEnabled() ? (
-            <Button onPress={() => { copyAllLogsToClipboard() }}>{`复制日志(${getLogCount()}条)`}</Button>
-          ) : null}
         </View>
       </SubTitle>
       {isDebugLogEnabled() ? null : null}
@@ -103,10 +99,6 @@ const styles = createStyle({
   },
   btn: {
     flexDirection: 'row',
-    alignItems: 'center',
-  },
-  logCount: {
-    marginRight: 10,
   },
 })
 
