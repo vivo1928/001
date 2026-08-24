@@ -227,17 +227,26 @@ export const TRY_QUALITYS_LIST = ['master', 'atmos_plus', 'atmos', 'hires', 'fla
 export const getPlayQuality = (highQuality: LX.Quality, musicInfo: LX.Music.MusicInfoOnline): LX.Quality => {
   let type: LX.Quality = '128k'
   let list = global.lx.qualityList[musicInfo.source]
-  if (!list?.length) return type
+  if (!list?.length) {
+    collectDebugLog('gpq', 'no qualityList for', musicInfo.source, '→', type)
+    return type
+  }
 
   // 单歌临时音质覆盖（播放详情页手动切换）
   const override = getTempPlayQuality()
   if (override) {
-    if (list.includes(override)) return override
+    if (list.includes(override)) {
+      collectDebugLog('gpq', 'highQ=', highQuality, 'override=', override, '→', override, '(override hit)')
+      return override
+    }
     // 覆盖音质不在 qualityList 中时，从设置档向下遍历取可用
     const idx = list.indexOf(override)
     if (idx >= 0) {
       for (let i = idx; i >= 0; i--) {
-        if (musicInfo.meta._qualitys[list[i]]) return list[i]
+        if (musicInfo.meta._qualitys[list[i]]) {
+          collectDebugLog('gpq', 'highQ=', highQuality, 'override=', override, '→', list[i], '(override fallback)')
+          return list[i]
+        }
       }
     }
     // 完全不可用时回退到全局默认逻辑
@@ -247,19 +256,29 @@ export const getPlayQuality = (highQuality: LX.Quality, musicInfo: LX.Music.Musi
   extendQualityTypes(musicInfo)
 
   // 首选音质直接可用（需检查 _qualitys 确保该音质确实可用）
-  if (list.includes(highQuality) && musicInfo.meta._qualitys?.[highQuality] != null) return highQuality
+  if (list.includes(highQuality) && musicInfo.meta._qualitys?.[highQuality] != null) {
+    collectDebugLog('gpq', 'highQ=', highQuality, 'override=', override, '→', highQuality, '(direct)')
+    return highQuality
+  }
 
   // 首选音质不在 qualityList 或 _qualitys 不可用，从设置档向下遍历取可用的
   const idx = list.indexOf(highQuality)
   if (idx >= 0) {
     for (let i = idx; i >= 0; i--) {
-      if (musicInfo.meta._qualitys[list[i]]) return list[i]
+      if (musicInfo.meta._qualitys[list[i]]) {
+        collectDebugLog('gpq', 'highQ=', highQuality, 'override=', override, '→', list[i], '(fallback)')
+        return list[i]
+      }
     }
   }
   // 完全不在 qualityList 时，从最高音质向下取可用
   for (let i = list.length - 1; i >= 0; i--) {
-    if (musicInfo.meta._qualitys[list[i]]) return list[i]
+    if (musicInfo.meta._qualitys[list[i]]) {
+      collectDebugLog('gpq', 'highQ=', highQuality, 'override=', override, '→', list[i], '(from top)')
+      return list[i]
+    }
   }
+  collectDebugLog('gpq', 'highQ=', highQuality, 'override=', override, '→', type, '(default)')
   return type
 }
 

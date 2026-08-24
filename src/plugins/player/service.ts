@@ -8,6 +8,7 @@ import { exitApp } from '@/core/common'
 import { getCurrentTrackId } from './playList'
 import { pause, play, playNext, playPrev } from '@/core/player/player'
 import { setPlaybackRate } from './utils'
+import { reportPlaybackState, flushDebugLogs } from '@/utils/debugLogCollector'
 
 let isInitialized = false
 
@@ -72,6 +73,7 @@ const registerPlaybackService = async() => {
 
   TrackPlayer.addEventListener(TPEvent.PlaybackError, async(err: any) => {
     console.log('playback-error', err)
+    flushDebugLogs(true)
     global.app_event.error()
     global.app_event.playerError()
   })
@@ -117,6 +119,7 @@ const registerPlaybackService = async() => {
   })
 
   TrackPlayer.addEventListener(TPEvent.PlaybackState, async info => {
+    reportPlaybackState(String(info.state))
     if (global.lx.gettingUrlId || isTempId()) return
     // let currentIsPlaying = false
 

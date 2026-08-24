@@ -14,6 +14,7 @@ import {
   handleGetOnlinePicUrl,
   getCachedLyricInfo,
 } from './utils'
+import { collectDebugLog } from '@/utils/debugLogCollector'
 
 /* export const setMusicUrl = ({ musicInfo, type, url }: {
   musicInfo: LX.Music.MusicInfo
@@ -70,7 +71,11 @@ export const getMusicUrl = async({ musicInfo, quality, isRefresh, allowToggleSou
   // }
   const targetQuality = quality ?? getPlayQuality(settingState.setting['player.playQuality'], musicInfo)
   const cachedUrl = await getStoreMusicUrl(musicInfo, targetQuality)
-  if (cachedUrl && !isRefresh) return cachedUrl
+  if (cachedUrl && !isRefresh) {
+    collectDebugLog('url-cache', 'cache HIT for', musicInfo.id, 'quality=', targetQuality, 'url=', cachedUrl.substring(0, 120))
+    return cachedUrl
+  }
+  collectDebugLog('url-cache', 'cache MISS or refresh for', musicInfo.id, 'quality=', targetQuality, 'cachedUrl=', !!cachedUrl, 'isRefresh=', isRefresh)
 
   return handleGetOnlineMusicUrl({ musicInfo, quality, onToggleSource, isRefresh, allowToggleSource }).then(({ url, quality: targetQuality, musicInfo: targetMusicInfo, isFromCache }) => {
     if (targetMusicInfo.id != musicInfo.id && !isFromCache) void saveMusicUrl(targetMusicInfo, targetQuality, url)
