@@ -20,7 +20,6 @@ import {
   removeTempPlayList,
 } from '@/core/player/tempPlayList'
 import { getMusicUrl, getPicPath, getLyricInfo } from '@/core/music'
-import { getTempPlayQuality } from '@/core/music/utils'
 import { requestMsg } from '@/utils/message'
 import { getRandom } from '@/utils/common'
 import { filterList } from './utils'
@@ -29,7 +28,6 @@ import { checkIgnoringBatteryOptimization, checkNotificationPermission, debounce
 import { LIST_IDS } from '@/config/constant'
 import { addListMusics, removeListMusics } from '@/core/list'
 import { addDislikeInfo } from '@/core/dislikeList'
-import { collectDebugLog, startPlaybackBufferWatch, flushDebugLogs } from '@/utils/debugLogCollector'
 
 // import { checkMusicFileAvailable } from '@renderer/utils/music'
 
@@ -138,18 +136,12 @@ export const setMusicUrl = (musicInfo: LX.Music.MusicInfo | LX.Download.ListItem
   // addLoadTimeout()
   if (!diffCurrentMusicInfo(musicInfo)) return
   if (cancelDelayRetry) cancelDelayRetry()
-  startPlaybackBufferWatch()
-  const settingQ = settingState.setting['player.playQuality']
-  const tempQ = getTempPlayQuality()
-  const _qualitys = 'progress' in musicInfo ? musicInfo.metadata.musicInfo.meta._qualitys : musicInfo.meta?._qualitys
-  collectDebugLog('play-start', 'id=', musicInfo.id, 'source=', musicInfo.source, 'settingQ=', settingQ, 'tempQ=', tempQ, '_qualitys=', Object.keys(_qualitys ?? {}))
   global.lx.gettingUrlId = createGettingUrlId(musicInfo)
   void getMusicPlayUrl(musicInfo, isRefresh).then((url) => {
     if (!url) return
     setResource(musicInfo, url, playerState.progress.nowPlayTime)
   }).catch((err: any) => {
     console.log(err)
-    flushDebugLogs(true)
     setStatusText(err.message as string)
     global.app_event.error()
     addDelayNextTimeout()
@@ -417,7 +409,6 @@ const handlePlayNext = async(playMusicInfo: LX.Player.PlayMusicInfo) => {
  * @returns
  */
 export const playNext = async(isAutoToggle = false): Promise<void> => {
-  collectDebugLog('player', 'playNext isAutoToggle=', isAutoToggle)
   if (playerState.tempPlayList.length) { // 如果稍后播放列表存在歌曲则直接播放改列表的歌曲
     const playMusicInfo = playerState.tempPlayList[0]
     removeTempPlayList(0)
@@ -604,7 +595,6 @@ export const playPrev = async(isAutoToggle = false): Promise<void> => {
  * 恢复播放
  */
 export const play = () => {
-  collectDebugLog('player', 'play isEmpty=', isEmpty(), 'gettingUrlId=', global.lx.gettingUrlId)
   if (playerState.playMusicInfo.musicInfo == null) return
   if (isEmpty()) {
     if (createGettingUrlId(playerState.playMusicInfo.musicInfo) != global.lx.gettingUrlId) setMusicUrl(playerState.playMusicInfo.musicInfo)
@@ -617,7 +607,6 @@ export const play = () => {
  * 暂停播放
  */
 export const pause = async() => {
-  collectDebugLog('player', 'pause')
   await setPause()
 }
 
@@ -625,7 +614,6 @@ export const pause = async() => {
  * 停止播放
  */
 export const stop = async() => {
-  collectDebugLog('player', 'stop')
   await setStop()
   setTimeout(() => {
     global.app_event.stop()
@@ -636,8 +624,6 @@ export const stop = async() => {
  * 播放、暂停播放切换
  */
 export const togglePlay = () => {
-  collectDebugLog('player', 'togglePlay')
-  // ... rest of function
   global.lx.isPlayedStop &&= false
   if (playerState.isPlay) {
     void pause()

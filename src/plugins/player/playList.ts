@@ -4,7 +4,6 @@ import { defaultUrl } from '@/config'
 // import { action as playerAction } from '@/store/modules/player'
 import settingState from '@/store/setting/state'
 import playerState from '@/store/player/state'
-import { collectDebugLog } from '@/utils/debugLogCollector'
 
 
 const list: LX.Player.Track[] = []
@@ -150,19 +149,13 @@ export const initTrackInfo = async(musicInfo: LX.Player.PlayMusic, mInfo: LX.Pla
 
 const handlePlayMusic = async(musicInfo: LX.Player.PlayMusic, url: string, time: number) => {
 // console.log(tracks, time)
-  console.log('[handlePlayMusic] entering, url=', url, 'time=', time, 'musicInfo.id=', musicInfo?.metadata?.musicInfo?.id ?? musicInfo?.id)
-  collectDebugLog('handlePlayMusic', 'entering url=', url, 'time=', time, 'id=', musicInfo?.metadata?.musicInfo?.id ?? musicInfo?.id, 'dur=', time)
   const tracks = buildTracks(musicInfo, url)
   const track = tracks[0]
   // await updateMusicInfo(track)
   const currentTrackIndex = await TrackPlayer.getCurrentTrack()
-  console.log('[handlePlayMusic] currentTrackIndex=', currentTrackIndex, 'new track.id=', track.id)
-  collectDebugLog('handlePlayMusic', 'currentTrackIndex=', currentTrackIndex, 'new track=', track.id)
   await TrackPlayer.add(tracks).then(() => list.push(...tracks))
   const queue = await TrackPlayer.getQueue() as LX.Player.Track[]
   await TrackPlayer.skip(queue.findIndex(t => t.id == track.id))
-  console.log('[handlePlayMusic] skipped to new track, queue.length=', queue.length)
-  collectDebugLog('handlePlayMusic', 'skipped to new track, queue.length=', queue.length, 'url=', url)
 
   if (currentTrackIndex == null) {
     if (!isTempTrack(track.id as string)) {

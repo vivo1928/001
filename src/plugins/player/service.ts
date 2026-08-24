@@ -8,41 +8,11 @@ import { exitApp } from '@/core/common'
 import { getCurrentTrackId } from './playList'
 import { pause, play, playNext, playPrev } from '@/core/player/player'
 import { setPlaybackRate } from './utils'
-import { reportPlaybackState, flushDebugLogs, collectDebugLog } from '@/utils/debugLogCollector'
 
 let isInitialized = false
 
 // 防止快速连续 seek 导致静音（用锁代替延迟，确保立即响应）
 let isJumping = false
-
-// 缓冲进度采样
-let bufferSampleTimer: ReturnType<typeof setInterval> | null = null
-let bufferSampleCount = 0
-
-const stopBufferSampling = () => {
-  if (bufferSampleTimer) {
-    clearInterval(bufferSampleTimer)
-    bufferSampleTimer = null
-  }
-  bufferSampleCount = 0
-}
-
-const startBufferSampling = () => {
-  stopBufferSampling()
-  bufferSampleTimer = setInterval(() => {
-    bufferSampleCount++
-    void Promise.all([
-      TrackPlayer.getBufferedPosition(),
-      TrackPlayer.getPosition(),
-      TrackPlayer.getDuration(),
-    ]).then(([buffered, position, duration]) => {
-      collectDebugLog('buffer', 'sample=', bufferSampleCount, 'buffered=', buffered.toFixed(1), 'pos=', position.toFixed(1), 'dur=', duration.toFixed(1))
-    }).catch((e: any) => {
-      collectDebugLog('buffer', 'sample error=', e?.message ?? e)
-    })
-    if (bufferSampleCount > 15) stopBufferSampling()
-  }, 2000)
-}
 
 // let retryTrack: LX.Player.Track | null = null
 // let retryGetUrlId: string | null = null
@@ -63,27 +33,27 @@ const registerPlaybackService = async() => {
 
   console.log('reg services...')
   TrackPlayer.addEventListener(TPEvent.RemotePlay, () => {
-    collectDebugLog('service', 'RemotePlay')
+    // console.log('remote-play')
     play()
   })
 
   TrackPlayer.addEventListener(TPEvent.RemotePause, () => {
-    collectDebugLog('service', 'RemotePause')
+    // console.log('remote-pause')
     void pause()
   })
 
   TrackPlayer.addEventListener(TPEvent.RemoteNext, () => {
-    collectDebugLog('service', 'RemoteNext')
+    // console.log('remote-next')
     void playNext()
   })
 
   TrackPlayer.addEventListener(TPEvent.RemotePrevious, () => {
-    collectDebugLog('service', 'RemotePrevious')
+    // console.log('remote-previous')
     void playPrev()
   })
 
   TrackPlayer.addEventListener(TPEvent.RemoteStop, () => {
-    collectDebugLog('service', 'RemoteStop')
+    // console.log('remote-stop')
     void handleExitApp('Remote Stop')
   })
 
@@ -101,21 +71,17 @@ const registerPlaybackService = async() => {
   // })
 
   TrackPlayer.addEventListener(TPEvent.PlaybackError, async(err: any) => {
-    collectDebugLog('service', 'PlaybackError', err?.message ?? err)
     console.log('playback-error', err)
-    flushDebugLogs(true)
     global.app_event.error()
     global.app_event.playerError()
   })
 
   TrackPlayer.addEventListener(TPEvent.RemoteSeek, async({ position }) => {
-    collectDebugLog('service', 'RemoteSeek', position)
     // setProgress 已在 playProgress.ts 中通过事件监听处理 seek 后的 play() 调用
     global.app_event.setProgress(position as number)
   })
 
   TrackPlayer.addEventListener(TPEvent.RemoteJumpForward, async({ interval }) => {
-    collectDebugLog('service', 'RemoteJumpForward', interval)
     if (isJumping) return
     isJumping = true
     try {
@@ -129,7 +95,6 @@ const registerPlaybackService = async() => {
   })
 
   TrackPlayer.addEventListener(TPEvent.RemoteJumpBackward, async({ interval }) => {
-    collectDebugLog('service', 'RemoteJumpBackward', interval)
     if (isJumping) return
     isJumping = true
     try {
@@ -142,7 +107,6 @@ const registerPlaybackService = async() => {
   })
 
   TrackPlayer.addEventListener('remote-set-speed' as any, async({ speed }) => {
-    collectDebugLog('service', 'remote-set-speed', speed)
     const rate = speed as number
     if (rate > 0) {
       await setPlaybackRate(rate)
@@ -151,7 +115,6 @@ const registerPlaybackService = async() => {
   })
 
   TrackPlayer.addEventListener(TPEvent.PlaybackState, async info => {
-    reportPlaybackState(String(info.state))
     if (global.lx.gettingUrlId || isTempId()) return
     // let currentIsPlaying = false
 
@@ -166,12 +129,10 @@ const registerPlaybackService = async() => {
         global.app_event.pause()
         break
       case TPState.Playing:
-        stopBufferSampling()
         global.app_event.playerPlaying()
         global.app_event.play()
         break
       case TPState.Buffering:
-        startBufferSampling()
         global.app_event.pause()
         global.app_event.playerWaiting()
         break
@@ -188,7 +149,6 @@ const registerPlaybackService = async() => {
     // void updateMetaData(global.lx.store_playMusicInfo.musicInfo, currentIsPlaying)
   })
   TrackPlayer.addEventListener(TPEvent.PlaybackTrackChanged, async info => {
-    collectDebugLog('service', 'PlaybackTrackChanged track=', info.track, 'nextTrack=', info.nextTrack, 'position=', info.position)
     // console.log('PlaybackTrackChanged====>', info)
     global.lx.playerTrackId = await getCurrentTrackId()
     if (info.track == null) return

@@ -6,7 +6,6 @@ import BackgroundTimer from 'react-native-background-timer'
 import playerState from '@/store/player/state'
 import { setNowPlayTime } from '@/core/player/progress'
 import { clearTempPlayQuality } from '@/core/music/utils'
-import { collectDebugLog } from '@/utils/debugLogCollector'
 
 
 export default () => {
@@ -36,7 +35,6 @@ export default () => {
     return parseIntervalToSec(getMusicInfoInterval(musicInfo)) >= 600 ? 5 : 2
   }
   const refreshUrl = (musicInfo: LX.Player.PlayMusic) => {
-    collectDebugLog('playerEvent', 'refreshUrl retryNum=', retryNum)
     retryNum++
     setMusicUrl(musicInfo, true)
     setStatusText(global.i18n.t('player__refresh_url'))
@@ -93,7 +91,6 @@ export default () => {
   }
 
   const handleLoadstart = () => {
-    collectDebugLog('playerEvent', 'handleLoadstart isPlay=', playerState.isPlay)
     console.log('handleLoadstart', playerState.isPlay)
     if (global.lx.isPlayedStop || !playerState.isPlay) return
     startLoadingTimeout()
@@ -109,24 +106,20 @@ export default () => {
   // }
 
   const handlePlaying = () => {
-    collectDebugLog('playerEvent', 'handlePlaying')
     setStatusText('')
     clearLoadingTimeout()
   }
 
   const handleEmpied = () => {
-    collectDebugLog('playerEvent', 'handleEmpied')
     clearDelayNextTimeout()
     clearLoadingTimeout()
   }
 
   const handleWating = () => {
-    collectDebugLog('playerEvent', 'handleWating')
     setStatusText(global.i18n.t('player__buffering'))
   }
 
   const handleError = () => {
-    collectDebugLog('playerEvent', 'handleError retryNum=', retryNum)
     if (!playerState.musicInfo.id) return
     clearLoadingTimeout()
     if (global.lx.isPlayedStop) return
@@ -153,7 +146,6 @@ export default () => {
   }
 
   const handleSetPlayInfo = () => {
-    collectDebugLog('playerEvent', 'handleSetPlayInfo clearTempPlayQuality')
     retryNum = 0
     prevTimeoutId = null
     clearDelayNextTimeout()
