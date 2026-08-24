@@ -157,7 +157,9 @@ export const setMusicUrl = (musicInfo: LX.Music.MusicInfo | LX.Download.ListItem
       const cacheSize = settingState.setting['player.cacheSize'] ? parseInt(settingState.setting['player.cacheSize']) : 0
       cachePlaybackMusic(musicInfoOnline, url, cacheSize).then(async path => {
         if (!path) return
-        if (isCurrentMusicInfoChanged(musicInfo)) return
+        // 不依赖 gettingUrlId（已在 URL 获取完成后被 .finally() 清空），改用 id 判断歌曲是否切换
+        const curMusicInfo = playerState.playMusicInfo.musicInfo
+        if (!curMusicInfo || curMusicInfo.id != musicInfo.id) return
         const state = await TrackPlayer.getState().catch(() => null)
         if (state === State.Buffering || state === State.Connecting || state === State.Ready) {
           const position = await TrackPlayer.getPosition().catch(() => 0)
