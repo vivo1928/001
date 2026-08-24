@@ -151,22 +151,6 @@ export const setMusicUrl = (musicInfo: LX.Music.MusicInfo | LX.Download.ListItem
   void getMusicPlayUrl(musicInfo, isRefresh ?? true).then(async(url) => {
     if (!url) return
     setResource(musicInfo, url, playerState.progress.nowPlayTime)
-    // 远程链接 → 立即整体下载到播放缓存；下载完成若仍处于缓冲/连接中则切换本地文件
-    if (/^https?:/i.test(url)) {
-      const musicInfoOnline = 'progress' in musicInfo ? musicInfo.metadata.musicInfo : musicInfo
-      const cacheSize = settingState.setting['player.cacheSize'] ? parseInt(settingState.setting['player.cacheSize']) : 0
-      cachePlaybackMusic(musicInfoOnline, url, cacheSize).then(async path => {
-        if (!path) return
-        // 不依赖 gettingUrlId（已在 URL 获取完成后被 .finally() 清空），改用 id 判断歌曲是否切换
-        const curMusicInfo = playerState.playMusicInfo.musicInfo
-        if (!curMusicInfo || curMusicInfo.id != musicInfo.id) return
-        const state = await TrackPlayer.getState().catch(() => null)
-        if (state === State.Buffering || state === State.Connecting || state === State.Ready) {
-          const position = await TrackPlayer.getPosition().catch(() => 0)
-          setResource(musicInfo, path, position)
-        }
-      }).catch(() => {})
-    }
   }).catch((err: any) => {
     console.log(err)
     setStatusText(err.message as string)
