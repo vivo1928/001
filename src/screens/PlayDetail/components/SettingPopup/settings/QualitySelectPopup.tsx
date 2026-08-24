@@ -4,12 +4,13 @@ import Popup, { type PopupType } from '@/components/common/Popup'
 import { useTheme } from '@/store/theme/hook'
 import Text from '@/components/common/Text'
 import { useI18n } from '@/lang'
-import { createStyle } from '@/utils/tools'
+import { createStyle, toast } from '@/utils/tools'
 import { getMusicUrl } from '@/core/music/online'
 import { setResource } from '@/plugins/player'
 import { setTempPlayQuality, getTempPlayQuality } from '@/core/music/utils'
 import playerState from '@/store/player/state'
 import settingState from '@/store/setting/state'
+import { clearDebugLogs, collectDebugLog, scheduleCopyDebugLogs } from '@/utils/debugLogCollector'
 
 const QUALITY_LABEL_MAP: Record<string, string> = {
   '128k': '128k',
@@ -80,9 +81,11 @@ export default forwardRef<QualitySelectPopupType, { onCloseSettingPopup?: () => 
   }, [t])
 
   const handleSelect = useCallback(async (q: LX.Quality) => {
-    console.log('[QualitySelect] handleSelect called, q=', q, 'musicInfo=', musicInfo?.id)
+    clearDebugLogs()
+    collectDebugLog('QualitySelect', 'handleSelect called, q=', q, 'musicInfo=', musicInfo?.id, 'source=', musicInfo?.source, 'settingQuality=', settingState.setting['player.playQuality'])
     if (!musicInfo) {
-      console.log('[QualitySelect] musicInfo is null, returning')
+      collectDebugLog('QualitySelect', 'musicInfo is null, abort switching')
+      scheduleCopyDebugLogs(500)
       return
     }
     setLoading(false)
@@ -96,23 +99,28 @@ export default forwardRef<QualitySelectPopupType, { onCloseSettingPopup?: () => 
 
     try {
       const position = playerState.progress.nowPlayTime
-      console.log('[QualitySelect] setting temp quality to', q, 'position=', position)
+      collectDebugLog('QualitySelect', 'setting temp quality to', q, 'position=', position)
       setTempPlayQuality(q)
       // isRefresh=true 已保证绕过 URL 缓存获取新 URL，无需额外清除播放缓存
       // 保留旧缓存可避免 CDN 慢时播放器无资源可用
-      console.log('[QualitySelect] calling getMusicUrl with quality=', q)
+      collectDebugLog('QualitySelect', 'calling getMusicUrl with quality=', q, 'isRefresh=true')
       const url = await getMusicUrl({ musicInfo, quality: q, isRefresh: true, allowToggleSource: false, onToggleSource: () => {} })
-      console.log('[QualitySelect] getMusicUrl returned url=', url)
+      collectDebugLog('QualitySelect', 'getMusicUrl returned url=', url)
       if (!url) {
-        console.log('[QualitySelect] url is empty, resetting temp quality')
+        collectDebugLog('QualitySelect', 'url is empty, resetting temp quality')
         setTempPlayQuality(null)
+        scheduleCopyDebugLogs(500)
         return
       }
-      console.log('[QualitySelect] calling setResource with url=', url)
+      collectDebugLog('QualitySelect', 'calling setResource with url=', url, 'position=', position)
       setResource(musicInfo, url, position)
-    } catch (err) {
-      console.log('[QualitySelect] error:', err)
+      scheduleCopyDebugLogs(2000)
+      toast('音质切换日志已复制到剪贴板，请直接粘贴发送')
+    } catch (err: any) {
+      collectDebugLog('QualitySelect', 'error:', err?.message ?? err)
       setTempPlayQuality(null)
+      scheduleCopyDebugLogs(500)
+      toast('音质切换失败，日志已复制到剪贴板，请直接粘贴发送')
     }
   }, [musicInfo])
 

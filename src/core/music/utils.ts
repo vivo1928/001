@@ -12,6 +12,7 @@ import { requestMsg } from '@/utils/message'
 import BackgroundTimer from 'react-native-background-timer'
 import { apis } from '@/utils/musicSdk/api-source'
 import { extendQualityTypes } from '@/utils/musicSdk/utils'
+import { collectDebugLog } from '@/utils/debugLogCollector'
 
 // ── 单歌临时音质覆盖 ──
 // 播放详情页手动切换音质时设置，切歌后清空
@@ -332,19 +333,23 @@ export const handleGetOnlineMusicUrl = async({ musicInfo, quality, onToggleSourc
   // console.log(musicInfo.source)
   const targetQuality = quality ?? getPlayQuality(settingState.setting['player.playQuality'], musicInfo)
   console.log('[getUrl] handleGetOnlineMusicUrl musicInfo.id=', musicInfo.id, 'source=', musicInfo.source, 'quality=', quality, 'targetQuality=', targetQuality, 'isRefresh=', isRefresh, '_qualitys=', JSON.stringify(musicInfo.meta?._qualitys))
+  collectDebugLog('getUrl', 'handleGetOnlineMusicUrl id=', musicInfo.id, 'source=', musicInfo.source, 'quality=', quality, 'targetQuality=', targetQuality, 'isRefresh=', isRefresh, '_qualitys=', JSON.stringify(Object.keys(musicInfo.meta?._qualitys ?? {})))
 
   let reqPromise
   try {
     reqPromise = musicSdk[musicInfo.source].getMusicUrl(toOldMusicInfo(musicInfo), targetQuality).promise
   } catch (err: any) {
     console.log('[getUrl] musicSdk.getMusicUrl threw synchronously', err)
+    collectDebugLog('getUrl', 'musicSdk.getMusicUrl threw synchronously:', err?.message ?? err)
     reqPromise = Promise.reject(err)
   }
   return reqPromise.then(({ url, type }: { url: string, type: LX.Quality }) => {
     console.log('[getUrl] SDK returned url=', url, 'type=', type)
+    collectDebugLog('getUrl', 'SDK returned type=', type, 'url=', url)
     return { musicInfo, url, quality: type, isFromCache: false }
   }).catch(async(err: any) => {
     console.log('[getUrl] SDK getMusicUrl rejected:', err?.message)
+    collectDebugLog('getUrl', 'SDK getMusicUrl rejected:', err?.message ?? err)
     if (!allowToggleSource || err.message == requestMsg.tooManyRequests) throw err
     onToggleSource()
     // eslint-disable-next-line @typescript-eslint/promise-function-async
