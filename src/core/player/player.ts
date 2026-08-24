@@ -1,6 +1,4 @@
 import { isInitialized, initial as playerInitial, isEmpty, setPause, setPlay, setResource, setStop, initTrackInfo } from '@/plugins/player'
-import TrackPlayer, { State } from 'react-native-track-player'
-import { cachePlaybackMusic } from '@/core/playbackCache'
 import {
   setStatusText,
 } from '@/core/player/playStatus'
@@ -73,14 +71,6 @@ const diffCurrentMusicInfo = (curMusicInfo: LX.Music.MusicInfo | LX.Download.Lis
   return createGettingUrlId(curMusicInfo) != global.lx.gettingUrlId || curMusicInfo.id != playerState.playMusicInfo.musicInfo?.id || playerState.isPlay
 }
 
-/**
- * 仅判断目标歌曲是否已切换/过期（不含播放状态）
- * 用于在获取到 URL 后判断是否仍应使用该结果，避免播放中刷新 URL 的结果被丢弃
- */
-const isCurrentMusicInfoChanged = (curMusicInfo: LX.Music.MusicInfo | LX.Download.ListItem): boolean => {
-  return createGettingUrlId(curMusicInfo) != global.lx.gettingUrlId || curMusicInfo.id != playerState.playMusicInfo.musicInfo?.id
-}
-
 let cancelDelayRetry: (() => void) | null = null
 const delayRetry = async(musicInfo: LX.Music.MusicInfo | LX.Download.ListItem, isRefresh = false): Promise<string | null> => {
   // if (cancelDelayRetry) cancelDelayRetry()
@@ -125,13 +115,13 @@ const getMusicPlayUrl = async(musicInfo: LX.Music.MusicInfo | LX.Download.ListIt
       },
     })
   }).then(url => {
-    if (global.lx.isPlayedStop || isCurrentMusicInfoChanged(musicInfo)) return null
+    if (global.lx.isPlayedStop || diffCurrentMusicInfo(musicInfo)) return null
 
     return url
   }).catch(async err => {
     // console.log('err', err.message)
     if (global.lx.isPlayedStop ||
-      isCurrentMusicInfoChanged(musicInfo) ||
+      diffCurrentMusicInfo(musicInfo) ||
       err.message == requestMsg.cancelRequest) return null
 
     if (err.message == requestMsg.tooManyRequests) return delayRetry(musicInfo, isRefresh)
@@ -147,8 +137,7 @@ export const setMusicUrl = (musicInfo: LX.Music.MusicInfo | LX.Download.ListItem
   if (!diffCurrentMusicInfo(musicInfo)) return
   if (cancelDelayRetry) cancelDelayRetry()
   global.lx.gettingUrlId = createGettingUrlId(musicInfo)
-  // 首次播放强制 isRefresh=true，避免缓存过期 URL 导致播放缓冲
-  void getMusicPlayUrl(musicInfo, isRefresh ?? true).then(async(url) => {
+  void getMusicPlayUrl(musicInfo, isRefresh).then((url) => {
     if (!url) return
     setResource(musicInfo, url, playerState.progress.nowPlayTime)
   }).catch((err: any) => {
@@ -283,12 +272,9 @@ const handlePlay = async() => {
  */
 export const playListById = async(listId: string, id: string) => {
   const prevListId = playerState.playInfo.playerListId
-  const musicInfo = getList(listId).find(m => m.id == id)
-  if (!musicInfo) {
-    if (prevListId != listId) setPlayListId(prevListId)
-    return
-  }
   setPlayListId(listId)
+  const musicInfo = getList(listId).find(m => m.id == id)
+  if (!musicInfo) return
   setPlayMusicInfo(listId, musicInfo)
   if (settingState.setting['player.isAutoCleanPlayedList'] || prevListId != listId) clearPlayedList()
   clearTempPlayeList()
