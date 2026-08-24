@@ -69,16 +69,12 @@ export default memo(() => {
         </View>
         <View style={styles.btn}>
           <Button onPress={openLogModal}>{t('setting_other_log_btn_show')}</Button>
+          {isDebugLogEnabled() ? (
+            <Button onPress={() => { copyAllLogsToClipboard() }}>{`复制日志(${getLogCount()}条)`}</Button>
+          ) : null}
         </View>
       </SubTitle>
-      {isDebugLogEnabled() ? (
-        <SubTitle title="调试日志">
-          <View style={styles.btn}>
-            <Text size={13} style={styles.logCount}>当前 {getLogCount()} 条</Text>
-            <Button onPress={() => { copyAllLogsToClipboard() }}>{'复制全部日志'}</Button>
-          </View>
-        </SubTitle>
-      ) : null}
+      {isDebugLogEnabled() ? null : null}
       <ConfirmAlert
         ref={alertRef}
         cancelText={t('setting_other_log_btn_hide')}
