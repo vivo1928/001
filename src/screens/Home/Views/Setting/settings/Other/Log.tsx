@@ -70,7 +70,6 @@ export default memo(() => {
           <Button onPress={openLogModal}>{t('setting_other_log_btn_show')}</Button>
         </View>
       </SubTitle>
-      {isDebugLogEnabled() ? null : null}
       <ConfirmAlert
         ref={alertRef}
         cancelText={t('setting_other_log_btn_hide')}
