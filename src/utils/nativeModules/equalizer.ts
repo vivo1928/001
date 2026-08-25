@@ -28,6 +28,11 @@ export const EQ_PRESETS: EqualizerPreset[] = [
     levels: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
   },
   {
+    id: 'harman',
+    name: 'eq_preset_harman',
+    levels: [4000, 5000, 3000, 1000, 0, 0, 0, -1000, -2000, -3000],
+  },
+  {
     id: 'bass_boost',
     name: 'eq_preset_bass_boost',
     levels: [6000, 5000, 4000, 2000, 0, -1000, -1000, 0, 1000, 2000],
