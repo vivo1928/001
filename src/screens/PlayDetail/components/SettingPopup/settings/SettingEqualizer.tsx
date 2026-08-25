@@ -34,7 +34,7 @@ export default () => {
 
   // 每次组件渲染时刷新状态
   useEffect(() => {
-    void (async () => {
+    void (async() => {
       try {
         const enabled = await getEnabled()
         setEqEnabled(enabled)
@@ -50,7 +50,7 @@ export default () => {
     })()
   }, [])
 
-  const refreshStatus = useCallback(async () => {
+  const refreshStatus = useCallback(async() => {
     try {
       const enabled = await getEnabled()
       setEqEnabled(enabled)

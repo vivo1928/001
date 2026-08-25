@@ -25,7 +25,7 @@ export interface EqualizerPopupType {
 }
 
 const MIN_LEVEL = -12000 // -12 dB in millibel
-const MAX_LEVEL = 12000  // +12 dB in millibel
+const MAX_LEVEL = 12000 // +12 dB in millibel
 const STEP = 100 // 0.1 dB step
 
 const PresetButton = ({ name, active, onPress }: {
@@ -142,7 +142,7 @@ export default forwardRef<EqualizerPopupType, { onClose?: () => void }>(({ onClo
   // 初始化
   useEffect(() => {
     if (!visible) return
-    void (async () => {
+    void (async() => {
       try {
         const [enabled, bandInfo] = await Promise.all([
           getEnabled(),
@@ -159,13 +159,13 @@ export default forwardRef<EqualizerPopupType, { onClose?: () => void }>(({ onClo
     })()
   }, [visible])
 
-  const handleToggle = useCallback(async () => {
+  const handleToggle = useCallback(async() => {
     const newEnabled = !eqEnabled
     setEqEnabled(newEnabled)
     await setEnabled(newEnabled)
   }, [eqEnabled])
 
-  const handleSelectPreset = useCallback(async (presetId: string) => {
+  const handleSelectPreset = useCallback(async(presetId: string) => {
     setActivePreset(presetId)
     const preset = EQ_PRESETS.find(p => p.id === presetId)
     if (!preset) return
@@ -197,7 +197,7 @@ export default forwardRef<EqualizerPopupType, { onClose?: () => void }>(({ onClo
     void setBandLevel(index, value)
   }, [])
 
-  const handleReset = useCallback(async () => {
+  const handleReset = useCallback(async() => {
     await resetEq()
     setLevels(new Array(bands.length).fill(0))
     setActivePreset('flat')
