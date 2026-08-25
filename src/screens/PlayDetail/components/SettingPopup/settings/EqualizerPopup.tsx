@@ -115,7 +115,7 @@ const BandSlider = ({ freq, level, enabled, onValueChange, onSlidingComplete }: 
   )
 }
 
-export default forwardRef<EqualizerPopupType>((_, ref) => {
+export default forwardRef<EqualizerPopupType, { onClose?: () => void }>(({ onClose }, ref) => {
   const popupRef = useRef<PopupType>(null)
   const [visible, setVisible] = useState(false)
   const [bands, setBands] = useState<BandInfo[]>([])
@@ -217,7 +217,10 @@ export default forwardRef<EqualizerPopupType>((_, ref) => {
   return (
     visible
       ? (
-        <Popup ref={popupRef} title={t('eq_title')} onHide={() => setVisible(false)}>
+        <Popup ref={popupRef} title={t('eq_title')} onHide={() => {
+          setVisible(false)
+          onClose?.()
+        }}>
           <ScrollView>
             <View style={styles.container} onStartShouldSetResponder={() => true}>
               {/* 开关按钮 */}

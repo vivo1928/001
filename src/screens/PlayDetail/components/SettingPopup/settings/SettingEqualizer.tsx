@@ -87,7 +87,7 @@ export default () => {
         <Text>{t('play_detail_setting_equalizer')}</Text>
         <Text size={13} color={theme['c-font-label']}>{statusText}</Text>
       </TouchableOpacity>
-      <EqualizerPopup ref={popupRef} />
+      <EqualizerPopup ref={popupRef} onClose={refreshStatus} />
     </View>
   )
 }
