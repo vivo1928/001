@@ -1,9 +1,11 @@
 import { useRef, useCallback, memo } from 'react'
-import { View } from 'react-native'
+import { View, Linking } from 'react-native'
 import Text from '@/components/common/Text'
 import { useTheme } from '@/store/theme/hook'
 import { useI18n } from '@/lang'
 import { createStyle, toast } from '@/utils/tools'
+import { requestStoragePermission } from '@/core/common'
+import ConfirmAlert, { type ConfirmAlertType } from '@/components/common/ConfirmAlert'
 import DownloadQualityModal, { type DownloadQualityModalType } from '@/components/DownloadQualityModal'
 import DownloadProgressModal, { type DownloadProgressModalType } from '@/components/DownloadProgressModal'
 import DownloadFailedModal, { type DownloadFailedModalType } from '@/components/DownloadFailedModal'
@@ -18,9 +20,15 @@ export default memo(() => {
   const downloadQualityRef = useRef<DownloadQualityModalType>(null)
   const downloadProgressRef = useRef<DownloadProgressModalType>(null)
   const downloadFailedRef = useRef<DownloadFailedModalType>(null)
+  const confirmAlertRef = useRef<ConfirmAlertType>(null)
 
   const startSingleDownload = useCallback(async(musicInfo: LX.Music.MusicInfoOnline, quality: LX.Quality) => {
-    // 先显示进度弹窗，DownloadManager 内部会处理权限、创建目录等
+    const granted = await requestStoragePermission()
+    if (!granted) {
+      confirmAlertRef.current?.setVisible(true)
+      return
+    }
+
     downloadProgressRef.current?.show(musicInfo.name, {
       onCancel: () => {
         downloadManager.cancelAll()
@@ -43,7 +51,6 @@ export default memo(() => {
       if (id !== taskId) return
       downloadProgressRef.current?.close()
       if (success) {
-        // 下载成功，关闭弹窗
       } else if (error === 'cancelled') {
         toast(t('download_cancelled'))
       } else {
@@ -89,6 +96,13 @@ export default memo(() => {
       <DownloadQualityModal ref={downloadQualityRef} />
       <DownloadProgressModal ref={downloadProgressRef} />
       <DownloadFailedModal ref={downloadFailedRef} />
+      <ConfirmAlert
+        ref={confirmAlertRef}
+        title={t('download_storage_permission_title')}
+        text={t('download_storage_permission_denied')}
+        confirmText={t('open_settings')}
+        onConfirm={() => { void Linking.openSettings() }}
+      />
     </>
   )
 })
