@@ -109,7 +109,8 @@ const registerPlaybackService = async() => {
   TrackPlayer.addEventListener('remote-set-speed' as any, async({ speed }) => {
     const rate = speed as number
     if (rate > 0) {
-      await setPlaybackRate(rate)
+      // Native 端 MusicManager.setCurrentPlaybackSpeed 已在 ButtonEvents 中直接调用，
+      // JS 端无需再通过 Bridge 重复设置 TrackPlayer.setRate，只更新 UI 即可
       global.app_event.setPlaybackRate(rate)
     }
   })
