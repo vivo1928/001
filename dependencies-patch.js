@@ -42,6 +42,13 @@ const rootPath = path.join(__dirname, './')
     ['"Next"', '"下一首"'],
   ]
 
+  const metadataActionsPatch = [
+    [
+      'actions = 0;\n        compactActions = 0;',
+      'actions = 0;\n        compactActions = 0;\n        actions |= PlaybackStateCompat.ACTION_SET_PLAYBACK_SPEED;',
+    ],
+  ]
+
   try {
     let file = (await fs.promises.readFile(metadataManagerPath)).toString()
     for (const [fromStr, toStr] of metadataPatchs) {
@@ -56,6 +63,23 @@ const rootPath = path.join(__dirname, './')
     await fs.promises.writeFile(metadataManagerPath, file)
   } catch (err) {
     console.error('Patch MetadataManager failed:', err.message)
+  }
+
+  // 第二次 patch：添加 ACTION_SET_PLAYBACK_SPEED 到 MediaSession actions
+  try {
+    let file = (await fs.promises.readFile(metadataManagerPath)).toString()
+    for (const [fromStr, toStr] of metadataActionsPatch) {
+      if (file.includes(toStr) || !file.includes(fromStr)) {
+        console.log('  MetadataManager actions already patched or pattern not found')
+        continue
+      }
+      console.log('  Patching MetadataManager actions...')
+      file = file.replace(fromStr, toStr)
+      console.log('  OK')
+    }
+    await fs.promises.writeFile(metadataManagerPath, file)
+  } catch (err) {
+    console.error('Patch MetadataManager actions failed:', err.message)
   }
 
   const musicManagerPath = path.join(rootPath, 'node_modules/react-native-track-player/android/src/main/java/com/guichaguri/trackplayer/service/MusicManager.java')

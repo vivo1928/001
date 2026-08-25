@@ -255,13 +255,30 @@ export const updateOptions = async(options = {
   // An array of media controls capabilities
   // Can contain CAPABILITY_PLAY, CAPABILITY_PAUSE, CAPABILITY_STOP, CAPABILITY_SEEK_TO,
   // CAPABILITY_SKIP_TO_NEXT, CAPABILITY_SKIP_TO_PREVIOUS, CAPABILITY_SET_RATING
-  capabilities: [
+capabilities: [
     Capability.Play,
     Capability.Pause,
     Capability.Stop,
     Capability.SeekTo,
     Capability.SkipToNext,
     Capability.SkipToPrevious,
+    Capability.JumpForward,
+    Capability.JumpBackward,
+  ],
+
+  notificationCapabilities: [
+    Capability.Play,
+    Capability.Pause,
+    Capability.Stop,
+    Capability.SkipToNext,
+    Capability.SkipToPrevious,
+  ],
+
+  compactCapabilities: [
+    Capability.Play,
+    Capability.Pause,
+    Capability.Stop,
+    Capability.SkipToNext,
   ],
 
   notificationCapabilities: [
