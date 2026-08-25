@@ -4,11 +4,11 @@ import Text from '@/components/common/Text'
 import { useTheme } from '@/store/theme/hook'
 import { useI18n } from '@/lang'
 import { createStyle, toast } from '@/utils/tools'
-import { requestStoragePermission } from '@/core/common'
-import ConfirmAlert, { type ConfirmAlertType } from '@/components/common/ConfirmAlert'
+import { requestStoragePermission } from '@/utils/permissions'
 import DownloadQualityModal, { type DownloadQualityModalType } from '@/components/DownloadQualityModal'
 import DownloadProgressModal, { type DownloadProgressModalType } from '@/components/DownloadProgressModal'
 import DownloadFailedModal, { type DownloadFailedModalType } from '@/components/DownloadFailedModal'
+import ConfirmAlert, { type ConfirmAlertType } from '@/components/common/ConfirmAlert'
 import DownloadManager from '@/core/download/manager'
 import playerState from '@/store/player/state'
 
@@ -23,12 +23,14 @@ export default memo(() => {
   const confirmAlertRef = useRef<ConfirmAlertType>(null)
 
   const startSingleDownload = useCallback(async(musicInfo: LX.Music.MusicInfoOnline, quality: LX.Quality) => {
+    // 下载前先申请存储权限
     const granted = await requestStoragePermission()
     if (!granted) {
       confirmAlertRef.current?.setVisible(true)
       return
     }
 
+    // 显示进度弹窗
     downloadProgressRef.current?.show(musicInfo.name, {
       onCancel: () => {
         downloadManager.cancelAll()
@@ -36,24 +38,29 @@ export default memo(() => {
       },
     })
 
+    // 添加下载任务
     const taskId = downloadManager.addToQueue(musicInfo, quality)
 
-    const originalOnProgress = (downloadManager as any)['onProgress']
-    const originalOnComplete = (downloadManager as any)['onComplete']
-
-    ;(downloadManager as any)['onProgress'] = (id: string, progress: number) => {
+    // 设置进度回调
+    const originalOnProgress = (downloadManager as any).onProgress
+    ;(downloadManager as any).onProgress = (id: string, progress: number) => {
       if (id === taskId) {
         downloadProgressRef.current?.updateProgress(progress)
       }
     }
 
-    ;(downloadManager as any)['onComplete'] = (id: string, success: boolean, error?: string) => {
+    // 设置完成回调
+    const originalOnComplete = (downloadManager as any).onComplete
+    ;(downloadManager as any).onComplete = (id: string, success: boolean, error?: string) => {
       if (id !== taskId) return
       downloadProgressRef.current?.close()
       if (success) {
+        // 下载成功，关闭弹窗
       } else if (error === 'cancelled') {
+        // 用户取消了下载
         toast(t('download_cancelled'))
       } else {
+        // 下载失败，显示失败弹窗
         downloadFailedRef.current?.show({
           message: `${musicInfo.singer} - ${musicInfo.name} ${t('download_failed_title')}`,
           onRetry: () => {
@@ -62,8 +69,9 @@ export default memo(() => {
           onCancel: () => {},
         })
       }
-      ;(downloadManager as any)['onProgress'] = originalOnProgress
-      ;(downloadManager as any)['onComplete'] = originalOnComplete
+      // 恢复回调
+      ;(downloadManager as any).onProgress = originalOnProgress
+      ;(downloadManager as any).onComplete = originalOnComplete
     }
   }, [t])
 

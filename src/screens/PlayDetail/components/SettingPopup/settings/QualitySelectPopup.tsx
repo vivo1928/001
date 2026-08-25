@@ -63,24 +63,23 @@ export default forwardRef<QualitySelectPopupType, { onCloseSettingPopup?: () => 
 
   const loadQualities = useCallback((mi: LX.Music.MusicInfoOnline) => {
     try {
-      // 使用 qualitys 原始数组（未被 extendQualityTypes 污染），
-      // 过滤掉 size 为空的伪造音质（扩展注入的音质 size=''）
-      const qualitys = mi.meta.qualitys ?? []
-      const result: LX.Quality[] = []
-      for (const q of QUALITYS_ORDER) {
-        const qInfo = qualitys.find(item => item.type === q)
-        if (qInfo && qInfo.size) result.push(q)
+      // 与 DownloadQualityModal.getAvailableQualities 逻辑一致：
+      // 1. _qualitys 中存在的音质都展示（含 extendQualityTypes 补充的高品质）
+      // 2. 源质量列表中 flac24bit 以上的高级音质若 _qualitys 缺失也补充展示
+      const _qualitys = mi.meta._qualitys ?? {}
+      const sourceQualities = global.lx.qualityList?.[mi.source] ?? []
+      const allQualities = new Set<LX.Quality>()
+      for (const q of Object.keys(_qualitys) as LX.Quality[]) {
+        if (_qualitys[q] != null) allQualities.add(q)
       }
-      // 回退：如果 qualitys 不可用，用 _qualitys 但过滤空 size
-      if (!result.length) {
-        const _qualitys = mi.meta._qualitys ?? {}
-        for (const q of QUALITYS_ORDER) {
-          const qInfo = _qualitys[q]
-          if (qInfo == null) continue
-          if (typeof qInfo === 'object' && 'size' in qInfo && qInfo.size === '') continue
-          result.push(q)
+      for (const q of sourceQualities) {
+        if (_qualitys[q] != null) continue
+        const orderIdx = QUALITYS_ORDER.indexOf(q)
+        if (orderIdx >= 0 && orderIdx < QUALITYS_ORDER.indexOf('flac24bit')) {
+          allQualities.add(q)
         }
       }
+      const result = QUALITYS_ORDER.filter(q => allQualities.has(q))
       setQualities(result)
       if (result.length === 0) {
         setError(t('play_detail_quality_no_available'))
@@ -92,7 +91,7 @@ export default forwardRef<QualitySelectPopupType, { onCloseSettingPopup?: () => 
     }
   }, [t])
 
-const handleSelect = useCallback(async (q: LX.Quality) => {
+  const handleSelect = useCallback(async (q: LX.Quality) => {
     if (!musicInfo) return
     setLoading(false)
     setQualities([])
