@@ -71,8 +71,9 @@ public class EqualizerAudioProcessor implements AudioProcessor {
         int remaining = limit - position;
         if (remaining == 0) return;
 
-        if (!equalizer.isEnabled()) {
+        if (!equalizer.isEnabled() || channelCount > 2) {
             // 均衡器未启用时透传
+            // 多声道（>2，如 Dolby Atmos 5.1/7.1）不做均衡处理，直接透传
             if (pendingOutputBuffer == null || pendingOutputBuffer.capacity() < remaining) {
                 pendingOutputBuffer = ByteBuffer.allocateDirect(remaining).order(ByteOrder.LITTLE_ENDIAN);
             }
