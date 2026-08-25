@@ -11,6 +11,8 @@ import DownloadManager from '@/core/download/manager'
 import { requestStoragePermission } from '@/utils/nativeModules/utils'
 import playerState from '@/store/player/state'
 
+const downloadManager = new DownloadManager()
+
 export default memo(() => {
   const theme = useTheme()
   const t = useI18n()
@@ -25,28 +27,6 @@ export default memo(() => {
       return
     }
 
-    const downloadManager = new DownloadManager(
-      (id, progress) => {
-        downloadProgressRef.current?.updateProgress(progress)
-      },
-      (id, success, error) => {
-        downloadProgressRef.current?.close()
-        if (success) {
-          toast(t('download_completed'))
-        } else if (error === 'cancelled') {
-          toast(t('download_cancelled'))
-        } else {
-          downloadFailedRef.current?.show({
-            message: `${musicInfo.singer} - ${musicInfo.name} ${t('download_failed_title')}`,
-            onRetry: () => {
-              void startSingleDownload(musicInfo, quality)
-            },
-            onCancel: () => {},
-          })
-        }
-      },
-    )
-
     downloadProgressRef.current?.show(musicInfo.name, {
       onCancel: () => {
         downloadManager.cancelAll()
@@ -54,7 +34,36 @@ export default memo(() => {
       },
     })
 
-    downloadManager.addToQueue(musicInfo, quality)
+    const taskId = downloadManager.addToQueue(musicInfo, quality)
+
+    const originalOnProgress = (downloadManager as any)['onProgress']
+    const originalOnComplete = (downloadManager as any)['onComplete']
+
+    ;(downloadManager as any)['onProgress'] = (id: string, progress: number) => {
+      if (id === taskId) {
+        downloadProgressRef.current?.updateProgress(progress)
+      }
+    }
+
+    ;(downloadManager as any)['onComplete'] = (id: string, success: boolean, error?: string) => {
+      if (id !== taskId) return
+      downloadProgressRef.current?.close()
+      if (success) {
+        // 下载成功，关闭弹窗
+      } else if (error === 'cancelled') {
+        toast(t('download_cancelled'))
+      } else {
+        downloadFailedRef.current?.show({
+          message: `${musicInfo.singer} - ${musicInfo.name} ${t('download_failed_title')}`,
+          onRetry: () => {
+            void startSingleDownload(musicInfo, quality)
+          },
+          onCancel: () => {},
+        })
+      }
+      ;(downloadManager as any)['onProgress'] = originalOnProgress
+      ;(downloadManager as any)['onComplete'] = originalOnComplete
+    }
   }, [t])
 
   const handlePress = useCallback(() => {

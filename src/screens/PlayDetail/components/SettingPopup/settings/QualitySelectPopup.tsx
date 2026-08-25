@@ -4,7 +4,7 @@ import Popup, { type PopupType } from '@/components/common/Popup'
 import { useTheme } from '@/store/theme/hook'
 import Text from '@/components/common/Text'
 import { useI18n } from '@/lang'
-import { createStyle } from '@/utils/tools'
+import { createStyle, toast } from '@/utils/tools'
 import { getMusicUrl } from '@/core/music/online'
 import { setResource } from '@/plugins/player'
 import { setTempPlayQuality, getTempPlayQuality } from '@/core/music/utils'
@@ -93,16 +93,16 @@ export default forwardRef<QualitySelectPopupType, { onCloseSettingPopup?: () => 
     try {
       const position = playerState.progress.nowPlayTime
       setTempPlayQuality(q)
-      // isRefresh=true 已保证绕过 URL 缓存获取新 URL，无需额外清除播放缓存
-      // 保留旧缓存可避免 CDN 慢时播放器无资源可用
       const url = await getMusicUrl({ musicInfo, quality: q, isRefresh: true, allowToggleSource: false, onToggleSource: () => {} })
       if (!url) {
         setTempPlayQuality(null)
+        toast(t('切换音质失败：未获取到有效链接'))
         return
       }
       setResource(musicInfo, url, position)
-    } catch (err) {
+    } catch (err: any) {
       setTempPlayQuality(null)
+      toast(t('切换音质失败：') + (err?.message ?? t('未知错误')))
     }
   }, [musicInfo])
 
