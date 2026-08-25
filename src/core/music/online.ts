@@ -54,6 +54,64 @@ export const buildQualityFallbackOrder = (targetQuality: LX.Quality, musicInfo: 
   return order
 }
 
+/**
+ * 计算播放时可用的候选音质顺序（目标音质 + 降级链，去重并过滤 _qualitys 中存在的）
+ */
+const buildCandidateQualities = (targetQuality: LX.Quality, musicInfo: LX.Music.MusicInfoOnline): LX.Quality[] => {
+  const _qualitys = musicInfo.meta?._qualitys ?? {}
+  const seen = new Set<LX.Quality>()
+  const result: LX.Quality[] = []
+  for (const q of buildQualityFallbackOrder(targetQuality, musicInfo)) {
+    const quality = q as LX.Quality
+    if (seen.has(quality)) continue
+    seen.add(quality)
+    if (_qualitys[quality] != null) result.push(quality)
+  }
+  return result
+}
+
+/**
+ * 并发请求多个候选音质，取最先成功者（每个候选对应自己的音质，返回即用该音质）
+ */
+const getMusicUrlConcurrent = async({ musicInfo, candidates, isRefresh, allowToggleSource, onToggleSource }: {
+  musicInfo: LX.Music.MusicInfoOnline
+  candidates: LX.Quality[]
+  isRefresh: boolean
+  allowToggleSource: boolean
+  onToggleSource: (musicInfo?: LX.Music.MusicInfoOnline) => void
+}): Promise<string> => {
+  // 缓存预检：有缓存直接命中（最快），无需等待网络请求
+  const cacheHit = await Promise.all(candidates.map(q => getStoreMusicUrl(musicInfo, q).then(url => ({ q, url })))).then(list => list.find(item => item.url))
+  if (cacheHit?.url) return cacheHit.url
+
+  const requests = candidates.map(quality =>
+    handleGetOnlineMusicUrl({ musicInfo, quality, onToggleSource, isRefresh, allowToggleSource })
+      .then(({ url, quality: resultQuality, musicInfo: targetMusicInfo, isFromCache }) => ({
+        url,
+        quality: resultQuality,
+        musicInfo: targetMusicInfo,
+        isFromCache,
+      })),
+  )
+
+  return new Promise<string>((resolve, reject) => {
+    let fulfilled = false
+    let remaining = requests.length
+    for (const p of requests) {
+      p.then((result) => {
+        if (fulfilled) return
+        fulfilled = true
+        if (result.musicInfo.id != musicInfo.id && !result.isFromCache) void saveMusicUrl(result.musicInfo, result.quality, result.url)
+        void saveMusicUrl(musicInfo, result.quality, result.url)
+        resolve(result.url)
+      }).catch(() => {
+        remaining--
+        if (!fulfilled && remaining == 0) reject(new Error('all candidates failed'))
+      })
+    }
+  })
+}
+
 
 export const getMusicUrl = async({ musicInfo, quality, isRefresh, allowToggleSource = true, onToggleSource = () => {} }: {
   musicInfo: LX.Music.MusicInfoOnline
@@ -62,15 +120,18 @@ export const getMusicUrl = async({ musicInfo, quality, isRefresh, allowToggleSou
   allowToggleSource?: boolean
   onToggleSource?: (musicInfo?: LX.Music.MusicInfoOnline) => void
 }): Promise<string> => {
-  // if (!musicInfo._types[type]) {
-  //   // 兼容旧版酷我源搜索列表过滤128k音质的bug
-  //   if (!(musicInfo.source == 'kw' && type == '128k')) throw new Error('该歌曲没有可播放的音频')
-
-  //   // return Promise.reject(new Error('该歌曲没有可播放的音频'))
-  // }
   const targetQuality = quality ?? getPlayQuality(settingState.setting['player.playQuality'], musicInfo)
   const cachedUrl = await getStoreMusicUrl(musicInfo, targetQuality)
   if (cachedUrl && !isRefresh) return cachedUrl
+
+  // 播放场景（未显式指定音质）：并发请求候选音质，谁先拿到有效链接用谁
+  if (!quality) {
+    const candidates = buildCandidateQualities(targetQuality, musicInfo)
+    if (candidates.length > 1) {
+      const url = await getMusicUrlConcurrent({ musicInfo, candidates, isRefresh, allowToggleSource, onToggleSource })
+      if (url) return url
+    }
+  }
 
   return handleGetOnlineMusicUrl({ musicInfo, quality, onToggleSource, isRefresh, allowToggleSource }).then(({ url, quality: targetQuality, musicInfo: targetMusicInfo, isFromCache }) => {
     if (targetMusicInfo.id != musicInfo.id && !isFromCache) void saveMusicUrl(targetMusicInfo, targetQuality, url)

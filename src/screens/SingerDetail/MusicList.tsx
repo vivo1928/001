@@ -37,6 +37,7 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId, activeT
   const listRef = useRef<OnlineListType>(null)
   const headerRef = useRef<HeaderType>(null)
   const isUnmountedRef = useRef(false)
+  const retriedRef = useRef(false)
   const info = useSingerInfo()
   const downloadQualityRef = useRef<DownloadQualityModalType>(null)
   const downloadProgressRef = useRef<DownloadProgressModalType>(null)
@@ -77,6 +78,27 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId, activeT
             listRef.current?.setStatus(singerDetailState.listDetailInfo.maxPage <= page ? 'end' : 'idle')
           })
         }).catch(() => {
+          // 首次加载失败自动重试一次（偶发 SDK 超时），避免用户手动点"重新加载"
+          if (!retriedRef.current && page == 1) {
+            retriedRef.current = true
+            return getListDetail(compositeId, page, true).then((listDetail) => {
+              const result = setListDetail(listDetail, compositeId, page)
+              if (isUnmountedRef.current) return
+              requestAnimationFrame(() => {
+                const singerInfo = singerDetailState.singerInfo
+                headerRef.current?.setInfo({
+                  name: singerInfo?.name || info.name || '',
+                  desc: buildDesc({ ...info, ...singerInfo }),
+                  imgUrl: singerInfo?.img || info.img,
+                })
+                listRef.current?.setList(result.list)
+                listRef.current?.setStatus(singerDetailState.listDetailInfo.maxPage <= page ? 'end' : 'idle')
+              })
+            }).catch(() => {
+              if (singerDetailState.listDetailInfo.list.length && page == 1) clearListDetail()
+              listRef.current?.setStatus('error')
+            })
+          }
           if (singerDetailState.listDetailInfo.list.length && page == 1) clearListDetail()
           listRef.current?.setStatus('error')
         })
