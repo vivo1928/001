@@ -81,18 +81,21 @@ const getMusicUrlConcurrent = async({ musicInfo, candidates, isRefresh, allowTog
   onToggleSource: (musicInfo?: LX.Music.MusicInfoOnline) => void
 }): Promise<string> => {
   // 缓存预检：有缓存直接命中（最快），无需等待网络请求
-  const cacheHit = await Promise.all(candidates.map(q => getStoreMusicUrl(musicInfo, q).then(url => ({ q, url })))).then(list => list.find(item => item.url))
+  const cacheHit = await Promise.all(candidates.map(async(q) => {
+    const url = await getStoreMusicUrl(musicInfo, q)
+    return { q, url }
+  })).then(list => list.find(item => item.url))
   if (cacheHit?.url) return cacheHit.url
 
-  const requests = candidates.map(quality =>
-    handleGetOnlineMusicUrl({ musicInfo, quality, onToggleSource, isRefresh, allowToggleSource })
-      .then(({ url, quality: resultQuality, musicInfo: targetMusicInfo, isFromCache }) => ({
-        url,
-        quality: resultQuality,
-        musicInfo: targetMusicInfo,
-        isFromCache,
-      })),
-  )
+  const requests = candidates.map(async(quality) => {
+    const { url, quality: resultQuality, musicInfo: targetMusicInfo, isFromCache } = await handleGetOnlineMusicUrl({ musicInfo, quality, onToggleSource, isRefresh, allowToggleSource })
+    return {
+      url,
+      quality: resultQuality,
+      musicInfo: targetMusicInfo,
+      isFromCache,
+    }
+  })
 
   return new Promise<string>((resolve, reject) => {
     let fulfilled = false
@@ -128,8 +131,12 @@ export const getMusicUrl = async({ musicInfo, quality, isRefresh, allowToggleSou
   if (!quality) {
     const candidates = buildCandidateQualities(targetQuality, musicInfo)
     if (candidates.length > 1) {
-      const url = await getMusicUrlConcurrent({ musicInfo, candidates, isRefresh, allowToggleSource, onToggleSource })
-      if (url) return url
+      try {
+        const url = await getMusicUrlConcurrent({ musicInfo, candidates, isRefresh, allowToggleSource, onToggleSource })
+        if (url) return url
+      } catch {
+        // 并发全部失败，回退到单音质请求（保留切源逻辑）
+      }
     }
   }
 

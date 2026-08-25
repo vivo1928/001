@@ -276,40 +276,59 @@ export const getOnlineOtherSourceMusicUrl = async({ musicInfos, quality, onToggl
 }> => {
   if (!await global.lx.apiInitPromise[0]) throw new Error('source init failed')
 
-  let musicInfo: LX.Music.MusicInfoOnline | null = null
-  let itemQuality: LX.Quality | null = null
-  // eslint-disable-next-line no-cond-assign
-  while (musicInfo = (musicInfos.shift()!)) {
-    if (retryedSource.includes(musicInfo.source)) continue
-    retryedSource.push(musicInfo.source)
-    if (!assertApiSupport(musicInfo.source)) continue
-    itemQuality = quality ?? getPlayQuality(settingState.setting['player.playQuality'], musicInfo)
-    if (!musicInfo.meta._qualitys[itemQuality]) continue
-
-    console.log('try toggle to: ', musicInfo.source, musicInfo.name, musicInfo.singer, musicInfo.interval)
-    onToggleSource(musicInfo)
-    break
+  // 过滤出可尝试的候选源
+  const candidates: Array<{ musicInfo: LX.Music.MusicInfoOnline, itemQuality: LX.Quality }> = []
+  for (const m of musicInfos) {
+    if (retryedSource.includes(m.source)) continue
+    if (!assertApiSupport(m.source)) continue
+    const q = quality ?? getPlayQuality(settingState.setting['player.playQuality'], m)
+    if (!m.meta._qualitys[q]) continue
+    candidates.push({ musicInfo: m, itemQuality: q })
   }
-  if (!musicInfo || !itemQuality) throw new Error(global.i18n.t('toggle_source_failed'))
+  if (!candidates.length) throw new Error(global.i18n.t('toggle_source_failed'))
 
-  const cachedUrl = await getStoreMusicUrl(musicInfo, itemQuality)
-  if (cachedUrl && !isRefresh) return { url: cachedUrl, musicInfo, quality: itemQuality, isFromCache: true }
-
-  let reqPromise
-  try {
-    reqPromise = musicSdk[musicInfo.source].getMusicUrl(toOldMusicInfo(musicInfo), itemQuality).promise
-  } catch (err: any) {
-    reqPromise = Promise.reject(err)
+  // 并发请求所有候选源的 URL，取最先成功者（对应各自音质）
+  interface UrlResult {
+    url: string
+    musicInfo: LX.Music.MusicInfoOnline
+    quality: LX.Quality
+    isFromCache: boolean
   }
-  // retryedSource.includes(musicInfo.source)
-  // eslint-disable-next-line @typescript-eslint/promise-function-async
-  return reqPromise.then(({ url, type }: { url: string, type: LX.Quality }) => {
-    return { musicInfo, url, quality: type, isFromCache: false }
-    // eslint-disable-next-line @typescript-eslint/promise-function-async
-  }).catch((err: any) => {
-    if (err.message == requestMsg.tooManyRequests) throw err
-    console.log(err)
-    return getOnlineOtherSourceMusicUrl({ musicInfos, quality, onToggleSource, isRefresh, retryedSource })
+  const requests = candidates.map(async({ musicInfo, itemQuality }) => {
+    const cachedUrl = await getStoreMusicUrl(musicInfo, itemQuality)
+    if (cachedUrl && !isRefresh) {
+      const cacheResult: UrlResult = { url: cachedUrl, musicInfo, quality: itemQuality, isFromCache: true }
+      return cacheResult
+    }
+    let reqPromise
+    try {
+      reqPromise = musicSdk[musicInfo.source].getMusicUrl(toOldMusicInfo(musicInfo), itemQuality).promise
+    } catch (err: any) {
+      reqPromise = Promise.reject(err)
+    }
+    return reqPromise.then(({ url, type }: { url: string, type: LX.Quality }) => {
+      const result: UrlResult = { musicInfo, url, quality: type, isFromCache: false }
+      return result
+    })
+  })
+
+  return new Promise<UrlResult>((resolve, reject) => {
+    let fulfilled = false
+    let remaining = requests.length
+    let firstErr: any = null
+    for (const p of requests) {
+      p.then((result: UrlResult) => {
+        if (fulfilled) return
+        fulfilled = true
+        console.log('toggle ok: ', result.musicInfo.source, result.musicInfo.name)
+        onToggleSource(result.musicInfo)
+        resolve(result)
+      }).catch((err: any) => {
+        if (!firstErr && err?.message != requestMsg.tooManyRequests) firstErr = err
+        remaining--
+        if (!fulfilled && remaining == 0) reject(firstErr ?? new Error(global.i18n.t('toggle_source_failed')))
+      })
+    }
   })
 }
 
