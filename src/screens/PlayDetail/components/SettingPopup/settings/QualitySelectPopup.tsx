@@ -6,7 +6,7 @@ import Text from '@/components/common/Text'
 import { useI18n } from '@/lang'
 import { createStyle, toast } from '@/utils/tools'
 import { getMusicUrl } from '@/core/music/online'
-import { setResource } from '@/plugins/player'
+import { setResource, setPause, setPlay } from '@/plugins/player'
 import { setTempPlayQuality, getTempPlayQuality } from '@/core/music/utils'
 import playerState from '@/store/player/state'
 import settingState from '@/store/setting/state'
@@ -102,9 +102,12 @@ const handleSelect = useCallback(async (q: LX.Quality) => {
       setVisible(false)
     }, 300)
 
+    // 立即暂停，让用户明确感知"切换开始"
+    await setPause()
+    const position = playerState.progress.nowPlayTime
+    setTempPlayQuality(q)
+
     try {
-      const position = playerState.progress.nowPlayTime
-      setTempPlayQuality(q)
       let url: string
       try {
         url = await getMusicUrl({ musicInfo, quality: q, isRefresh: true, allowToggleSource: false, onToggleSource: () => {} })
@@ -114,12 +117,14 @@ const handleSelect = useCallback(async (q: LX.Quality) => {
       if (!url) {
         setTempPlayQuality(null)
         toast(t('切换音质失败：未获取到有效链接'))
+        void setPlay()
         return
       }
       setResource(musicInfo, url, position)
     } catch (err: any) {
       setTempPlayQuality(null)
       toast(t('切换音质失败：') + (err?.message ?? t('未知错误')))
+      void setPlay()
     }
   }, [musicInfo])
 

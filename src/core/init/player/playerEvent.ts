@@ -14,6 +14,7 @@ export default () => {
 
   let loadingTimeout: number | null = null
   let delayNextTimeout: number | null = null
+  let bufferingTimer: number | null = null
 
   // 将格式化时长（03:55 / 01:02:03）解析为秒，解析失败返回 0
   const parseIntervalToSec = (interval?: string | null): number => {
@@ -64,7 +65,7 @@ export default () => {
         prevTimeoutId = playerState.musicInfo.id
         if (musicInfo && retryNum < getMaxRetryNum()) refreshUrl(musicInfo)
       }
-    }, 25000)
+    }, 15000)
   }
   const clearLoadingTimeout = () => {
     if (!loadingTimeout) return
@@ -107,16 +108,34 @@ export default () => {
 
   const handlePlaying = () => {
     setStatusText('')
+    if (bufferingTimer) {
+      BackgroundTimer.clearTimeout(bufferingTimer)
+      bufferingTimer = null
+    }
     clearLoadingTimeout()
   }
 
   const handleEmpied = () => {
     clearDelayNextTimeout()
+    if (bufferingTimer) {
+      BackgroundTimer.clearTimeout(bufferingTimer)
+      bufferingTimer = null
+    }
     clearLoadingTimeout()
   }
 
   const handleWating = () => {
     setStatusText(global.i18n.t('player__buffering'))
+    // 缓冲 5s 后仍未进入 Playing 则自动刷新 URL（更快响应卡缓冲）
+    if (bufferingTimer == null) {
+      bufferingTimer = BackgroundTimer.setTimeout(() => {
+        bufferingTimer = null
+        const musicInfo = playerState.playMusicInfo.musicInfo
+        if (musicInfo && retryNum < getMaxRetryNum()) {
+          refreshUrl(musicInfo)
+        }
+      }, 5000)
+    }
   }
 
   const handleError = () => {
@@ -149,6 +168,10 @@ export default () => {
     retryNum = 0
     prevTimeoutId = null
     clearDelayNextTimeout()
+    if (bufferingTimer) {
+      BackgroundTimer.clearTimeout(bufferingTimer)
+      bufferingTimer = null
+    }
     clearLoadingTimeout()
     clearTempPlayQuality()
   }
