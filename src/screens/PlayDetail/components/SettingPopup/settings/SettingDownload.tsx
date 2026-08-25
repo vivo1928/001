@@ -8,7 +8,6 @@ import DownloadQualityModal, { type DownloadQualityModalType } from '@/component
 import DownloadProgressModal, { type DownloadProgressModalType } from '@/components/DownloadProgressModal'
 import DownloadFailedModal, { type DownloadFailedModalType } from '@/components/DownloadFailedModal'
 import DownloadManager from '@/core/download/manager'
-import { requestStoragePermission } from '@/utils/nativeModules/utils'
 import playerState from '@/store/player/state'
 
 const downloadManager = new DownloadManager()
@@ -21,12 +20,7 @@ export default memo(() => {
   const downloadFailedRef = useRef<DownloadFailedModalType>(null)
 
   const startSingleDownload = useCallback(async(musicInfo: LX.Music.MusicInfoOnline, quality: LX.Quality) => {
-    const granted = await requestStoragePermission()
-    if (!granted) {
-      toast(t('download_storage_permission_denied'))
-      return
-    }
-
+    // 先显示进度弹窗，DownloadManager 内部会处理权限、创建目录等
     downloadProgressRef.current?.show(musicInfo.name, {
       onCancel: () => {
         downloadManager.cancelAll()
