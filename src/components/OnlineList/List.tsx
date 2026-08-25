@@ -63,6 +63,10 @@ const List = forwardRef<ListType, ListProps>(({
   const flatListRef = useRef<FlatList>(null)
   const [currentList, setList] = useState<LX.Music.MusicInfoOnline[]>([])
   const [showSource, setShowSource] = useState(false)
+  // 屏幕阅读器分块渲染：读屏时只渲染前 N 条，滚动到底部前自动扩展，避免焦点因列表项卸载而丢失
+  const [screenReaderEnabled, setScreenReaderEnabled] = useState(false)
+  const [renderLimit, setRenderLimit] = useState(0)
+  const SCREEN_READER_PAGE_SIZE = 1000
   const isMultiSelectModeRef = useRef(false)
   const selectModeRef = useRef<SelectMode>('single')
   const prevSelectIndexRef = useRef(-1)
@@ -88,6 +92,8 @@ const List = forwardRef<ListType, ListProps>(({
     setList(list, isAppend, showSource) {
       setList(list)
       setShowSource(showSource)
+      // 切换新列表时重置屏幕阅读器分块渲染范围
+      if (!isAppend && screenReaderEnabled) setRenderLimit(Math.min(SCREEN_READER_PAGE_SIZE, list.length))
       if (!isAppend) {
         // 切换列表时自动取消多选模式
         if (selectedListRef.current.length) setSelectedList(selectedListRef.current = [])
@@ -353,9 +359,34 @@ const List = forwardRef<ListType, ListProps>(({
     isDraggingRef.current = false
   }, [stopEdgeScroll])
 
+  // 检测屏幕阅读器是否开启：开启时启用分块渲染，保证滑动浏览焦点不因列表项卸载而丢失
+  useEffect(() => {
+    let mounted = true
+    void AccessibilityInfo.isScreenReaderEnabled().then((enabled) => {
+      if (!mounted) return
+      setScreenReaderEnabled(enabled)
+      if (enabled && renderLimit == 0) setRenderLimit(SCREEN_READER_PAGE_SIZE)
+    })
+    const sub = AccessibilityInfo.addEventListener('screenReaderChanged', (enabled) => {
+      setScreenReaderEnabled(enabled)
+      if (enabled && renderLimit == 0) setRenderLimit(SCREEN_READER_PAGE_SIZE)
+      else if (!enabled) setRenderLimit(0)
+    })
+    return () => {
+      mounted = false
+      sub?.remove()
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   const handleLoadMore = () => {
     if (status != 'idle') return
-    onLoadMore()
+    // 屏幕阅读器分块渲染：滚动接近当前渲染块末尾时，先扩展渲染范围（加载更多数据）
+    if (screenReaderEnabled && renderLimit > 0 && renderLimit < currentList.length) {
+      setRenderLimit(prev => Math.min(prev + SCREEN_READER_PAGE_SIZE, currentList.length))
+    } else {
+      onLoadMore()
+    }
   }
 
 
@@ -414,7 +445,7 @@ const List = forwardRef<ListType, ListProps>(({
       <FlatList
         ref={flatListRef}
         style={styles.list}
-        data={currentList}
+        data={screenReaderEnabled && renderLimit > 0 ? currentList.slice(0, renderLimit) : currentList}
         extraData={status}
         numColumns={rowInfo.current.rowNum}
         horizontal={false}
