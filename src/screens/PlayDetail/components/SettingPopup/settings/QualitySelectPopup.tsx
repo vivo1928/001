@@ -79,12 +79,11 @@ export default forwardRef<QualitySelectPopupType, { onCloseSettingPopup?: () => 
     }
   }, [t])
 
-  const handleSelect = useCallback(async (q: LX.Quality) => {
+const handleSelect = useCallback(async (q: LX.Quality) => {
     if (!musicInfo) return
     setLoading(false)
     setQualities([])
     popupRef.current?.setVisible(false)
-    // 关闭 SettingPopup
     onCloseSettingPopup?.()
     setTimeout(() => {
       setVisible(false)
@@ -93,7 +92,12 @@ export default forwardRef<QualitySelectPopupType, { onCloseSettingPopup?: () => 
     try {
       const position = playerState.progress.nowPlayTime
       setTempPlayQuality(q)
-      const url = await getMusicUrl({ musicInfo, quality: q, isRefresh: true, allowToggleSource: false, onToggleSource: () => {} })
+      let url: string
+      try {
+        url = await getMusicUrl({ musicInfo, quality: q, isRefresh: true, allowToggleSource: false, onToggleSource: () => {} })
+      } catch {
+        url = await getMusicUrl({ musicInfo, quality: q, isRefresh: true, allowToggleSource: true, onToggleSource: () => {} })
+      }
       if (!url) {
         setTempPlayQuality(null)
         toast(t('切换音质失败：未获取到有效链接'))
