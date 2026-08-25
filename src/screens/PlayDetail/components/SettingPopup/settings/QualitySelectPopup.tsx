@@ -57,6 +57,12 @@ export default forwardRef<QualitySelectPopupType, { onCloseSettingPopup?: () => 
       }
       setTimeout(() => {
         loadQualities(mi)
+        // 后台预取各可用音质的 URL 存入缓存，点击切换时立即命中，无需等待网络请求
+        const qualitys = mi.meta._qualitys ?? {}
+        for (const q of Object.keys(qualitys) as LX.Quality[]) {
+          if (qualitys[q] == null) continue
+          void getMusicUrl({ musicInfo: mi, quality: q, isRefresh: false, allowToggleSource: false, onToggleSource: () => {} }).catch(() => {})
+        }
       }, 100)
     },
   }))
@@ -107,11 +113,22 @@ export default forwardRef<QualitySelectPopupType, { onCloseSettingPopup?: () => 
     setTempPlayQuality(q)
 
     try {
-      let url: string
+      let url: string | null = null
+      // 缓存优先：store 有该音质 URL 缓存则秒回，避免每次重新向 SDK 请求
       try {
-        url = await getMusicUrl({ musicInfo, quality: q, isRefresh: true, allowToggleSource: false, onToggleSource: () => {} })
-      } catch {
-        url = await getMusicUrl({ musicInfo, quality: q, isRefresh: true, allowToggleSource: true, onToggleSource: () => {} })
+        url = await getMusicUrl({ musicInfo, quality: q, isRefresh: false, allowToggleSource: false, onToggleSource: () => {} })
+      } catch {}
+      // 缓存未命中或获取失败，强制刷新一次
+      if (!url) {
+        try {
+          url = await getMusicUrl({ musicInfo, quality: q, isRefresh: true, allowToggleSource: false, onToggleSource: () => {} })
+        } catch {}
+      }
+      // 仍失败则允许切换音源兜底
+      if (!url) {
+        try {
+          url = await getMusicUrl({ musicInfo, quality: q, isRefresh: true, allowToggleSource: true, onToggleSource: () => {} })
+        } catch {}
       }
       if (!url) {
         setTempPlayQuality(null)
