@@ -434,14 +434,13 @@ const List = forwardRef<ListType, ListProps>(({
         // 屏幕阅读器开启时切换为 FlashList（Shopify）：
         // - 采用 view recycling（复用原生 view 重新绑数据），而非 FlatList 的卸载+重建
         // - 滚动时无障碍节点不失效、不重建，TalkBack 触摸浏览定位稳定不卡顿
-        // - scrollEnabled=false 保持列表静止，触摸浏览焦点跟手
+        // - 正常滚动（scrollEnabled 默认 true），保留原版全部滚动与操作能力
         <FlashList
           ref={flatListRef as any}
           style={styles.list}
           data={currentList}
           numColumns={rowInfo.current.rowNum}
           horizontal={false}
-          scrollEnabled={false}
           estimatedItemSize={ITEM_HEIGHT}
           overrideItemLayout={(data, index) => ({ length: ITEM_HEIGHT, offset: ITEM_HEIGHT * index, index })}
           scrollEventThrottle={250}
