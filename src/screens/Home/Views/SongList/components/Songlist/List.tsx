@@ -1,5 +1,6 @@
-import { useRef, useState, useMemo, forwardRef, useImperativeHandle } from 'react'
-import { FlatList, View, RefreshControl, type FlatListProps } from 'react-native'
+import { useRef, useState, useMemo, forwardRef, useImperativeHandle, useCallback, useEffect } from 'react'
+import { FlatList, View, RefreshControl, type FlatListProps, AccessibilityInfo } from 'react-native'
+import { RecyclerListView, DataProvider, LayoutProvider } from 'recyclerlistview'
 
 import ListItem from './ListItem'
 // import { navigations } from '@/navigation'
@@ -10,6 +11,10 @@ import { useI18n } from '@/lang'
 import { scaleSizeW } from '@/utils/pixelRatio'
 import { createStyle } from '@/utils/tools'
 import Text from '@/components/common/Text'
+
+// 读屏时是否使用 RecyclerListView（cell 回收 + 最小重渲染，滚动时无障碍更顺）
+// 若失效，改此值为 false 即可整体回退原版 FlatList
+const USE_RECYCLERLIST = true
 
 type FlatListType = FlatListProps<ListInfoItem>
 
@@ -34,9 +39,11 @@ export interface ListType {
 
 export default forwardRef<ListType, ListProps>(({ onRefresh, onLoadMore, onOpenDetail, onCollect, collectedSet, ListHeaderComponent }, ref) => {
   const flatListRef = useRef<FlatList>(null)
+  const recyclerListRef = useRef<RecyclerListView<any, any>>(null)
   const [currentList, setList] = useState<ListInfoItem[]>([])
   const [showSource, setShowSource] = useState(false)
   const [status, setStatus] = useState<Status>('idle')
+  const [screenReaderEnabled, setScreenReaderEnabled] = useState(false)
   const { onLayout, width } = useLayout()
   const theme = useTheme()
   // console.log('render songlist')
@@ -50,6 +57,22 @@ export default forwardRef<ListType, ListProps>(({ onRefresh, onLoadMore, onOpenD
       setStatus(val)
     },
   }))
+
+  // 检测屏幕阅读器是否开启：开启时切换为 RecyclerListView
+  useEffect(() => {
+    let mounted = true
+    void AccessibilityInfo.isScreenReaderEnabled().then((enabled) => {
+      if (!mounted) return
+      setScreenReaderEnabled(enabled)
+    })
+    const sub = AccessibilityInfo.addEventListener('screenReaderChanged', (enabled) => {
+      setScreenReaderEnabled(enabled)
+    })
+    return () => {
+      mounted = false
+      sub?.remove()
+    }
+  }, [])
 
   const handleLoadMore = () => {
     if (status != 'idle') return
@@ -68,9 +91,6 @@ export default forwardRef<ListType, ListProps>(({ onRefresh, onLoadMore, onOpenD
     />
   )
   const getkey: FlatListType['keyExtractor'] = item => item.id
-  // const getItemLayout: FlatListType['getItemLayout'] = (data, index) => {
-  //   return { length: ITEM_HEIGHT, offset: ITEM_HEIGHT * index, index }
-  // }
   const refreshControl = useMemo(() => (
     <RefreshControl
       colors={[theme['c-primary']]}
@@ -102,19 +122,6 @@ export default forwardRef<ListType, ListProps>(({ onRefresh, onLoadMore, onOpenD
     )
   }, [onLoadMore, status])
 
-
-  // const itemWidth = useMemo(() => {
-  //   let itemWidth = Math.max(Math.trunc(width * 0.125), MAX_WIDTH)
-  //   // if (itemWidth < )
-  // }, [width])
-  // const computedItemWidth = useMemo(() => {
-  //   let w = width - GAP
-  //   let n = width / (MIN_WIDTH + GAP)
-  //   if (n > 10) n = 10
-  //   return Math.floor(w / n)
-  // }, [width])
-  // console.log(Math.trunc(width * 0.125), itemWidth)
-  // console.log(itemWidth, MIN_WIDTH, GAP, width)
   const rowInfo = useMemo(() => {
     let w = width - GAP
     let n = width / (MIN_WIDTH + GAP)
@@ -126,7 +133,8 @@ export default forwardRef<ListType, ListProps>(({ onRefresh, onLoadMore, onOpenD
       width: (width - GAP) / num,
     }
   }, [width])
-  // console.log(rowNum)
+
+  // 一维列表（含白色占位补足列数），供 FlatList 使用
   const list = useMemo(() => {
     const list = [...currentList]
     let whiteItemNum = (list.length % rowInfo.num)
@@ -145,14 +153,79 @@ export default forwardRef<ListType, ListProps>(({ onRefresh, onLoadMore, onOpenD
     }
     return list
   }, [currentList, rowInfo])
-  // console.log(listInfo.list.map((item) => item.id))
+
+  // 读屏时使用 RecyclerListView：按行重组数据，每行是一个横向容器
+  const useRecycler = USE_RECYCLERLIST && screenReaderEnabled && width > 0
+  // 行数组：每个元素是 { id, startIndex, items: ListInfoItem[] }，items 为该行内的卡片
+  const rowList = useMemo(() => {
+    const rows: Array<{ id: string, startIndex: number, items: ListInfoItem[] }> = []
+    const num = rowInfo.num
+    for (let i = 0; i < list.length; i += num) {
+      rows.push({
+        id: `row__${i / num}`,
+        startIndex: i,
+        items: list.slice(i, i + num),
+      })
+    }
+    return rows
+  }, [list, rowInfo.num])
+  const recyclerDataProvider = useMemo(
+    () => new DataProvider((r1, r2) => r1 !== r2).cloneWithRows(rowList),
+    [rowList],
+  )
+  const rowHeight = rowInfo.width
+  const recyclerLayoutProvider = useMemo(
+    () => new LayoutProvider(() => 0, (_type, dim) => { dim.width = width; dim.height = rowHeight }),
+    [width, rowHeight],
+  )
+  const recyclerRowRenderer = useCallback((_type: any, row: any) => (
+    <View style={{ flexDirection: 'row', justifyContent: 'space-evenly', width, height: rowHeight }}>
+      {row.items.map((item: ListInfoItem, idx: number) => (
+        <ListItem
+          key={item.id}
+          item={item}
+          index={row.startIndex + idx}
+          width={rowInfo.width}
+          showSource={showSource}
+          onPress={onOpenDetail}
+          onCollect={onCollect}
+          isCollected={collectedSet ? collectedSet.has(`${item.source}__${item.id}`) : false}
+        />
+      ))}
+    </View>
+  ), [width, rowHeight, rowInfo.width, showSource, onOpenDetail, onCollect, collectedSet])
+  const recyclerExtendedState = useMemo(
+    () => ({ showSource, collectedSet }),
+    [showSource, collectedSet],
+  )
 
   return (
     <View style={styles.container} onLayout={onLayout}>
       {
         width == 0
           ? null
-          : (
+          : useRecycler
+            ? (
+              // 读屏时：RecyclerListView（按行虚拟化，滚动时无障碍更顺）；若失效改 USE_RECYCLERLIST=false 回退 FlatList
+              <>
+                {ListHeaderComponent}
+                <RecyclerListView
+                  ref={recyclerListRef}
+                  style={styles.list}
+                  dataProvider={recyclerDataProvider}
+                  layoutProvider={recyclerLayoutProvider}
+                  rowRenderer={recyclerRowRenderer}
+                  extendedState={recyclerExtendedState}
+                  onEndReached={handleLoadMore}
+                  onEndReachedThreshold={0.6}
+                  renderFooter={() => footerComponent}
+                  scrollViewProps={{
+                    refreshControl,
+                  }}
+                />
+              </>
+              )
+            : (
               <FlatList
                 key={String(rowInfo.num)}
                 ref={flatListRef}
@@ -177,7 +250,7 @@ export default forwardRef<ListType, ListProps>(({ onRefresh, onLoadMore, onOpenD
                 ListHeaderComponent={ListHeaderComponent}
                 ListFooterComponent={footerComponent}
               />
-            )
+              )
       }
     </View>
   )
