@@ -436,11 +436,14 @@ const List = forwardRef<ListType, ListProps>(({
         numColumns={rowInfo.current.rowNum}
         horizontal={false}
         // 屏幕阅读器开启时：增大渲染窗口与批量渲染量，已渲染的 item 不卸载，焦点区域稳定
+        // 惯性滚动快速停止（decelerationRate='fast'），逐项对齐（snapToInterval），焦点不跳
         // 关闭时保持默认虚拟化，不影响普通用户滚动性能
         initialNumToRender={screenReaderEnabled ? 48 : 24}
         maxToRenderPerBatch={screenReaderEnabled ? 32 : 16}
         updateCellsBatchingPeriod={screenReaderEnabled ? 200 : 100}
         windowSize={screenReaderEnabled ? 21 : 7}
+        decelerationRate={screenReaderEnabled ? 'fast' : 'normal'}
+        snapToInterval={screenReaderEnabled ? ITEM_HEIGHT : undefined}
         removeClippedSubviews={false}
         renderItem={renderItem}
         keyExtractor={getkey}
