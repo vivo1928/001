@@ -414,7 +414,8 @@ const List = forwardRef<ListType, ListProps>(({
 
   return (
     <View ref={listContainerRef} onLayout={handleContainerLayout} onTouchEnd={handleTouchEnd} onTouchCancel={handleTouchEnd} style={styles.container} {...panResponder.panHandlers}>
-      {/* 与原版一致：removeClippedSubviews=true（滚动顺畅）。readScreen 开启时 focus 可能跳，但滚动不卡——优先滚动体验 */}
+      {/* 平衡方案：removeClippedSubviews=false（滚动时节点不 detach，读屏焦点不丢、不空白）
+          + windowSize=21（前后 10 屏 cell 常驻，滚动时几乎不重建，无障碍树稳定，避免 detach 重建导致的卡顿） */}
       <FlatList
         ref={flatListRef}
         style={styles.list}
@@ -422,8 +423,8 @@ const List = forwardRef<ListType, ListProps>(({
         numColumns={rowInfo.current.rowNum}
         horizontal={false}
         maxToRenderPerBatch={4}
-        windowSize={8}
-        removeClippedSubviews
+        windowSize={21}
+        removeClippedSubviews={false}
         initialNumToRender={12}
         renderItem={renderItem}
         keyExtractor={getkey}

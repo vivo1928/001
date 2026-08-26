@@ -73,9 +73,7 @@ export default memo(({ item, index, showSource, onPress, onLongPress, onShowMenu
 
   return (
     <View style={{ ...styles.listItem, width: rowInfo.rowWidth, height: ITEM_HEIGHT, backgroundColor: isSelected ? theme['c-primary-background-hover'] : 'rgba(0,0,0,0)' }}>
-      <TouchableOpacity style={styles.listItemLeft} onPress={() => { onPress(item, index) }} onLongPress={() => { onLongPress(item, index) }}
-        accessible={true}
-        accessibilityLabel={(index + 1) + ' ' + item.name + ' ' + singer + (tagInfo.text ? ' ' + tagInfo.text : '') + (isSelected ? ' 已选中' : '')}>
+     <TouchableOpacity style={styles.listItemLeft} onPress={() => { onPress(item, index) }} onLongPress={() => { onLongPress(item, index) }}>
         {hideMoreButton
           ? (
             <View style={styles.checkboxWrap}>
