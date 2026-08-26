@@ -83,7 +83,7 @@ export default memo(({ item, index, showSource, onPress, onLongPress, onShowMenu
                 size={0.65}
               />
             </View>
-          )
+            )
           : null}
         <Text style={styles.sn} size={13} color={theme['c-300']}>{index + 1}</Text>
         <View style={styles.itemInfo}>
@@ -105,7 +105,7 @@ export default memo(({ item, index, showSource, onPress, onLongPress, onShowMenu
           accessibilityLabel={t('more_options')}>
           <Icon name="dots-vertical" style={{ color: theme['c-350'] }} size={12} />
         </TouchableOpacity>
-      )}
+     )}
     </View>
   )
 }, (prevProps, nextProps) => {
