@@ -433,16 +433,14 @@ const List = forwardRef<ListType, ListProps>(({
         ref={flatListRef}
         style={styles.list}
         data={currentList}
-        extraData={status}
         numColumns={rowInfo.current.rowNum}
         horizontal={false}
-        // 屏幕阅读器开启时禁用虚拟化：整列表常驻，焦点永不因卸载丢失，所有条目皆可朗读
+        // 屏幕阅读器开启时：增大渲染窗口与批量渲染量，已渲染的 item 不卸载，焦点区域稳定
         // 关闭时保持默认虚拟化，不影响普通用户滚动性能
-        disableVirtualization={screenReaderEnabled}
-        initialNumToRender={24}
-        maxToRenderPerBatch={16}
-        updateCellsBatchingPeriod={100}
-        windowSize={screenReaderEnabled ? 21 : 11}
+        initialNumToRender={screenReaderEnabled ? 48 : 24}
+        maxToRenderPerBatch={screenReaderEnabled ? 32 : 16}
+        updateCellsBatchingPeriod={screenReaderEnabled ? 200 : 100}
+        windowSize={screenReaderEnabled ? 21 : 7}
         removeClippedSubviews={false}
         renderItem={renderItem}
         keyExtractor={getkey}
