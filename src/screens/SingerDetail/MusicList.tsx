@@ -139,7 +139,12 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId, activeT
         listRef.current?.setStatus(singerDetailState.listDetailInfo.maxPage <= page ? 'end' : 'idle')
       })
     }).catch(() => {
-      if (singerDetailState.listDetailInfo.list.length && page == 1) clearListDetail()
+      // 已有歌曲时刷新失败：保留已加载内容，仅回到 idle，不整页标 error
+      if (singerDetailState.listDetailInfo.list.length) {
+        listRef.current?.setStatus('idle')
+        return
+      }
+      if (page == 1) clearListDetail()
       listRef.current?.setStatus('error')
     })
   }
@@ -152,6 +157,11 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId, activeT
       listRef.current?.setList(result.list, true)
       listRef.current?.setStatus(singerDetailState.listDetailInfo.maxPage <= page ? 'end' : 'idle')
     }).catch(() => {
+      // 已有歌曲时加载更多失败：保留已加载内容，不整页标 error（避免"有歌却显示加载失败"）
+      if (singerDetailState.listDetailInfo.list.length) {
+        listRef.current?.setStatus('idle')
+        return
+      }
       if (singerDetailState.listDetailInfo.list.length && page == 1) clearListDetail()
       listRef.current?.setStatus('error')
     })

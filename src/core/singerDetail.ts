@@ -214,7 +214,10 @@ if (sourcePage === 0) fetchSingerInfo()
     result.list = result.list.filter((m: any) => (m.singer || '').toLowerCase().includes(nameLower))
   }
 
-  if (listCache !== cache.get(listKey)) throw new Error('cache mismatch')
+  if (listCache !== cache.get(listKey)) {
+    // 缓存被并发请求重置：改用最新缓存引用继续，避免偶发的 cache mismatch 导致整页加载失败
+    listCache = cache.get(listKey)!
+  }
   result.list = deduplicationList(result.list.map((m: any) => toNewMusicInfo(m)) as LX.Music.MusicInfoOnline[])
   let p = page
   sourcePage++
@@ -258,20 +261,33 @@ if (sourcePage === 0) fetchSingerInfo()
  * @param isRefresh 是否跳过缓存
  * @returns
  */
+// 同 key 同页进行中的请求去重，避免并发触发 getListLimit 内部的 cache 竞争（cache mismatch）
+const inflightRequests = new Map<string, Promise<ListDetailInfo>>()
 export const getListDetail = async(id: string, page: number, isRefresh = false): Promise<ListDetailInfo> => {
   const [source, singerId] = id.split('__') as [LX.OnlineSource, string]
   const listKey = `singer__${source}__${singerId}`
   const pageKey = `${listKey}__${page}`
+  const inflightKey = `${listKey}__${page}__${isRefresh ? 'r' : 'n'}`
 
   let listCache = cache.get(listKey)
   if (!listCache || isRefresh) {
     cache.set(listKey, listCache = new Map())
   }
 
-  let pageCache = listCache.get(pageKey) as PageCache
+  const pageCache = listCache.get(pageKey) as PageCache
   if (pageCache) return pageCache.data
 
-  return getListLimit(source, singerId, page, singerDetailState.singerName)
+  // 同 key 同页并发时复用同一个进行中的请求，避免对共享 cache 的并发写导致 cache mismatch
+  const inflight = inflightRequests.get(inflightKey)
+  if (inflight) return inflight
+
+  const promise = getListLimit(source, singerId, page, singerDetailState.singerName)
+  inflightRequests.set(inflightKey, promise)
+  try {
+    return await promise
+  } finally {
+    inflightRequests.delete(inflightKey)
+  }
 }
 
 /**

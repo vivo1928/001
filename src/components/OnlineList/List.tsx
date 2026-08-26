@@ -441,9 +441,9 @@ const List = forwardRef<ListType, ListProps>(({
     )
   }, [onLoadMore, status, visibleMultiSelect])
 
-  // 读屏 + 单列 + 无 header 时使用 RecyclerListView（cell 回收 + 最小重渲染，滚动时无障碍更顺）
-  // 有 header（如歌单详情）或横屏两列时保持 FlatList，避免兼容问题、零回归
-  const useRecycler = USE_RECYCLERLIST && screenReaderEnabled && !rowInfo.current.rowNum && !ListHeaderComponent
+  // 读屏 + 单列时使用 RecyclerListView（cell 回收 + 最小重渲染，滚动时无障碍更顺）
+  // 有 header（如歌单详情）时 header 外层固定渲染；横屏两列仍用 FlatList 避免多列兼容问题
+  const useRecycler = USE_RECYCLERLIST && screenReaderEnabled && !rowInfo.current.rowNum
   const listWidth = Dimensions.get('window').width
   const recyclerDataProvider = useMemo(
     () => new DataProvider((r1, r2) => r1 !== r2).cloneWithRows(currentList),
@@ -478,21 +478,24 @@ const List = forwardRef<ListType, ListProps>(({
       {useRecycler ? (
         // 读屏 + 单列时：RecyclerListView（cell 回收 + 最小重渲染，滚动时主线程负担小，无障碍更顺）
         // 若失效，改 USE_RECYCLERLIST=false 即整体回退 FlatList
-        <RecyclerListView
-          ref={recyclerListRef}
-          style={styles.list}
-          dataProvider={recyclerDataProvider}
-          layoutProvider={recyclerLayoutProvider}
-          rowRenderer={recyclerRowRenderer}
-          extendedState={recyclerExtendedState}
-          onScroll={handleRecyclerScroll}
-          onEndReached={handleLoadMore}
-          onEndReachedThreshold={0.5}
-          renderFooter={() => footerComponent}
-          scrollViewProps={{
-            refreshControl,
-          }}
-        />
+        <>
+          {ListHeaderComponent ? <View onLayout={handleHeaderLayout}>{ListHeaderComponent}</View> : null}
+          <RecyclerListView
+            ref={recyclerListRef}
+            style={styles.list}
+            dataProvider={recyclerDataProvider}
+            layoutProvider={recyclerLayoutProvider}
+            rowRenderer={recyclerRowRenderer}
+            extendedState={recyclerExtendedState}
+            onScroll={handleRecyclerScroll}
+            onEndReached={handleLoadMore}
+            onEndReachedThreshold={0.5}
+            renderFooter={() => footerComponent}
+            scrollViewProps={{
+              refreshControl,
+            }}
+          />
+        </>
       ) : (
         <FlatList
           ref={flatListRef}
