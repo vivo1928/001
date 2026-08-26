@@ -436,11 +436,12 @@ const List = forwardRef<ListType, ListProps>(({
         numColumns={rowInfo.current.rowNum}
         horizontal={false}
         // 屏幕阅读器开启时：
-        // - 渲染窗口缩小（默认 7），常驻 item 少，无障碍树小，滚动时 TalkBack 节点定位更快
+        // - 禁用触摸滚动（scrollEnabled=false），列表静止，触摸浏览焦点完全跟手
+        //   滚动改由 TalkBack 无障碍滚动动作触发（边缘滚动/滑动浏览，原生处理，不受 scrollEnabled 影响）
+        // - 渲染窗口缩小（默认 7），常驻 item 少，无障碍树小，节点定位更快
         // - 滚动事件节流到 250ms，滚动期间 JS 虚拟化计算频率极低，不抢占主线程
-        // - 惯性滚动快速停止（decelerationRate='fast'）+ 逐项对齐（snapToInterval），滚动动画短、快停
-        // - 禁用 maintainVisibleContentPosition，减少滚动期间的位置调整计算
         // 关闭时保持默认虚拟化，不影响普通用户滚动性能
+        scrollEnabled={!screenReaderEnabled}
         initialNumToRender={screenReaderEnabled ? 48 : 24}
         maxToRenderPerBatch={screenReaderEnabled ? 32 : 16}
         updateCellsBatchingPeriod={screenReaderEnabled ? 200 : 100}
