@@ -63,8 +63,6 @@ const List = forwardRef<ListType, ListProps>(({
   const flatListRef = useRef<FlatList>(null)
   const [currentList, setList] = useState<LX.Music.MusicInfoOnline[]>([])
   const [showSource, setShowSource] = useState(false)
-  // 屏幕阅读器：检测读屏开启时禁用虚拟化，整列表常驻不卸载，浏览焦点不丢失且所有内容可朗读
-  const [screenReaderEnabled, setScreenReaderEnabled] = useState(false)
   const isMultiSelectModeRef = useRef(false)
   const selectModeRef = useRef<SelectMode>('single')
   const prevSelectIndexRef = useRef(-1)
@@ -355,21 +353,8 @@ const List = forwardRef<ListType, ListProps>(({
     isDraggingRef.current = false
   }, [stopEdgeScroll])
 
-  // 检测屏幕阅读器是否开启：开启时禁用虚拟化，整列表常驻，滑动浏览焦点不因列表项卸载而丢失
-  useEffect(() => {
-    let mounted = true
-    void AccessibilityInfo.isScreenReaderEnabled().then((enabled) => {
-      if (!mounted) return
-      setScreenReaderEnabled(enabled)
-    })
-    const sub = AccessibilityInfo.addEventListener('screenReaderChanged', (enabled) => {
-      setScreenReaderEnabled(enabled)
-    })
-    return () => {
-      mounted = false
-      sub?.remove()
-    }
-  }, [])
+  // 检测屏幕阅读器是否开启：保留以便后续其他无障碍优化使用
+  // 当前滚动性能优化（removeClippedSubviews=true）不依赖此状态
 
   const handleLoadMore = () => {
     if (status != 'idle') return
