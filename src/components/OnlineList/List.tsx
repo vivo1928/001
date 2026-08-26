@@ -1,5 +1,4 @@
 import { useMemo, useRef, useState, forwardRef, useImperativeHandle, useCallback, useEffect } from 'react'
-import { FlashList } from '@shopify/flash-list'
 import { FlatList, type FlatListProps, RefreshControl, View, Vibration, AccessibilityInfo, PanResponder, type GestureResponderEvent, type NativeScrollEvent, type NativeSyntheticEvent, type LayoutChangeEvent } from 'react-native'
 
 // import { useMusicList } from '@/store/list/hook'
@@ -430,54 +429,29 @@ const List = forwardRef<ListType, ListProps>(({
 
   return (
     <View ref={listContainerRef} onLayout={handleContainerLayout} onTouchEnd={handleTouchEnd} onTouchCancel={handleTouchEnd} style={styles.container} {...panResponder.panHandlers}>
-      {screenReaderEnabled ? (
-        // 屏幕阅读器开启时切换为 FlashList（Shopify）：
-        // - 采用 view recycling（复用原生 view 重新绑数据），而非 FlatList 的卸载+重建
-        // - 滚动时无障碍节点不失效、不重建，TalkBack 触摸浏览定位稳定不卡顿
-        // - 正常滚动（scrollEnabled 默认 true），保留原版全部滚动与操作能力
-        <FlashList
-          ref={flatListRef as any}
-          style={styles.list}
-          data={currentList}
-          numColumns={rowInfo.current.rowNum}
-          horizontal={false}
-          estimatedItemSize={ITEM_HEIGHT}
-          overrideItemLayout={(data, index) => ({ length: ITEM_HEIGHT, offset: ITEM_HEIGHT * index, index })}
-          scrollEventThrottle={250}
-          renderItem={renderItem}
-          keyExtractor={getkey}
-          onScroll={handleScroll}
-          onEndReachedThreshold={0.5}
-          onEndReached={handleLoadMore}
-          maxToRenderPerBatch={32}
-          updateCellsBatchingPeriod={200}
-          initialNumToRender={48}
-          overscan={200}
-          ListHeaderComponent={ListHeaderComponent ? <View onLayout={handleHeaderLayout}>{ListHeaderComponent}</View> : null}
-          refreshControl={refreshControl}
-          ListFooterComponent={footerComponent}
-        />
-      ) : (
-        <FlatList
-          ref={flatListRef}
-          style={styles.list}
-          data={currentList}
-          numColumns={rowInfo.current.rowNum}
-          horizontal={false}
-          scrollEnabled
-          renderItem={renderItem}
-          keyExtractor={getkey}
-          getItemLayout={getItemLayout}
-          onScroll={handleScroll}
-          onEndReachedThreshold={0.5}
-          onEndReached={handleLoadMore}
-          maintainVisibleContentPosition={{ minIndexForVisible: 0, autoscrollToTopThreshold: 10 }}
-          progressViewOffset={progressViewOffset}
-          ListHeaderComponent={ListHeaderComponent ? <View onLayout={handleHeaderLayout}>{ListHeaderComponent}</View> : null}
-          refreshControl={refreshControl}
-          ListFooterComponent={footerComponent}
-        />
-      )}
+      {/* 回退原版 FlatList 配置（windowSize=8/maxToRenderPerBatch=4/initialNumToRender=12/getItemLayout），保证滚动与全部操作稳定。
+          屏幕阅读器开启时 removeClippedSubviews=false：无障碍节点不卸载，触摸浏览焦点不丢，其余保持原版配置不变 */}
+      <FlatList
+        ref={flatListRef}
+        style={styles.list}
+        data={currentList}
+        numColumns={rowInfo.current.rowNum}
+        horizontal={false}
+        maxToRenderPerBatch={4}
+        windowSize={8}
+        removeClippedSubviews={!screenReaderEnabled}
+        initialNumToRender={12}
+        renderItem={renderItem}
+        keyExtractor={getkey}
+        getItemLayout={getItemLayout}
+        onScroll={handleScroll}
+        onEndReachedThreshold={0.5}
+        onEndReached={handleLoadMore}
+        progressViewOffset={progressViewOffset}
+        ListHeaderComponent={ListHeaderComponent ? <View onLayout={handleHeaderLayout}>{ListHeaderComponent}</View> : null}
+        refreshControl={refreshControl}
+        ListFooterComponent={footerComponent}
+      />
     </View>
   )
 })
