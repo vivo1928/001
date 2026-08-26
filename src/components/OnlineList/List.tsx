@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState, forwardRef, useImperativeHandle, useCallback, useEffect } from 'react'
-import { FlatList, type FlatListProps, RefreshControl, View, Vibration, AccessibilityInfo, PanResponder, type GestureResponderEvent, type NativeScrollEvent, type NativeSyntheticEvent, type LayoutChangeEvent } from 'react-native'
+import { FlatList, type FlatListProps, RefreshControl, View, Vibration, AccessibilityInfo, PanResponder, type GestureResponderEvent, type NativeScrollEvent, type NativeSyntheticEvent, type LayoutChangeEvent, Dimensions } from 'react-native'
+import { RecyclerListView, DataProvider, LayoutProvider } from 'recyclerlistview'
 
 // import { useMusicList } from '@/store/list/hook'
 import ListItem, { ITEM_HEIGHT } from './ListItem'
@@ -13,6 +14,10 @@ import { useI18n } from '@/lang'
 import Text from '@/components/common/Text'
 import { handlePlay } from './listAction'
 import { useSettingValue } from '@/store/setting/hook'
+
+// 读屏时是否使用 RecyclerListView（cell 回收 + 最小重渲染，滚动时主线程负担小，无障碍更顺）
+// 若该方案失效，改此值为 false 即可整体回退到原版 FlatList
+const USE_RECYCLERLIST = true
 
 type FlatListType = FlatListProps<LX.Music.MusicInfoOnline>
 
@@ -61,8 +66,11 @@ const List = forwardRef<ListType, ListProps>(({
   // const t = useI18n()
   const theme = useTheme()
   const flatListRef = useRef<FlatList>(null)
+  const recyclerListRef = useRef<RecyclerListView<any, any>>(null)
   const [currentList, setList] = useState<LX.Music.MusicInfoOnline[]>([])
   const [showSource, setShowSource] = useState(false)
+  // 屏幕阅读器：检测读屏开启时切换为 RecyclerListView（读屏 + 单列时），其余保持 FlatList
+  const [screenReaderEnabled, setScreenReaderEnabled] = useState(false)
   const isMultiSelectModeRef = useRef(false)
   const selectModeRef = useRef<SelectMode>('single')
   const prevSelectIndexRef = useRef(-1)
@@ -279,10 +287,14 @@ const List = forwardRef<ListType, ListProps>(({
     if (edgeScrollStateRef.current == 0 || !isDraggingRef.current) return
     const nextOffset = Math.max(0, scrollOffsetRef.current + edgeScrollStateRef.current * ITEM_HEIGHT * 0.5)
     scrollOffsetRef.current = nextOffset
-    flatListRef.current?.scrollToOffset({ offset: nextOffset, animated: false })
+    if (USE_RECYCLERLIST && screenReaderEnabled && !rowInfo.current.rowNum) {
+      (recyclerListRef.current as any)?.scrollToOffset(0, nextOffset, false)
+    } else {
+      flatListRef.current?.scrollToOffset({ offset: nextOffset, animated: false })
+    }
     handleDragSelect(getIndexByPage(lastTouchRef.current.pageX, lastTouchRef.current.pageY))
     edgeScrollRAFRef.current = requestAnimationFrame(runEdgeScroll)
-  }, [getIndexByPage, handleDragSelect])
+  }, [getIndexByPage, handleDragSelect, screenReaderEnabled])
   const updateEdgeScroll = useCallback((pageX: number, pageY: number) => {
     const rect = containerRectRef.current
     if (rect.height <= 0) return
@@ -342,6 +354,10 @@ const List = forwardRef<ListType, ListProps>(({
   const handleScroll = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>) => {
     scrollOffsetRef.current = e.nativeEvent.contentOffset.y
   }, [])
+  // RecyclerListView 的 onScroll 签名不同：onScroll(rawEvent, offsetX, offsetY)
+  const handleRecyclerScroll = useCallback((_rawEvent: any, _offsetX: number, offsetY: number) => {
+    scrollOffsetRef.current = offsetY
+  }, [])
   // 记录表头高度
   const handleHeaderLayout = useCallback((e: LayoutChangeEvent) => {
     headerHeightRef.current = e.nativeEvent.layout.height
@@ -353,8 +369,21 @@ const List = forwardRef<ListType, ListProps>(({
     isDraggingRef.current = false
   }, [stopEdgeScroll])
 
-  // 检测屏幕阅读器是否开启：保留以便后续其他无障碍优化使用
-  // 当前滚动性能优化（removeClippedSubviews=true）不依赖此状态
+  // 检测屏幕阅读器是否开启：开启时（且单列）切换为 RecyclerListView
+  useEffect(() => {
+    let mounted = true
+    void AccessibilityInfo.isScreenReaderEnabled().then((enabled) => {
+      if (!mounted) return
+      setScreenReaderEnabled(enabled)
+    })
+    const sub = AccessibilityInfo.addEventListener('screenReaderChanged', (enabled) => {
+      setScreenReaderEnabled(enabled)
+    })
+    return () => {
+      mounted = false
+      sub?.remove()
+    }
+  }, [])
 
   const handleLoadMore = () => {
     if (status != 'idle') return
@@ -412,31 +441,81 @@ const List = forwardRef<ListType, ListProps>(({
     )
   }, [onLoadMore, status, visibleMultiSelect])
 
+  // 读屏 + 单列 + 无 header 时使用 RecyclerListView（cell 回收 + 最小重渲染，滚动时无障碍更顺）
+  // 有 header（如歌单详情）或横屏两列时保持 FlatList，避免兼容问题、零回归
+  const useRecycler = USE_RECYCLERLIST && screenReaderEnabled && !rowInfo.current.rowNum && !ListHeaderComponent
+  const listWidth = Dimensions.get('window').width
+  const recyclerDataProvider = useMemo(
+    () => new DataProvider((r1, r2) => r1 !== r2).cloneWithRows(currentList),
+    [currentList],
+  )
+  const recyclerLayoutProvider = useMemo(
+    () => new LayoutProvider(() => 0, (_type, dim) => { dim.width = listWidth; dim.height = ITEM_HEIGHT }),
+    [listWidth],
+  )
+  const recyclerRowRenderer = useCallback((type: any, data: any, index: number, extState: any) => (
+    <ListItem
+      item={data}
+      index={index}
+      showSource={extState?.showSource}
+      onPress={handlePress}
+      onLongPress={handleLongPress}
+      onShowMenu={onShowMenu}
+      selectedList={extState?.selectedList}
+      rowInfo={rowInfo.current}
+      isShowAlbumName={isShowAlbumName}
+      isShowInterval={isShowInterval}
+      hideMoreButton={extState?.visibleMultiSelect}
+    />
+  ), [handlePress, handleLongPress, onShowMenu, isShowAlbumName, isShowInterval])
+  const recyclerExtendedState = useMemo(
+    () => ({ selectedList, visibleMultiSelect, showSource }),
+    [selectedList, visibleMultiSelect, showSource],
+  )
+
   return (
     <View ref={listContainerRef} onLayout={handleContainerLayout} onTouchEnd={handleTouchEnd} onTouchCancel={handleTouchEnd} style={styles.container} {...panResponder.panHandlers}>
-      {/* 平衡方案：removeClippedSubviews=false（滚动时节点不 detach，读屏焦点不丢、不空白）
-          + windowSize=21（前后 10 屏 cell 常驻，滚动时几乎不重建，无障碍树稳定，避免 detach 重建导致的卡顿） */}
-      <FlatList
-        ref={flatListRef}
-        style={styles.list}
-        data={currentList}
-        numColumns={rowInfo.current.rowNum}
-        horizontal={false}
-        maxToRenderPerBatch={4}
-        windowSize={21}
-        removeClippedSubviews={false}
-        initialNumToRender={12}
-        renderItem={renderItem}
-        keyExtractor={getkey}
-        getItemLayout={getItemLayout}
-        onScroll={handleScroll}
-        onEndReachedThreshold={0.5}
-        onEndReached={handleLoadMore}
-        progressViewOffset={progressViewOffset}
-        ListHeaderComponent={ListHeaderComponent ? <View onLayout={handleHeaderLayout}>{ListHeaderComponent}</View> : null}
-        refreshControl={refreshControl}
-        ListFooterComponent={footerComponent}
-      />
+      {useRecycler ? (
+        // 读屏 + 单列时：RecyclerListView（cell 回收 + 最小重渲染，滚动时主线程负担小，无障碍更顺）
+        // 若失效，改 USE_RECYCLERLIST=false 即整体回退 FlatList
+        <RecyclerListView
+          ref={recyclerListRef}
+          style={styles.list}
+          dataProvider={recyclerDataProvider}
+          layoutProvider={recyclerLayoutProvider}
+          rowRenderer={recyclerRowRenderer}
+          extendedState={recyclerExtendedState}
+          onScroll={handleRecyclerScroll}
+          onEndReached={handleLoadMore}
+          onEndReachedThreshold={0.5}
+          renderFooter={() => footerComponent}
+          scrollViewProps={{
+            refreshControl,
+          }}
+        />
+      ) : (
+        <FlatList
+          ref={flatListRef}
+          style={styles.list}
+          data={currentList}
+          numColumns={rowInfo.current.rowNum}
+          horizontal={false}
+          maxToRenderPerBatch={4}
+          windowSize={21}
+          removeClippedSubviews={false}
+          initialNumToRender={12}
+          renderItem={renderItem}
+          keyExtractor={getkey}
+          getItemLayout={getItemLayout}
+          onScroll={handleScroll}
+          onEndReachedThreshold={0.5}
+          onEndReached={handleLoadMore}
+          progressViewOffset={progressViewOffset}
+          ListHeaderComponent={ListHeaderComponent ? <View onLayout={handleHeaderLayout}>{ListHeaderComponent}</View> : null}
+          refreshControl={refreshControl}
+          ListFooterComponent={footerComponent}
+        />
+      )}
     </View>
   )
 })
