@@ -15,15 +15,6 @@ const SOURCE_FETCH_LIMIT: Record<string, number> = {
   mg: 30,
 }
 
-// 临时对比开关：强制指定源走 musicSearch 备选方案（暂不调用歌手主 API），用于评估 musicSearch 稳定性
-// 需评估后改回 false（false 则恢复使用歌手主 API getSingerSongList）
-const FORCE_MUSIC_SEARCH: Record<string, boolean> = {
-  tx: true,
-  kg: false,
-  wy: false,
-  mg: false,
-}
-
 const withTimeout = <T,>(promise: Promise<T>, ms: number, msg: string): Promise<T> => {
   return Promise.race([
     promise,
@@ -132,16 +123,9 @@ const cache = new Map<string, CachePageValue>()
  */
 const getListLimit = async(source: LX.OnlineSource, singerId: string, page: number, singerName: string): Promise<ListDetailInfo> => {
   const listKey = `singer__${source}__${singerId}`
-  const prevPageKey = `${listKey}__${page - 1}`
-  const tempListKey = `${listKey}__temp`
 
   let listCache = cache.get(listKey)!
   if (!listCache) cache.set(listKey, listCache = new Map())
-  let sourcePage = 0
-  {
-    const prevPageData = listCache.get(prevPageKey) as PageCache
-    if (prevPageData) sourcePage = prevPageData.sourcePage
-  }
 
   const sdk = musicSdk[source] as {
     singer?: { getSingerSongList?: (singerid: string, page: number, limit: number, singerName?: string) => Promise<{ list: any[], total: number, limit: number, info?: any }> }
@@ -149,8 +133,9 @@ const getListLimit = async(source: LX.OnlineSource, singerId: string, page: numb
   }
   if (!sdk) throw new Error('source not found: ' + source)
 
-  const hasSingerApi = !!(sdk.singer?.getSingerSongList) && !FORCE_MUSIC_SEARCH[source]
+  const hasSingerApi = !!(sdk.singer?.getSingerSongList)
   let result: any
+  let fallbackToSearch = false
 
   // 简介获取：本源优先，并行拉取所有源取最长简介（不阻塞列表加载）
   const fetchSingerInfo = () => {
@@ -159,35 +144,46 @@ const getListLimit = async(source: LX.OnlineSource, singerId: string, page: numb
     }).catch(() => {})
   }
 
+  // 方案1：每本地页对应源第 page 页独立请求，持续翻页直到连续遇到空页才到底，不依赖接口返回的 total
+  // 这样即使某次请求只返回 30/60/90 首（total 偏小或分页不稳），后续翻页仍会继续请求，直到源确实无更多数据
   if (hasSingerApi) {
     try {
-      const fetchLimit = SOURCE_FETCH_LIMIT[source] || 100
       result = await withTimeout(
-        sdk.singer!.getSingerSongList!(singerId, sourcePage + 1, fetchLimit, singerName),
+        sdk.singer!.getSingerSongList!(singerId, page, LIMIT, singerName),
         FETCH_TIMEOUT,
         `Singer API timeout for source: ${source}`,
       )
-      if (result && result.list && result.list.length > 0) {
+      if (!result?.list || !result.list.length) {
+        // 当前页没有更多：标记到底（不再降级搜索，保持已有列表）
+        result = { list: [], total: 0, limit: LIMIT, allPage: 1 }
+      } else {
         const info = result.info as SingerInfoResult['info'] | undefined
         const hasMeaningfulDesc = info && String(info.desc || '').trim().length >= MIN_DESC_LEN
         if (hasMeaningfulDesc) {
           singerDetailActions.setSingerInfo(info)
-        } else if (sourcePage === 0) {
+        } else if (page === 1) {
           // 本源简介缺失/过短时跨源兜底补齐
           fetchSingerInfo()
         } else if (info) {
           singerDetailActions.setSingerInfo(info)
         }
-      } else {
-        throw new Error('Singer API returned empty list')
       }
     } catch (err: any) {
       console.log(`[singerDetail] singer API failed, falling back to musicSearch: ${err?.message || err}`)
-      // 降级到 musicSearch
-      if (!singerName) throw new Error('Singer name is empty')
-      if (!sdk?.musicSearch) throw new Error('musicSearch not supported for source: ' + source)
+      // 降级到 musicSearch（单独一次请求，失败不致命）
+      fallbackToSearch = true
+    }
+  } else {
+    fallbackToSearch = true
+  }
+
+  if (fallbackToSearch) {
+    // 没有可用歌手 API 或歌手 API 失败时使用 musicSearch
+    if (!singerName) throw new Error('Singer name is empty')
+    if (!sdk?.musicSearch) throw new Error('musicSearch not supported for source: ' + source)
+    try {
       result = await withTimeout(
-        sdk.musicSearch.search(singerName, sourcePage + 1, LIMIT),
+        sdk.musicSearch.search(singerName, page, LIMIT),
         MUSIC_SEARCH_TIMEOUT,
         `musicSearch timeout for source: ${source}`,
       )
@@ -197,70 +193,45 @@ const getListLimit = async(source: LX.OnlineSource, singerId: string, page: numb
         allPage: result.allPage || 1,
         limit: LIMIT,
       }
-if (sourcePage === 0) fetchSingerInfo()
-    }
-  } else {
-    // 没有 singer API，直接使用 musicSearch
-    if (!singerName) throw new Error('Singer name is empty')
-    if (!sdk?.musicSearch) throw new Error('musicSearch not supported for source: ' + source)
-    result = await withTimeout(
-      sdk.musicSearch.search(singerName, sourcePage + 1, LIMIT),
-      MUSIC_SEARCH_TIMEOUT,
-      `musicSearch timeout for source: ${source}`,
-    )
-    result = {
-      list: result.list || [],
-      total: result.total || 0,
-      allPage: result.allPage || 1,
-      limit: LIMIT,
+    } catch {
+      result = undefined
     }
     // kw 等无歌手歌曲 API 的源，首次分页请求时补充歌手简介（失败不影响列表）
-    if (sourcePage === 0) fetchSingerInfo()
-  }
-  // 严格过滤：musicSearch 降级路径可能混入其他歌手翻唱，仅保留歌手名包含目标歌手名的条目
-  if (singerName) {
-    const nameLower = singerName.toLowerCase()
-    result.list = result.list.filter((m: any) => (m.singer || '').toLowerCase().includes(nameLower))
+    if (page === 1) fetchSingerInfo()
   }
 
   if (listCache !== cache.get(listKey)) {
     // 缓存被并发请求重置：改用最新缓存引用继续，避免偶发的 cache mismatch 导致整页加载失败
     listCache = cache.get(listKey)!
   }
-  result.list = deduplicationList(result.list.map((m: any) => toNewMusicInfo(m)) as LX.Music.MusicInfoOnline[])
-  let p = page
-  sourcePage++
-  const tempList = listCache.get(tempListKey) as LX.Music.MusicInfoOnline[]
-  if (tempList) {
-    listCache.delete(tempListKey)
-    listCache.set(`${listKey}__${p}`, {
-      data: {
-        ...result,
-        list: [...tempList, ...result.list.splice(0, LIMIT - tempList.length)],
-        page: p,
-        limit: LIMIT,
-      },
-      sourcePage,
-    })
-    p++
+
+  // 歌手主 API 正常返回的列表不做歌手名过滤（歌手接口本身已限定了歌手）；
+  // 仅 musicSearch 降级路径做严格过滤，避免混入其他歌手翻唱
+  let pageList = !!result?.list ? result.list : []
+  if (fallbackToSearch && singerName) {
+    const nameLower = singerName.toLowerCase()
+    pageList = pageList.filter((m: any) => (m.singer || '').toLowerCase().includes(nameLower))
   }
-  do {
-    if (result.list.length < LIMIT && sourcePage < Math.ceil(result.total / result.limit)) {
-      listCache.set(tempListKey, result.list.splice(0, LIMIT))
-      break
-    }
-    listCache.set(`${listKey}__${p}`, {
-      data: {
-        ...result,
-        list: result.list.splice(0, LIMIT),
-        page: p,
-        limit: LIMIT,
-      },
-      sourcePage,
-    })
-    p++
-  } while (result.list.length > 0)
-  return (listCache.get(`${listKey}__${page}`) as PageCache).data
+  pageList = deduplicationList(pageList.map((m: any) => toNewMusicInfo(m)) as LX.Music.MusicInfoOnline[])
+
+  // 方案1：是否到底由"本次是否拿到数据"决定，不依赖 total
+  // 非空页：total 报"还有更多"（LIMIT*(page+1)），驱动 UI 继续 loadMore；空页：total=0 表示到底
+  const isEmpty = pageList.length === 0
+  const data: ListDetailInfo = {
+    source,
+    list: pageList,
+    limit: LIMIT,
+    page,
+    total: isEmpty ? 0 : LIMIT * (page + 1),
+    maxPage: isEmpty ? page : page + 1,
+    key: null,
+    id: `${listKey}__${page}`,
+  }
+  listCache.set(`${listKey}__${page}`, {
+    data,
+    sourcePage: page,
+  })
+  return data
 }
 
 /**
