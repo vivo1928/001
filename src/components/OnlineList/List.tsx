@@ -451,7 +451,6 @@ const List = forwardRef<ListType, ListProps>(({
         keyExtractor={getkey}
         getItemLayout={getItemLayout}
         onScroll={handleScroll}
-        scrollEventThrottle={16}
         onEndReachedThreshold={0.5}
         onEndReached={handleLoadMore}
         maintainVisibleContentPosition={{ minIndexForVisible: 0, autoscrollToTopThreshold: 10 }}
