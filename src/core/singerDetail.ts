@@ -7,9 +7,9 @@ import musicSdk from '@/utils/musicSdk'
 const LIMIT = 30
 const FETCH_TIMEOUT = 10000
 const MUSIC_SEARCH_TIMEOUT = 8000
-// 各源歌手接口单次可请求的歌曲数（mg 接口 pageSize 受限保持 30，其余源按 100）
+// 各源歌手接口单次可请求的歌曲数（mg 接口 pageSize 受限保持 30；tx 单页上限约 60，超过被服务端截断导致 allPage 计算偏差漏拉）
 const SOURCE_FETCH_LIMIT: Record<string, number> = {
-  tx: 100,
+  tx: 60,
   kg: 100,
   wy: 100,
   mg: 30,
