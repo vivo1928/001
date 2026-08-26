@@ -435,17 +435,19 @@ const List = forwardRef<ListType, ListProps>(({
         data={currentList}
         numColumns={rowInfo.current.rowNum}
         horizontal={false}
-        // 屏幕阅读器开启时：增大渲染窗口与批量渲染量，已渲染的 item 不卸载，焦点区域稳定
-        // 惯性滚动快速停止（decelerationRate='fast'），逐项对齐（snapToInterval），焦点不跳
-        // 降低滚动事件频率（scrollEventThrottle），减少 JS 线程占用，滚动时 TalkBack 也能正常响应
+        // 屏幕阅读器开启时：
+        // - 渲染窗口缩小（默认 7），常驻 item 少，无障碍树小，滚动时 TalkBack 节点定位更快
+        // - 滚动事件节流到 250ms，滚动期间 JS 虚拟化计算频率极低，不抢占主线程
+        // - 惯性滚动快速停止（decelerationRate='fast'）+ 逐项对齐（snapToInterval），滚动动画短、快停
+        // - 禁用 maintainVisibleContentPosition，减少滚动期间的位置调整计算
         // 关闭时保持默认虚拟化，不影响普通用户滚动性能
         initialNumToRender={screenReaderEnabled ? 48 : 24}
         maxToRenderPerBatch={screenReaderEnabled ? 32 : 16}
-        updateCellsBatchingPeriod={screenReaderEnabled ? 500 : 100}
-        windowSize={screenReaderEnabled ? 21 : 7}
+        updateCellsBatchingPeriod={screenReaderEnabled ? 200 : 100}
+        windowSize={screenReaderEnabled ? 7 : 7}
         decelerationRate={screenReaderEnabled ? 'fast' : 'normal'}
         snapToInterval={screenReaderEnabled ? ITEM_HEIGHT : undefined}
-        scrollEventThrottle={screenReaderEnabled ? 100 : 16}
+        scrollEventThrottle={screenReaderEnabled ? 250 : 16}
         removeClippedSubviews={false}
         renderItem={renderItem}
         keyExtractor={getkey}
@@ -453,7 +455,7 @@ const List = forwardRef<ListType, ListProps>(({
         onScroll={handleScroll}
         onEndReachedThreshold={0.5}
         onEndReached={handleLoadMore}
-        maintainVisibleContentPosition={{ minIndexForVisible: 0, autoscrollToTopThreshold: 10 }}
+        maintainVisibleContentPosition={screenReaderEnabled ? undefined : { minIndexForVisible: 0, autoscrollToTopThreshold: 10 }}
         progressViewOffset={progressViewOffset}
         ListHeaderComponent={ListHeaderComponent ? <View onLayout={handleHeaderLayout}>{ListHeaderComponent}</View> : null}
         refreshControl={refreshControl}
