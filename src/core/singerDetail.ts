@@ -205,10 +205,12 @@ const getListLimit = async(source: LX.OnlineSource, singerId: string, page: numb
     listCache = cache.get(listKey)!
   }
 
-  // 歌手主 API 正常返回的列表不做歌手名过滤（歌手接口本身已限定了歌手）；
-  // 仅 musicSearch 降级路径做严格过滤，避免混入其他歌手翻唱
+  // 对所有路径（歌手主 API 与 musicSearch 降级）都做歌手名过滤：
+  // - 合唱保留：singer 字段包含目标歌手名（如 "宋冬野、某某" 含 "宋冬野"）→ 保留
+  // - 翻唱剔除：singer 字段不含目标歌手名（如 "某某翻唱"，singer="某某"）→ 剔除
+  // 避免 musicSearch / 歌手接口混入其他歌手的翻唱歌曲
   let pageList = !!result?.list ? result.list : []
-  if (fallbackToSearch && singerName) {
+  if (singerName) {
     const nameLower = singerName.toLowerCase()
     pageList = pageList.filter((m: any) => (m.singer || '').toLowerCase().includes(nameLower))
   }
