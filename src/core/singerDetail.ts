@@ -15,6 +15,15 @@ const SOURCE_FETCH_LIMIT: Record<string, number> = {
   mg: 30,
 }
 
+// 临时对比开关：强制指定源走 musicSearch 备选方案（暂不调用歌手主 API），用于评估 musicSearch 稳定性
+// 需评估后改回 false（false 则恢复使用歌手主 API getSingerSongList）
+const FORCE_MUSIC_SEARCH: Record<string, boolean> = {
+  tx: true,
+  kg: false,
+  wy: false,
+  mg: false,
+}
+
 const withTimeout = <T,>(promise: Promise<T>, ms: number, msg: string): Promise<T> => {
   return Promise.race([
     promise,
@@ -140,7 +149,7 @@ const getListLimit = async(source: LX.OnlineSource, singerId: string, page: numb
   }
   if (!sdk) throw new Error('source not found: ' + source)
 
-  const hasSingerApi = !!(sdk.singer?.getSingerSongList)
+  const hasSingerApi = !!(sdk.singer?.getSingerSongList) && !FORCE_MUSIC_SEARCH[source]
   let result: any
 
   // 简介获取：本源优先，并行拉取所有源取最长简介（不阻塞列表加载）
