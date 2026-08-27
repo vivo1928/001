@@ -626,5 +626,9 @@
   "download_resume": "继续下载",
   "download_storage_permission_title": "需要存储权限",
   "download_storage_permission_denied": "下载歌曲需要存储权限，请在系统设置中允许访问存储空间",
-  "open_settings": "去设置"
+  "open_settings": "去设置",
+  "play_detail_setting_jump_singer": "跳转到歌手",
+  "play_detail_setting_jump_album": "跳转到专辑",
+  "play_detail_setting_jump_singer_select_title": "选择歌手",
+  "play_detail_setting_jump_singer_failed": "未找到该歌手"
 }

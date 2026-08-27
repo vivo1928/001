@@ -627,5 +627,9 @@
   "download_select_none": "取消全選",
   "download_selected": "下載選中",
   "download_storage_permission_denied": "下載歌曲需要儲存權限，請在系統設定中允許存取儲存空間",
-  "download_storage_permission_title": "需要儲存權限"
+  "download_storage_permission_title": "需要儲存權限",
+  "play_detail_setting_jump_singer": "跳轉到歌手",
+  "play_detail_setting_jump_album": "跳轉到專輯",
+  "play_detail_setting_jump_singer_select_title": "選擇歌手",
+  "play_detail_setting_jump_singer_failed": "找不到該歌手"
 }

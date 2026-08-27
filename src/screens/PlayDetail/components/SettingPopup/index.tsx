@@ -11,6 +11,8 @@ import SettingLrcAlign from './settings/SettingLrcAlign'
 import SettingEqualizer from './settings/SettingEqualizer'
 import SettingPlayQuality from './settings/SettingPlayQuality'
 import SettingDownload from './settings/SettingDownload'
+import SettingJumpToSinger from './settings/SettingJumpToSinger'
+import SettingJumpToAlbum from './settings/SettingJumpToAlbum'
 
 export interface SettingPopupProps extends Omit<PopupProps, 'children'> {
   direction: 'vertical' | 'horizontal'
@@ -54,6 +56,8 @@ export default forwardRef<SettingPopupType, SettingPopupProps>(({ direction, ...
               <SettingPlaybackRate />
               <SettingPlayQuality onCloseSettingPopup={closeSettingPopup} />
               <SettingDownload />
+              <SettingJumpToSinger onCloseSettingPopup={closeSettingPopup} />
+              <SettingJumpToAlbum onCloseSettingPopup={closeSettingPopup} />
               <SettingLrcFontSize direction={direction} />
               <SettingLrcAlign />
               <SettingEqualizer />
