@@ -3,6 +3,7 @@ import { apis } from '../api-source'
 import songList from './songList'
 import musicSearch from './musicSearch'
 import albumSearch from './albumSearch'
+import album from './album'
 import singerSearch from './singerSearch'
 import singer from './singer'
 import getLyric from './lyric'
@@ -17,6 +18,7 @@ const wy = {
   songList,
   musicSearch,
   albumSearch,
+  album,
   singerSearch,
   singer,
   hotSearch,
