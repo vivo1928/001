@@ -53,11 +53,14 @@ export default ({ componentId, info }: { componentId: string, info: SingerDetail
     <PageContent>
       <StatusBar />
       <SingerInfoContext.Provider value={safeInfo}>
+        {/* 用 display:none 切换 tab（而非 absolute+opacity 叠放）：与排行榜一致的普通流式布局，
+            RecyclerListView 的 cell 依赖 absolute 定位 + 回收复用，叠放容器下触摸浏览会命中隐藏列表的
+            "幽灵 cell" 导致焦点框坐标漂移；display:none 不占布局、不产生无障碍节点，且保留列表实例与滚动状态 */}
         <View style={{ flex: 1 }}>
-          <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, opacity: activeTab === 'song' ? 1 : 0 }} pointerEvents={activeTab === 'song' ? 'auto' : 'none'} importantForAccessibility={activeTab === 'song' ? 'yes' : 'no-hide-descendants'}>
+          <View style={{ flex: 1, display: activeTab === 'song' ? 'flex' : 'none' }}>
             <MusicList ref={musicListRef} componentId={componentId} activeTab={activeTab} onTabChange={handleTabChange} />
           </View>
-          <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, opacity: activeTab === 'album' ? 1 : 0 }} pointerEvents={activeTab === 'album' ? 'auto' : 'none'} importantForAccessibility={activeTab === 'album' ? 'yes' : 'no-hide-descendants'}>
+          <View style={{ flex: 1, display: activeTab === 'album' ? 'flex' : 'none' }}>
             <AlbumList ref={albumListRef} componentId={componentId} activeTab={activeTab} onTabChange={handleTabChange} />
           </View>
         </View>
