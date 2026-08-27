@@ -631,5 +631,8 @@
   "play_detail_setting_jump_album": "跳转到专辑",
   "play_detail_setting_jump_singer_select_title": "选择歌手",
   "play_detail_setting_jump_singer_failed": "未找到该歌手",
-  "singer_info_career": "从艺历程"
+  "singer_info_career": "从艺历程",
+  "singer_info_awards": "获奖历程",
+  "singer_info_latest": "最新动态",
+  "singer_info_latest_empty": "暂无最新动态"
 }

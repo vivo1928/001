@@ -14,7 +14,7 @@ import commonState from '@/store/common/state'
 import { useStatusbarHeight } from '@/store/common/hook'
 import { useTheme } from '@/store/theme/hook'
 import PageContent from '@/components/PageContent'
-import { getSingerFullInfo, type SingerField } from '@/core/singerInfo'
+import { getSingerFullInfo, type SingerLatestAlbum } from '@/core/singerInfo'
 
 const HEADER_HEIGHT = scaleSizeH(_HEADER_HEIGHT)
 
@@ -56,24 +56,27 @@ export default ({ componentId, info }: { componentId: string, info?: SingerIntro
   const singerId = info?.id
   const [profileName, setProfileName] = useState(name)
   const [img, setImg] = useState<string | null>(fallbackImg ?? null)
-  const [fields, setFields] = useState<SingerField[]>([])
   const [biography, setBiography] = useState('')
+  const [awards, setAwards] = useState<string[]>([])
+  const [latestAlbums, setLatestAlbums] = useState<SingerLatestAlbum[]>([])
   const [loaded, setLoaded] = useState(false)
 
   useEffect(() => {
     let mounted = true
     setLoaded(false)
+    setAwards([])
+    setLatestAlbums([])
     if (!name || !source || !singerId) {
       setLoaded(true)
       return
     }
-    // 从艺历程来自各音乐平台接口（境内可访问、平台维护、动态最新），每次进入重新拉取
-    void getSingerFullInfo(source, singerId, name, true).then((res) => {
+    void getSingerFullInfo(source, singerId, name).then((res) => {
       if (!mounted) return
       setProfileName(res.name ?? name)
       setImg(res.img ?? fallbackImg ?? null)
-      setFields(res.fields)
       setBiography(res.biography)
+      setAwards(res.awards)
+      setLatestAlbums(res.latestAlbums)
       setLoaded(true)
     })
     return () => {
@@ -84,8 +87,9 @@ export default ({ componentId, info }: { componentId: string, info?: SingerIntro
 
   const biographyParagraphs = biography.split(/\n+/).map(s => s.trim()).filter(Boolean)
   const hasBiography = biographyParagraphs.length > 0
-  const hasFields = fields.length > 0
-  const hasContent = hasFields || hasBiography
+  const hasAwards = awards.length > 0
+  const hasLatest = latestAlbums.length > 0
+  const hasContent = hasBiography || hasAwards || hasLatest
 
   return (
     <PageContent>
@@ -111,30 +115,48 @@ export default ({ componentId, info }: { componentId: string, info?: SingerIntro
             : null
         }
         {
-          hasFields
-            ? (
-                <View style={styles.card}>
-                  {fields.map((field, index) => (
-                    <View key={field.label} style={[styles.fieldRow, index < fields.length - 1 ? styles.fieldRowBorder : null]}>
-                      <Text size={14} color={theme['c-font-label']} style={styles.fieldLabel}>{field.label}</Text>
-                      <Text size={14} color={theme['c-font']} style={styles.fieldValue}>{field.value}</Text>
-                    </View>
-                  ))}
-                </View>
-              )
-            : null
-        }
-        {
           hasBiography
-            ? (
-                <Text size={16} style={styles.sectionTitle} color={theme['c-font']}>{t('singer_info_career')}</Text>
-              )
+            ? <Text size={16} style={styles.sectionTitle} color={theme['c-font']}>{t('singer_info_career')}</Text>
             : null
         }
         {
           hasBiography
             ? biographyParagraphs.map((p, i) => (
                 <Text key={i} size={16} style={styles.paragraph} color={theme['c-font']}>{'\u3000\u3000' + p}</Text>
+            ))
+            : null
+        }
+        {
+          hasAwards
+            ? <Text size={16} style={styles.sectionTitle} color={theme['c-font']}>{t('singer_info_awards')}</Text>
+            : null
+        }
+        {
+          hasAwards
+            ? awards.map((award, i) => (
+                <Text key={i} size={16} style={styles.paragraph} color={theme['c-font']}>{'\u3000\u3000' + award}</Text>
+            ))
+            : null
+        }
+        {
+          hasLatest
+            ? <Text size={16} style={styles.sectionTitle} color={theme['c-font']}>{t('singer_info_latest')}</Text>
+            : null
+        }
+        {
+          hasLatest
+            ? latestAlbums.map((album) => (
+                <View key={album.albumId} style={styles.albumRow}>
+                  {
+                    album.img
+                      ? <Image url={album.img} style={styles.albumImg} />
+                      : <View style={styles.albumImgPlaceholder} />
+                  }
+                  <View style={styles.albumInfo}>
+                    <Text size={15} numberOfLines={1} color={theme['c-font']} style={styles.albumName}>{album.name}</Text>
+                    <Text size={13} color={theme['c-font-label']}>{album.publishDate}</Text>
+                  </View>
+                </View>
             ))
             : null
         }
@@ -181,27 +203,6 @@ const styles = createStyle({
     height: 110,
     borderRadius: 55,
   },
-  card: {
-    marginBottom: 20,
-    borderRadius: 8,
-    overflow: 'hidden',
-  },
-  fieldRow: {
-    flexDirection: 'row',
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-  },
-  fieldRowBorder: {
-    borderBottomWidth: 0.5,
-    borderBottomColor: 'rgba(128,128,128,0.2)',
-  },
-  fieldLabel: {
-    width: 80,
-    flexShrink: 0,
-  },
-  fieldValue: {
-    flex: 1,
-  },
   sectionTitle: {
     fontWeight: 'bold',
     marginTop: 8,
@@ -211,6 +212,29 @@ const styles = createStyle({
     fontSize: 16,
     lineHeight: 28,
     marginBottom: 14,
+  },
+  albumRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  albumImg: {
+    width: 52,
+    height: 52,
+    borderRadius: 6,
+  },
+  albumImgPlaceholder: {
+    width: 52,
+    height: 52,
+    borderRadius: 6,
+    backgroundColor: 'rgba(128,128,128,0.2)',
+  },
+  albumInfo: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  albumName: {
+    marginBottom: 4,
   },
   empty: {
     textAlign: 'center',

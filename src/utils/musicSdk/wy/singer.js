@@ -99,8 +99,11 @@ module.exports = {
       if (body && body.code === 200 && body.artistDesc) {
         const artistDesc = body.artistDesc
         const briefDesc = String(artistDesc.briefDesc || '').trim()
-        const intro = (Array.isArray(artistDesc.intro) ? artistDesc.intro.map(i => i.ti ? `${i.ti}\n${i.txt || ''}` : (i.txt || '')).filter(Boolean).join('\n') : String(artistDesc.intro || '')).trim()
-        const desc = intro || briefDesc
+        const rawIntro = Array.isArray(artistDesc.intro) ? artistDesc.intro : []
+        // 分章结构：每项 { ti: 章节标题, txt: 章节内容 }，便于提取"获奖记录/个人荣誉"等章节
+        const intro = rawIntro.map(i => ({ title: String(i.ti || '').trim(), content: String(i.txt || '').trim() })).filter(i => i.content)
+        const introText = intro.map(i => i.title ? `${i.title}\n${i.content}` : i.content).filter(Boolean).join('\n')
+        const desc = introText || briefDesc
         return {
           source: 'wy',
           singerid,
@@ -108,6 +111,7 @@ module.exports = {
             name: artistDesc.briefDesc && artistDesc.artist?.name ? artistDesc.artist.name : (artistDesc.name || ''),
             desc,
             img: artistDesc.artist?.cover || artistDesc.artist?.picUrl || '',
+            intro,
           },
         }
       }

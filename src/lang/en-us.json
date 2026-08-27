@@ -632,5 +632,8 @@
   "play_detail_setting_jump_album": "Go to Album",
   "play_detail_setting_jump_singer_select_title": "Select Artist",
   "play_detail_setting_jump_singer_failed": "Artist not found",
-  "singer_info_career": "Career"
+  "singer_info_career": "Career",
+  "singer_info_awards": "Awards",
+  "singer_info_latest": "Latest",
+  "singer_info_latest_empty": "No recent releases"
 }

@@ -632,5 +632,8 @@
   "play_detail_setting_jump_album": "跳轉到專輯",
   "play_detail_setting_jump_singer_select_title": "選擇歌手",
   "play_detail_setting_jump_singer_failed": "找不到該歌手",
-  "singer_info_career": "從藝歷程"
+  "singer_info_career": "從藝歷程",
+  "singer_info_awards": "獲獎歷程",
+  "singer_info_latest": "最新動態",
+  "singer_info_latest_empty": "暫無最新動態"
 }
