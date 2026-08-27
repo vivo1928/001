@@ -20,9 +20,9 @@ export default {
           },
         },
       )
-      if (!body || !body.list) return null
-      const singers = body.list.filter(item => item.singer && item.id)
-      if (singers.length > 0) return singers[0].singer.singerId || singers[0].id
+      // 接口返回 singerResultData.result（元素 {id, name}），非 body.list
+      const result = body?.singerResultData?.result || []
+      if (result.length > 0 && result[0].id) return result[0].id
       return null
     } catch {
       // 兜底：尝试 app.c 的 searchSinger 端点
