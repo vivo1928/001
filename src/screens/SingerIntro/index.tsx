@@ -21,6 +21,8 @@ const HEADER_HEIGHT = scaleSizeH(_HEADER_HEIGHT)
 export interface SingerIntroInfo {
   name?: string
   img?: string
+  source?: LX.OnlineSource
+  id?: string
 }
 
 const Header = ({ title }: { title: string }) => {
@@ -50,28 +52,28 @@ export default ({ componentId, info }: { componentId: string, info?: SingerIntro
   const t = useI18n()
   const name = info?.name ?? ''
   const fallbackImg = info?.img
+  const source = info?.source
+  const singerId = info?.id
   const [profileName, setProfileName] = useState(name)
   const [img, setImg] = useState<string | null>(fallbackImg ?? null)
   const [fields, setFields] = useState<SingerField[]>([])
   const [biography, setBiography] = useState('')
-  const [desc, setDesc] = useState('')
   const [loaded, setLoaded] = useState(false)
 
   useEffect(() => {
     let mounted = true
     setLoaded(false)
-    if (!name) {
+    if (!name || !source || !singerId) {
       setLoaded(true)
       return
     }
-    // 每次进入都重新拉取，保证从艺历程等资料动态最新
-    void getSingerFullInfo(name, true).then((res) => {
+    // 从艺历程来自各音乐平台接口（境内可访问、平台维护、动态最新），每次进入重新拉取
+    void getSingerFullInfo(source, singerId, name, true).then((res) => {
       if (!mounted) return
       setProfileName(res.name ?? name)
       setImg(res.img ?? fallbackImg ?? null)
       setFields(res.fields)
       setBiography(res.biography)
-      setDesc(res.desc)
       setLoaded(true)
     })
     return () => {
@@ -83,8 +85,7 @@ export default ({ componentId, info }: { componentId: string, info?: SingerIntro
   const biographyParagraphs = biography.split(/\n+/).map(s => s.trim()).filter(Boolean)
   const hasBiography = biographyParagraphs.length > 0
   const hasFields = fields.length > 0
-  const hasDesc = desc.length > 0
-  const hasContent = hasFields || hasBiography || hasDesc
+  const hasContent = hasFields || hasBiography
 
   return (
     <PageContent>
@@ -124,26 +125,16 @@ export default ({ componentId, info }: { componentId: string, info?: SingerIntro
             : null
         }
         {
-          hasBiography || hasDesc
+          hasBiography
             ? (
                 <Text size={16} style={styles.sectionTitle} color={theme['c-font']}>{t('singer_info_career')}</Text>
               )
             : null
         }
         {
-          hasDesc
-            ? (
-                <Text size={16} style={styles.paragraph} color={theme['c-font']}>{'\u3000\u3000' + desc}</Text>
-              )
-            : null
-        }
-        {
           hasBiography
             ? biographyParagraphs.map((p, i) => (
-                // 去除维基章节标题残留（如 "早年"、"音乐事业"），作为非缩进段落展示
-                <Text key={i} size={16} style={styles.paragraph} color={theme['c-font']}>
-                  {(/^==|^===\s*$/.test(p)) || ((/^[^，。？！]{1,20}$/.test(p)) && p.length <= 12) ? p : '\u3000\u3000' + p}
-                </Text>
+                <Text key={i} size={16} style={styles.paragraph} color={theme['c-font']}>{'\u3000\u3000' + p}</Text>
             ))
             : null
         }

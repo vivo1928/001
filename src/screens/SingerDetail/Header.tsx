@@ -51,7 +51,7 @@ export default forwardRef<HeaderType, HeaderProps>(({ componentId, onPlayAll, on
   }), [])
 
   const handleOpenIntro = () => {
-    navigations.pushSingerIntroScreen(componentId, { name: detailInfo.name, img: detailInfo.imgUrl })
+    navigations.pushSingerIntroScreen(componentId, { name: detailInfo.name, img: detailInfo.imgUrl, source: info.source, id: info.id })
   }
 
   return (

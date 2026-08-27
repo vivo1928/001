@@ -412,7 +412,7 @@ export function pushAlbumDetailScreen(componentId: string, info: { id: string, n
     })
   })
 }
-export function pushSingerIntroScreen(componentId: string, info: { name?: string, img?: string }) {
+export function pushSingerIntroScreen(componentId: string, info: { name?: string, img?: string, source?: LX.OnlineSource, id?: string }) {
   const theme = themeState.theme
 
   requestAnimationFrame(() => {
