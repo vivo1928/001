@@ -343,6 +343,7 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId, activeT
           onPlayList={handlePlayList}
           onRefresh={handleRefresh}
           onLoadMore={handleLoadMore}
+          checkHomePagerIdle
           rowType='medium'
         />
       </View>
