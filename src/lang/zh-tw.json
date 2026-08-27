@@ -447,8 +447,8 @@
   "share_card_title_music": "將「{name}」分享到...",
   "share_title_music": "歌曲分享",
   "singer": "演出者：{name}",
-  "singer_intro": "歌手簡介",
-  "singer_intro_empty": "暫無歌手簡介",
+  "singer_intro": "歌手資訊",
+  "singer_intro_empty": "暫無歌手資訊",
   "song_title": "歌曲標題",
   "songlist_hot": "最熱",
   "songlist_hot_collect": "熱藏",
@@ -631,5 +631,6 @@
   "play_detail_setting_jump_singer": "跳轉到歌手",
   "play_detail_setting_jump_album": "跳轉到專輯",
   "play_detail_setting_jump_singer_select_title": "選擇歌手",
-  "play_detail_setting_jump_singer_failed": "找不到該歌手"
+  "play_detail_setting_jump_singer_failed": "找不到該歌手",
+  "singer_info_career": "從藝歷程"
 }

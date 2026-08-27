@@ -1,4 +1,4 @@
-import { memo, useMemo } from 'react'
+import { useEffect, useState } from 'react'
 import { ScrollView, View, TouchableOpacity } from 'react-native'
 
 import { Icon } from '@/components/common/Icon'
@@ -14,7 +14,7 @@ import commonState from '@/store/common/state'
 import { useStatusbarHeight } from '@/store/common/hook'
 import { useTheme } from '@/store/theme/hook'
 import PageContent from '@/components/PageContent'
-import singerDetailState from '@/store/singerDetail/state'
+import { getSingerFullInfo, type SingerField } from '@/core/singerInfo'
 
 const HEADER_HEIGHT = scaleSizeH(_HEADER_HEIGHT)
 
@@ -23,7 +23,7 @@ export interface SingerIntroInfo {
   img?: string
 }
 
-const Header = memo(() => {
+const Header = ({ title }: { title: string }) => {
   const t = useI18n()
   const statusBarHeight = useStatusbarHeight()
 
@@ -39,31 +39,65 @@ const Header = memo(() => {
           accessibilityLabel={t('back')} accessibilityRole="button">
           <Icon name="chevron-left" size={18} />
         </TouchableOpacity>
-        <Text numberOfLines={1} size={16} style={styles.headerTitle}>{t('singer_intro')}</Text>
+        <Text numberOfLines={1} size={16} style={styles.headerTitle}>{title}</Text>
       </View>
     </View>
   )
-})
+}
 
-export default memo(({ componentId, info }: { componentId: string, info?: SingerIntroInfo }) => {
+export default ({ componentId, info }: { componentId: string, info?: SingerIntroInfo }) => {
   const theme = useTheme()
   const t = useI18n()
-  const singerInfo = singerDetailState.singerInfo
-  const name = singerInfo?.name || info?.name || ''
-  const img = singerInfo?.img || info?.img || ''
-  const desc = singerInfo?.desc || ''
+  const name = info?.name ?? ''
+  const fallbackImg = info?.img
+  const [profileName, setProfileName] = useState(name)
+  const [img, setImg] = useState<string | null>(fallbackImg ?? null)
+  const [fields, setFields] = useState<SingerField[]>([])
+  const [biography, setBiography] = useState('')
+  const [desc, setDesc] = useState('')
+  const [loaded, setLoaded] = useState(false)
 
-  const paragraphs = useMemo(() => {
-    return desc.split(/\n+/).map(s => s.trim()).filter(Boolean)
-  }, [desc])
+  useEffect(() => {
+    let mounted = true
+    setLoaded(false)
+    if (!name) {
+      setLoaded(true)
+      return
+    }
+    // 每次进入都重新拉取，保证从艺历程等资料动态最新
+    void getSingerFullInfo(name, true).then((res) => {
+      if (!mounted) return
+      setProfileName(res.name ?? name)
+      setImg(res.img ?? fallbackImg ?? null)
+      setFields(res.fields)
+      setBiography(res.biography)
+      setDesc(res.desc)
+      setLoaded(true)
+    })
+    return () => {
+      mounted = false
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [name])
+
+  const biographyParagraphs = biography.split(/\n+/).map(s => s.trim()).filter(Boolean)
+  const hasBiography = biographyParagraphs.length > 0
+  const hasFields = fields.length > 0
+  const hasDesc = desc.length > 0
+  const hasContent = hasFields || hasBiography || hasDesc
 
   return (
     <PageContent>
-      <Header />
+      <Header title={t('singer_intro')} />
       <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
         {
-          name
-            ? <Text size={20} style={styles.title} color={theme['c-font']}>{name}</Text>
+          profileName
+            ? <Text size={20} style={styles.title} color={theme['c-font']}>{profileName}</Text>
+            : null
+        }
+        {
+          loaded && !hasContent
+            ? <Text size={15} color={theme['c-font-label']} style={styles.empty}>{t('singer_intro_empty')}</Text>
             : null
         }
         {
@@ -76,16 +110,47 @@ export default memo(({ componentId, info }: { componentId: string, info?: Singer
             : null
         }
         {
-          paragraphs.length
-            ? paragraphs.map((p, i) => (
-                <Text key={i} size={16} style={styles.paragraph} color={theme['c-font']}>{'\u3000\u3000' + p}</Text>
-              ))
-            : <Text size={15} color={theme['c-font-label']} style={styles.empty}>{t('singer_intro_empty')}</Text>
+          hasFields
+            ? (
+                <View style={styles.card}>
+                  {fields.map((field, index) => (
+                    <View key={field.label} style={[styles.fieldRow, index < fields.length - 1 ? styles.fieldRowBorder : null]}>
+                      <Text size={14} color={theme['c-font-label']} style={styles.fieldLabel}>{field.label}</Text>
+                      <Text size={14} color={theme['c-font']} style={styles.fieldValue}>{field.value}</Text>
+                    </View>
+                  ))}
+                </View>
+              )
+            : null
+        }
+        {
+          hasBiography || hasDesc
+            ? (
+                <Text size={16} style={styles.sectionTitle} color={theme['c-font']}>{t('singer_info_career')}</Text>
+              )
+            : null
+        }
+        {
+          hasDesc
+            ? (
+                <Text size={16} style={styles.paragraph} color={theme['c-font']}>{'\u3000\u3000' + desc}</Text>
+              )
+            : null
+        }
+        {
+          hasBiography
+            ? biographyParagraphs.map((p, i) => (
+                // 去除维基章节标题残留（如 "早年"、"音乐事业"），作为非缩进段落展示
+                <Text key={i} size={16} style={styles.paragraph} color={theme['c-font']}>
+                  {(/^==|^===\s*$/.test(p)) || ((/^[^，。？！]{1,20}$/.test(p)) && p.length <= 12) ? p : '\u3000\u3000' + p}
+                </Text>
+            ))
+            : null
         }
       </ScrollView>
     </PageContent>
   )
-})
+}
 
 const styles = createStyle({
   headerContainer: {
@@ -124,6 +189,32 @@ const styles = createStyle({
     width: 110,
     height: 110,
     borderRadius: 55,
+  },
+  card: {
+    marginBottom: 20,
+    borderRadius: 8,
+    overflow: 'hidden',
+  },
+  fieldRow: {
+    flexDirection: 'row',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+  },
+  fieldRowBorder: {
+    borderBottomWidth: 0.5,
+    borderBottomColor: 'rgba(128,128,128,0.2)',
+  },
+  fieldLabel: {
+    width: 80,
+    flexShrink: 0,
+  },
+  fieldValue: {
+    flex: 1,
+  },
+  sectionTitle: {
+    fontWeight: 'bold',
+    marginTop: 8,
+    marginBottom: 12,
   },
   paragraph: {
     fontSize: 16,

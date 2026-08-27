@@ -448,8 +448,8 @@
   "share_card_title_music": "Share \"{name}\" to...",
   "share_title_music": "Song Sharing",
   "singer": "Artist: {name}",
-  "singer_intro": "Singer Intro",
-  "singer_intro_empty": "No singer introduction available",
+  "singer_intro": "Artist Info",
+  "singer_intro_empty": "No artist info available",
   "song_title": "Song Title",
   "songlist_hot": "Top",
   "songlist_hot_collect": "Top Collect",
@@ -631,5 +631,6 @@
   "play_detail_setting_jump_singer": "Go to Artist",
   "play_detail_setting_jump_album": "Go to Album",
   "play_detail_setting_jump_singer_select_title": "Select Artist",
-  "play_detail_setting_jump_singer_failed": "Artist not found"
+  "play_detail_setting_jump_singer_failed": "Artist not found",
+  "singer_info_career": "Career"
 }
