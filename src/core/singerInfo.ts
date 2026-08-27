@@ -218,9 +218,36 @@ export interface SingerFullInfo {
 }
 
 /**
+ * 去除空白与常见标点后的归一化文本，用于内容级去重比对
+ */
+const normalizeText = (s: string): string => s.replace(/[\s，。、；：,.;:（）()《》""''〔〕[\]]/g, '')
+
+/**
+ * 资料卡与简介开头段去重：
+ * 平台简介的开头通常就是"XX（英文名XX），X年X月X日出生于X地……"，
+ * 会把资料卡里的中文名/外文名/出生日期/出生地等信息重复一遍。
+ * 凡字段值已出现在简介开头段的，从资料卡中剔除；"中文名"与页面标题重复，恒定剔除。
+ */
+const dedupeFields = (biography: string, fields: SingerField[]): SingerField[] => {
+  const bioHead = normalizeText(biography.slice(0, 300))
+  return fields.filter((field) => {
+    if (field.label === '中文名') return false
+    const value = normalizeText(field.value)
+    if (!value) return false
+    // 短值（出生日期/出生地/国籍/外文名等）直接整体比对
+    if (value.length <= 8) return !bioHead.includes(value)
+    // 长值（代表作品/职业列表等）拆分判定：全部被简介覆盖才剔除
+    const parts = field.value.split(/[、，,]/).map(p => normalizeText(p)).filter(p => p.length > 1)
+    if (parts.length > 0 && parts.every(p => bioHead.includes(p))) return false
+    return true
+  })
+}
+
+/**
  * 获取歌手完整信息
  * - 从艺历程：各音乐平台 getSingerInfo（本源优先，跨源兜底取最长），境内可访问、动态更新
  * - 资料卡：百度百科开放 API（补充中文名/外文名/国籍等，失败降级为空）
+ * - 合并时做内容级去重：简介开头已包含的信息不再在资料卡重复展示
  */
 export const getSingerFullInfo = async(source: LX.OnlineSource, singerId: string, name: string, forceRefresh = false): Promise<SingerFullInfo> => {
   const [platform, fields] = await Promise.all([
@@ -230,10 +257,12 @@ export const getSingerFullInfo = async(source: LX.OnlineSource, singerId: string
     getSingerProfile(name, forceRefresh),
   ])
 
+  const biography = (platform?.desc ?? '').trim()
+
   return {
     name: platform?.name ?? name,
     img: platform?.img ?? undefined,
-    biography: (platform?.desc ?? '').trim(),
-    fields,
+    biography,
+    fields: dedupeFields(biography, fields),
   }
 }
