@@ -42,7 +42,7 @@ export default ({ onCloseSettingPopup }: { onCloseSettingPopup?: () => void }) =
   const handlePress = useCallback(() => {
     const info = getAlbumJumpInfo()
     if (!info) return
-    jumpToAlbum({
+    void jumpToAlbum({
       source: info.source,
       name: info.albumName || '',
       singer: info.singer,

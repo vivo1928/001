@@ -12,7 +12,7 @@ interface PlatformSingerInfo {
 
 interface PlatformSingerModule {
   getSingerInfo?: (singerid: string) => Promise<{ source: string, singerid: string, info?: PlatformSingerInfo }>
-  getSingerAlbumList?: (singerid: string, page: number, limit: number) => Promise<{ albums?: Array<{ id: string, name: string, img?: string, publish_date?: string | number }> }>
+  getSingerAlbumList?: (singerid: string, page: number, limit: number) => Promise<{ albums?: Array<{ id: string, name: string, img?: string, publish_date?: string | number }>, total?: number }>
   searchSingerId?: (name: string) => Promise<string | number | null>
 }
 
@@ -125,6 +125,19 @@ export interface SingerLatestAlbum {
   albumId: string
 }
 
+export interface SingerAlbumPage {
+  /** 当页专辑（按发行时间倒序） */
+  list: SingerLatestAlbum[]
+  /** 源接口报告的总专辑数（可能为 0 或不准） */
+  total: number
+  /** 是否还有更多可加载 */
+  more: boolean
+}
+
+// 每页向源请求的专辑条数 / 每页实际展示条数（过滤出有准确发行日期的）
+const ALBUM_PAGE_LIMIT = 15
+const ALBUM_DISPLAY_LIMIT = 8
+
 /** 归一化各源发行日期（ISO 日期 / 时间戳 / YYYY-MM-DD）为毫秒时间戳 */
 const toTime = (d: string | number | undefined | null): number => {
   if (d === undefined || d === null || d === '') return 0
@@ -148,27 +161,41 @@ const formatDate = (d: string | number | undefined | null): string => {
   return `${y}-${m}-${day}`
 }
 
-const MAX_LATEST_ALBUMS = 5
-
-/** 获取歌手最近发行的专辑（按发行时间倒序），来自当前平台实时数据、自动更新到当下 */
-const getLatestAlbums = async(source: LX.OnlineSource, singerId: string): Promise<SingerLatestAlbum[]> => {
+/**
+ * 获取歌手专辑（当前平台实时数据，按发行时间倒序），支持分页加载
+ * @param page 页数（从 1 开始）
+ */
+const getAlbumPage = async(source: LX.OnlineSource, singerId: string, page: number): Promise<SingerAlbumPage> => {
   const sdk = (musicSdk[source]?.singer as PlatformSingerModule | undefined)
-  if (!sdk?.getSingerAlbumList) return []
+  if (!sdk?.getSingerAlbumList) return { list: [], total: 0, more: false }
   try {
     const r = await withTimeout(
-      sdk.getSingerAlbumList(singerId, 1, 30),
+      sdk.getSingerAlbumList(singerId, page, ALBUM_PAGE_LIMIT),
       FETCH_TIMEOUT,
       `SingerAlbumList timeout: ${source}`,
     )
-    const albums = (r?.albums ?? [])
+    const rawList = r?.albums ?? []
+    const items = rawList
       .map(a => ({ name: String(a.name ?? '').trim(), img: a.img ?? null, albumId: String(a.id ?? ''), t: toTime(a.publish_date), publishDate: formatDate(a.publish_date) }))
       .filter(a => a.name && a.publishDate)
-    albums.sort((a, b) => b.t - a.t)
-    return albums.slice(0, MAX_LATEST_ALBUMS).map(({ publishDate, img, albumId, name }) => ({ name, publishDate, img, albumId }))
+    items.sort((a, b) => b.t - a.t)
+    const total = Number(r?.total ?? 0)
+    const list = page === 1
+      ? items.slice(0, ALBUM_DISPLAY_LIMIT)
+      : items
+    const displayList: SingerLatestAlbum[] = list.map(({ name, publishDate, img, albumId }) => ({ name, publishDate, img, albumId }))
+    // 本页源数据打满且累计未达 total（total 缺失时按本页是否满页判断）才认为还有更多
+    const more = rawList.length >= ALBUM_PAGE_LIMIT && (total === 0 || page * ALBUM_PAGE_LIMIT < total) && displayList.length > 0
+    return { list: displayList, total, more }
   } catch {
-    return []
+    return { list: [], total: 0, more: false }
   }
 }
+
+/**
+ * 分页加载歌手专辑（供"最新动态"上滑加载更多使用）
+ */
+export const getSingerAlbumPage = getAlbumPage
 
 // ============ 聚合入口 ============
 
@@ -179,30 +206,36 @@ export interface SingerFullInfo {
   biography: string
   /** 获奖历程段落（来自网易云分章简介，其余源可能为空） */
   awards: string[]
-  /** 最近发行专辑时间线（平台实时维护，覆盖到当下） */
+  /** 最近发行专辑时间线第一页（平台实时维护，覆盖到当下） */
   latestAlbums: SingerLatestAlbum[]
+  /** 专辑总数 */
+  latestTotal: number
+  /** 是否还有更多专辑可加载 */
+  latestMore: boolean
 }
 
 /**
  * 获取歌手完整信息（全部来自各音乐平台，境内可访问）
  * - 从艺历程：平台简介（本源优先，跨源兜底取最长）
  * - 获奖历程：网易云分章简介中的获奖/荣誉章节
- * - 最新动态：当前平台最近发行的专辑时间线（自动更新到当下）
+ * - 最新动态：当前平台最近发行的专辑时间线（第一页，可继续分页加载）
  */
 export const getSingerFullInfo = async(source: LX.OnlineSource, singerId: string, name: string): Promise<SingerFullInfo> => {
   const platform = source && singerId
     ? await getPlatformBiography(source, singerId, name)
     : null
 
-  const latestAlbums = source && singerId
-    ? await getLatestAlbums(source, singerId)
-    : []
+  const albumPage = source && singerId
+    ? await getAlbumPage(source, singerId, 1)
+    : { list: [], total: 0, more: false }
 
   return {
     name: platform?.name ?? name,
     img: platform?.img ?? undefined,
     biography: extractCareer(platform),
     awards: extractAwards(platform),
-    latestAlbums,
+    latestAlbums: albumPage.list,
+    latestTotal: albumPage.total,
+    latestMore: albumPage.more,
   }
 }

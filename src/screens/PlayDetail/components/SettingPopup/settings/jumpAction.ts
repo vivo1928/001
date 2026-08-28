@@ -17,6 +17,9 @@ interface SingerSearchModule {
 // 歌手 id 反查结果缓存（key: `${source}__${name}`），避免重复请求
 const singerIdCache = new Map<string, string>()
 
+// 大小写不敏感归一化，提升英文/外文歌手名的匹配准确度（如 "Taylor Swift"）
+const normalizeName = (name?: string): string => (name ?? '').trim().toLowerCase()
+
 interface JumpTargetMusic {
   source: string
   name: string
@@ -42,8 +45,10 @@ const findSingerId = async(singerName: string, source: LX.OnlineSource): Promise
       const res = await searchFn.call(sdk?.singerSearch, singerName, 1, 20)
       const list = res?.list ?? []
       // 优先精确匹配，其次包含匹配；均未命中时取第一个（歌手搜索首个结果最相关）
-      const exact = list.find(s => s.name === singerName)
-      const match = exact ?? list.find(s => s.name && s.name.includes(singerName)) ?? list[0]
+      // 匹配均做大小写不敏感处理，外文歌手名（含空格/大小写差异）更可靠
+      const keyword = normalizeName(singerName)
+      const exact = list.find(s => s.name && normalizeName(s.name) === keyword)
+      const match = exact ?? list.find(s => s.name && normalizeName(s.name).includes(keyword)) ?? list[0]
       if (match?.id) return String(match.id)
     }
   } catch { /* fall through */ }
@@ -57,6 +62,13 @@ const findSingerId = async(singerName: string, source: LX.OnlineSource): Promise
 
   return null
 }
+
+// 播放设置弹窗 Modal fade 关闭动画时长（约 300ms）。
+// 若弹窗还在关闭动画中立即 push 新页面，读屏会在过渡期重复朗读弹窗标题（如"播放设置"），
+// 因此延迟到动画结束后再导航，保证无障碍焦点干净切换。
+const POPUP_CLOSE_DELAY = 340
+
+const sleep = async(ms: number): Promise<void> => new Promise<void>(resolve => setTimeout(resolve, ms))
 
 /**
  * 反查歌手 id 并跳转到歌手详情页
@@ -76,7 +88,10 @@ export const jumpToSinger = async(
     if (!singerId) return false
     singerIdCache.set(cacheKey, singerId)
   }
-  closePopup?.()
+  if (closePopup) {
+    closePopup()
+    await sleep(POPUP_CLOSE_DELAY)
+  }
   navigations.pushSingerDetailScreen(commonState.componentIds.playDetail!, {
     id: singerId,
     name: singerName,
@@ -88,10 +103,13 @@ export const jumpToSinger = async(
 /**
  * 跳转到当前歌曲所在专辑的详情页
  */
-export const jumpToAlbum = (musicInfo: JumpTargetMusic, closePopup?: () => void): boolean => {
+export const jumpToAlbum = async(musicInfo: JumpTargetMusic, closePopup?: () => void): Promise<boolean> => {
   const albumId = musicInfo?.meta?.albumId
   if (!albumId) return false
-  closePopup?.()
+  if (closePopup) {
+    closePopup()
+    await sleep(POPUP_CLOSE_DELAY)
+  }
   const albumName = musicInfo.meta?.albumName
   navigations.pushAlbumDetailScreen(commonState.componentIds.playDetail!, {
     id: String(albumId),

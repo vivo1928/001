@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { ScrollView, View, TouchableOpacity } from 'react-native'
+import { useEffect, useState, useRef, useCallback } from 'react'
+import { ScrollView, View, TouchableOpacity, type NativeSyntheticEvent, type NativeScrollEvent } from 'react-native'
 
 import { Icon } from '@/components/common/Icon'
 import { pop } from '@/navigation'
@@ -14,7 +14,7 @@ import commonState from '@/store/common/state'
 import { useStatusbarHeight } from '@/store/common/hook'
 import { useTheme } from '@/store/theme/hook'
 import PageContent from '@/components/PageContent'
-import { getSingerFullInfo, type SingerLatestAlbum } from '@/core/singerInfo'
+import { getSingerFullInfo, getSingerAlbumPage, type SingerLatestAlbum } from '@/core/singerInfo'
 
 const HEADER_HEIGHT = scaleSizeH(_HEADER_HEIGHT)
 
@@ -59,13 +59,21 @@ export default ({ componentId, info }: { componentId: string, info?: SingerIntro
   const [biography, setBiography] = useState('')
   const [awards, setAwards] = useState<string[]>([])
   const [latestAlbums, setLatestAlbums] = useState<SingerLatestAlbum[]>([])
+  const [hasMoreAlbums, setHasMoreAlbums] = useState(false)
   const [loaded, setLoaded] = useState(false)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const albumPageRef = useRef(1)
+  const mountedRef = useRef(true)
+  const loadingMoreRef = useRef(false)
 
   useEffect(() => {
     let mounted = true
+    mountedRef.current = true
+    albumPageRef.current = 1
     setLoaded(false)
     setAwards([])
     setLatestAlbums([])
+    setHasMoreAlbums(false)
     if (!name || !source || !singerId) {
       setLoaded(true)
       return
@@ -77,13 +85,38 @@ export default ({ componentId, info }: { componentId: string, info?: SingerIntro
       setBiography(res.biography)
       setAwards(res.awards)
       setLatestAlbums(res.latestAlbums)
+      setHasMoreAlbums(res.latestMore)
       setLoaded(true)
     })
     return () => {
       mounted = false
+      mountedRef.current = false
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [name])
+
+  const loadMoreAlbums = useCallback(async() => {
+    if (!source || !singerId || !hasMoreAlbums || loadingMoreRef.current || loadingMore) return
+    loadingMoreRef.current = true
+    setLoadingMore(true)
+    try {
+      const page = albumPageRef.current + 1
+      const res = await getSingerAlbumPage(source, singerId, page)
+      if (!mountedRef.current) return
+      albumPageRef.current = page
+      if (res.list.length) setLatestAlbums(prev => [...prev, ...res.list])
+      setHasMoreAlbums(res.more)
+    } finally {
+      loadingMoreRef.current = false
+      if (mountedRef.current) setLoadingMore(false)
+    }
+  }, [source, singerId, hasMoreAlbums, loadingMore])
+
+  const handleScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const { layoutMeasurement, contentOffset, contentSize } = e.nativeEvent
+    // 接近底部时加载下一页
+    if (contentSize.height - (layoutMeasurement.height + contentOffset.y) < 80) void loadMoreAlbums()
+  }
 
   const biographyParagraphs = biography.split(/\n+/).map(s => s.trim()).filter(Boolean)
   const hasBiography = biographyParagraphs.length > 0
@@ -94,7 +127,8 @@ export default ({ componentId, info }: { componentId: string, info?: SingerIntro
   return (
     <PageContent>
       <Header title={t('singer_intro')} />
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
+      <ScrollView style={styles.scroll} contentContainerStyle={styles.content}
+        onScroll={handleScroll} scrollEventThrottle={64}>
         {
           profileName
             ? <Text size={20} style={styles.title} color={theme['c-font']}>{profileName}</Text>
@@ -146,7 +180,7 @@ export default ({ componentId, info }: { componentId: string, info?: SingerIntro
         {
           hasLatest
             ? latestAlbums.map((album) => (
-                <View key={album.albumId} style={styles.albumRow}>
+                <View key={`${album.albumId}_${album.publishDate}`} style={styles.albumRow}>
                   {
                     album.img
                       ? <Image url={album.img} style={styles.albumImg} />
@@ -158,6 +192,11 @@ export default ({ componentId, info }: { componentId: string, info?: SingerIntro
                   </View>
                 </View>
             ))
+            : null
+        }
+        {
+          hasMoreAlbums && loadingMore
+            ? <Text size={13} color={theme['c-font-label']} style={styles.loadingMore}>{t('loading')}</Text>
             : null
         }
       </ScrollView>
@@ -239,5 +278,9 @@ const styles = createStyle({
   empty: {
     textAlign: 'center',
     marginTop: 40,
+  },
+  loadingMore: {
+    textAlign: 'center',
+    paddingVertical: 12,
   },
 })
