@@ -83,15 +83,16 @@ export const jumpToSinger = async(
 ): Promise<boolean> => {
   const cacheKey = `${source}__${singerName}`
   let singerId: string | null | undefined = singerIdCache.get(cacheKey)
+  // 先关闭弹窗，再反查歌手 id：
+  // 反查是网络请求（首次可能耗时数百毫秒），若弹窗一直开着，读屏会停留在弹窗等待，
+  // 跳转时焦点切换导致重复播报"播放设置"。先关弹窗可让读屏焦点在动画结束后干净切到目标页。
+  if (closePopup) closePopup()
   if (!singerId) {
     singerId = await findSingerId(singerName, source)
     if (!singerId) return false
     singerIdCache.set(cacheKey, singerId)
   }
-  if (closePopup) {
-    closePopup()
-    await sleep(POPUP_CLOSE_DELAY)
-  }
+  if (closePopup) await sleep(POPUP_CLOSE_DELAY)
   navigations.pushSingerDetailScreen(commonState.componentIds.playDetail!, {
     id: singerId,
     name: singerName,

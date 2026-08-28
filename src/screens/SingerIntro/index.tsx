@@ -14,7 +14,7 @@ import commonState from '@/store/common/state'
 import { useStatusbarHeight } from '@/store/common/hook'
 import { useTheme } from '@/store/theme/hook'
 import PageContent from '@/components/PageContent'
-import { getSingerFullInfo, getSingerAlbumPage, type SingerLatestAlbum } from '@/core/singerInfo'
+import { getSingerFullInfo, getSingerAlbumPage, type SingerLatestAlbum, type SingerLatestSong } from '@/core/singerInfo'
 
 const HEADER_HEIGHT = scaleSizeH(_HEADER_HEIGHT)
 
@@ -58,6 +58,7 @@ export default ({ componentId, info }: { componentId: string, info?: SingerIntro
   const [img, setImg] = useState<string | null>(fallbackImg ?? null)
   const [biography, setBiography] = useState('')
   const [awards, setAwards] = useState<string[]>([])
+  const [latestSongs, setLatestSongs] = useState<SingerLatestSong[]>([])
   const [latestAlbums, setLatestAlbums] = useState<SingerLatestAlbum[]>([])
   const [hasMoreAlbums, setHasMoreAlbums] = useState(false)
   const [loaded, setLoaded] = useState(false)
@@ -72,6 +73,7 @@ export default ({ componentId, info }: { componentId: string, info?: SingerIntro
     albumPageRef.current = 1
     setLoaded(false)
     setAwards([])
+    setLatestSongs([])
     setLatestAlbums([])
     setHasMoreAlbums(false)
     if (!name || !source || !singerId) {
@@ -84,6 +86,7 @@ export default ({ componentId, info }: { componentId: string, info?: SingerIntro
       setImg(res.img ?? fallbackImg ?? null)
       setBiography(res.biography)
       setAwards(res.awards)
+      setLatestSongs(res.latestSongs)
       setLatestAlbums(res.latestAlbums)
       setHasMoreAlbums(res.latestMore)
       setLoaded(true)
@@ -121,7 +124,9 @@ export default ({ componentId, info }: { componentId: string, info?: SingerIntro
   const biographyParagraphs = biography.split(/\n+/).map(s => s.trim()).filter(Boolean)
   const hasBiography = biographyParagraphs.length > 0
   const hasAwards = awards.length > 0
-  const hasLatest = latestAlbums.length > 0
+  const hasSongs = latestSongs.length > 0
+  const hasAlbums = latestAlbums.length > 0
+  const hasLatest = hasSongs || hasAlbums
   const hasContent = hasBiography || hasAwards || hasLatest
 
   return (
@@ -173,12 +178,34 @@ export default ({ componentId, info }: { componentId: string, info?: SingerIntro
             : null
         }
         {
-          hasLatest
-            ? <Text size={16} style={styles.sectionTitle} color={theme['c-font']}>{t('singer_info_latest')}</Text>
+          hasSongs
+            ? <Text size={16} style={styles.sectionTitle} color={theme['c-font']}>{t('singer_info_latest_songs')}</Text>
             : null
         }
         {
-          hasLatest
+          hasSongs
+            ? latestSongs.map((song) => (
+                <View key={`${song.songId}_${song.publishDate}`} style={styles.albumRow}>
+                  {
+                    song.img
+                      ? <Image url={song.img} style={styles.albumImg} />
+                      : <View style={styles.albumImgPlaceholder} />
+                  }
+                  <View style={styles.albumInfo}>
+                    <Text size={15} numberOfLines={1} color={theme['c-font']} style={styles.albumName}>{song.name}</Text>
+                    <Text size={13} color={theme['c-font-label']}>{song.publishDate}{song.albumName ? ` · ${song.albumName}` : ''}</Text>
+                  </View>
+                </View>
+            ))
+            : null
+        }
+        {
+          hasAlbums
+            ? <Text size={16} style={styles.sectionTitle} color={theme['c-font']}>{t('singer_info_latest_albums')}</Text>
+            : null
+        }
+        {
+          hasAlbums
             ? latestAlbums.map((album) => (
                 <View key={`${album.albumId}_${album.publishDate}`} style={styles.albumRow}>
                   {

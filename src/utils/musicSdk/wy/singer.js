@@ -230,4 +230,36 @@ module.exports = {
       allPage: Math.ceil((body.total || 0) / limit) || 1,
     }
   },
+  /**
+   * 获取歌手最新发行的单曲（order=time 按发行时间倒序）
+   * 平台实时维护、自动更新到当下，是覆盖最新年份的最可靠信号源
+   */
+  async getSingerLatestSongs(singerid, limit = 15) {
+    if (!singerid) throw new Error('歌手不存在')
+    const requestObj = eapiRequest('/api/v1/artist/songs', {
+      id: singerid,
+      offset: 0,
+      limit: limit + 5,
+      order: 'time',
+    })
+    const { body } = await requestObj.promise
+    if (!body || body.code !== 200 || !body.songs) {
+      throw new Error('获取歌手最新单曲失败: ' + (body?.msg || '无数据'))
+    }
+    return body.songs
+      .map((s) => {
+        const publishTime = s.publishTime || s.album?.publishTime || 0
+        return {
+          name: String(s.name || '').trim(),
+          songId: String(s.id ?? ''),
+          albumId: String(s.album?.id ?? ''),
+          albumName: String(s.album?.name || '').trim(),
+          img: s.album?.picUrl || s.al?.picUrl || '',
+          publishTime,
+        }
+      })
+      .filter(s => s.name && s.publishTime > 0)
+      .sort((a, b) => b.publishTime - a.publishTime)
+      .slice(0, limit)
+  },
 }

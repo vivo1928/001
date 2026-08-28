@@ -634,5 +634,7 @@
   "singer_info_career": "从艺历程",
   "singer_info_awards": "获奖历程",
   "singer_info_latest": "最新动态",
-  "singer_info_latest_empty": "暂无最新动态"
+  "singer_info_latest_empty": "暂无最新动态",
+  "singer_info_latest_songs": "最新单曲",
+  "singer_info_latest_albums": "最新专辑"
 }

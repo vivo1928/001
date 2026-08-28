@@ -635,5 +635,7 @@
   "singer_info_career": "從藝歷程",
   "singer_info_awards": "獲獎歷程",
   "singer_info_latest": "最新動態",
-  "singer_info_latest_empty": "暫無最新動態"
+  "singer_info_latest_empty": "暫無最新動態",
+  "singer_info_latest_songs": "最新單曲",
+  "singer_info_latest_albums": "最新專輯"
 }

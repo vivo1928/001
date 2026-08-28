@@ -13,6 +13,7 @@ interface PlatformSingerInfo {
 interface PlatformSingerModule {
   getSingerInfo?: (singerid: string) => Promise<{ source: string, singerid: string, info?: PlatformSingerInfo }>
   getSingerAlbumList?: (singerid: string, page: number, limit: number) => Promise<{ albums?: Array<{ id: string, name: string, img?: string, publish_date?: string | number }>, total?: number }>
+  getSingerLatestSongs?: (singerid: string, limit?: number) => Promise<Array<{ name: string, songId: string, albumId: string, albumName: string, img?: string, publishTime: number }>>
   searchSingerId?: (name: string) => Promise<string | number | null>
 }
 
@@ -199,6 +200,35 @@ export const getSingerAlbumPage = getAlbumPage
 
 // ============ 聚合入口 ============
 
+export interface SingerLatestSong {
+  name: string
+  publishDate: string
+  img?: string | null
+  songId: string
+  albumName: string
+}
+
+const MAX_LATEST_SONGS = 15
+
+/** 获取歌手最新发行的单曲（仅网易云 order=time，其余源无此能力返回空） */
+const getLatestSongs = async(source: LX.OnlineSource, singerId: string): Promise<SingerLatestSong[]> => {
+  const sdk = (musicSdk[source]?.singer as PlatformSingerModule | undefined)
+  if (!sdk?.getSingerLatestSongs) return []
+  try {
+    const list = await withTimeout(
+      sdk.getSingerLatestSongs(singerId, MAX_LATEST_SONGS),
+      FETCH_TIMEOUT,
+      `SingerLatestSongs timeout: ${source}`,
+    )
+    return list
+      .map(s => ({ name: s.name, publishDate: formatDate(s.publishTime), img: s.img ?? null, songId: s.songId, albumName: s.albumName }))
+      .filter(s => s.name && s.publishDate)
+      .slice(0, MAX_LATEST_SONGS)
+  } catch {
+    return []
+  }
+}
+
 export interface SingerFullInfo {
   name: string
   img?: string | null
@@ -206,6 +236,8 @@ export interface SingerFullInfo {
   biography: string
   /** 获奖历程段落（来自网易云分章简介，其余源可能为空） */
   awards: string[]
+  /** 最新发行的单曲（网易云 order=time，实时更新到当下） */
+  latestSongs: SingerLatestSong[]
   /** 最近发行专辑时间线第一页（平台实时维护，覆盖到当下） */
   latestAlbums: SingerLatestAlbum[]
   /** 专辑总数 */
@@ -218,22 +250,27 @@ export interface SingerFullInfo {
  * 获取歌手完整信息（全部来自各音乐平台，境内可访问）
  * - 从艺历程：平台简介（本源优先，跨源兜底取最长）
  * - 获奖历程：网易云分章简介中的获奖/荣誉章节
- * - 最新动态：当前平台最近发行的专辑时间线（第一页，可继续分页加载）
+ * - 最新动态：最新发行单曲（网易云）+ 最近发行专辑时间线（第一页，可继续分页加载）
  */
 export const getSingerFullInfo = async(source: LX.OnlineSource, singerId: string, name: string): Promise<SingerFullInfo> => {
-  const platform = source && singerId
-    ? await getPlatformBiography(source, singerId, name)
-    : null
-
-  const albumPage = source && singerId
-    ? await getAlbumPage(source, singerId, 1)
-    : { list: [], total: 0, more: false }
+  const [platform, albumPage, latestSongs] = await Promise.all([
+    source && singerId
+      ? getPlatformBiography(source, singerId, name)
+      : Promise.resolve(null),
+    source && singerId
+      ? getAlbumPage(source, singerId, 1)
+      : Promise.resolve({ list: [], total: 0, more: false }),
+    source && singerId
+      ? getLatestSongs(source, singerId)
+      : Promise.resolve([] as SingerLatestSong[]),
+  ])
 
   return {
     name: platform?.name ?? name,
     img: platform?.img ?? undefined,
     biography: extractCareer(platform),
     awards: extractAwards(platform),
+    latestSongs,
     latestAlbums: albumPage.list,
     latestTotal: albumPage.total,
     latestMore: albumPage.more,
