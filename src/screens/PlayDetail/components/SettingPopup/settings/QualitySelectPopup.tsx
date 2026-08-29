@@ -34,7 +34,7 @@ export interface QualitySelectPopupType {
   show: (musicInfo: LX.Music.MusicInfoOnline) => void
 }
 
-export default forwardRef<QualitySelectPopupType, { onCloseSettingPopup?: () => void }>(({ onCloseSettingPopup }, ref) => {
+export default forwardRef<QualitySelectPopupType, { onCloseSettingPopup?: (callback?: () => void) => void }>(({ onCloseSettingPopup }, ref) => {
   const theme = useTheme()
   const t = useI18n()
   const popupRef = useRef<PopupType>(null)

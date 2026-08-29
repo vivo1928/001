@@ -28,7 +28,7 @@ const QUALITY_LABEL_MAP: Record<string, string> = {
   wav: 'WAV',
 }
 
-export default ({ onCloseSettingPopup }: { onCloseSettingPopup?: () => void }) => {
+export default ({ onCloseSettingPopup }: { onCloseSettingPopup?: (callback?: () => void) => void }) => {
   const theme = useTheme()
   const t = useI18n()
   const popupRef = useRef<QualitySelectPopupType>(null)

@@ -35,7 +35,7 @@ const getAlbumJumpInfo = (): AlbumJumpInfo | null => {
   }
 }
 
-export default ({ onCloseSettingPopup }: { onCloseSettingPopup?: () => void }) => {
+export default ({ onCloseSettingPopup }: { onCloseSettingPopup?: (callback?: () => void) => void }) => {
   const theme = useTheme()
   const t = useI18n()
 

@@ -49,6 +49,8 @@ const styles = createStyle({
 
 export interface PopupProps {
   onHide?: () => void
+  /** Modal 完全关闭（动画结束后）回调，用于等待弹窗真正消失后再执行后续动作 */
+  onDismiss?: () => void
   keyHide?: boolean
   bgHide?: boolean
   closeBtn?: boolean
@@ -63,6 +65,7 @@ export interface PopupType {
 
 export default forwardRef<PopupType, PopupProps>(({
   onHide = () => {},
+  onDismiss,
   keyHide = true,
   bgHide = true,
   closeBtn = true,
@@ -174,7 +177,7 @@ export default forwardRef<PopupType, PopupProps>(({
   }, [position, statusBarHeight])
 
   return (
-    <Modal onHide={onHide} keyHide={keyHide} bgHide={bgHide} bgColor="rgba(50,50,50,.2)" ref={modalRef}>
+    <Modal onHide={onHide} keyHide={keyHide} bgHide={bgHide} bgColor="rgba(50,50,50,.2)" ref={modalRef} onDismiss={onDismiss}>
       <View style={{ ...styles.centeredView, ...centeredViewStyle, paddingBottom: keyboardShown ? keyboardHeight : 0 }}>
         <View style={{ ...styles.modalView, ...modalViewStyle, backgroundColor: theme['c-content-background'] }} onStartShouldSetResponder={() => true}>
           <View style={styles.header}>

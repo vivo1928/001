@@ -26,7 +26,7 @@ const getJumpInfo = (): SingerJumpInfo | null => {
   return { singer, source }
 }
 
-export default ({ onCloseSettingPopup }: { onCloseSettingPopup?: () => void }) => {
+export default ({ onCloseSettingPopup }: { onCloseSettingPopup?: (callback?: () => void) => void }) => {
   const theme = useTheme()
   const t = useI18n()
   const modalRef = useRef<SingerSelectModalType>(null)

@@ -64,35 +64,50 @@ const findSingerId = async(singerName: string, source: LX.OnlineSource): Promise
 }
 
 // 播放设置弹窗 Modal fade 关闭动画时长（约 300ms）。
-// 若弹窗还在关闭动画中立即 push 新页面，读屏会在过渡期重复朗读弹窗标题（如"播放设置"），
-// 因此延迟到动画结束后再导航，保证无障碍焦点干净切换。
-const POPUP_CLOSE_DELAY = 340
+// 若弹窗还在关闭动画中立即 push 新页面，读屏会在过渡期重复朗读弹窗标题（如"播放设置"）。
+// 因此通过 closePopup 传入回调，等 Modal 真正 onDismiss（动画结束、原生层移除）后再导航；
+// onDismiss 万一不触发时用超时兜底，避免卡住。
+const POPUP_CLOSE_TIMEOUT = 900
 
-const sleep = async(ms: number): Promise<void> => new Promise<void>(resolve => setTimeout(resolve, ms))
+/**
+ * 关闭设置弹窗并等待其完全消失（onDismiss）后 resolve
+ */
+const waitPopupClosed = async(closePopup?: (callback?: () => void) => void): Promise<void> => {
+  if (!closePopup) return
+  await new Promise<void>((resolve) => {
+    let done = false
+    const finish = () => {
+      if (done) return
+      done = true
+      resolve()
+    }
+    closePopup(finish)
+    setTimeout(finish, POPUP_CLOSE_TIMEOUT)
+  })
+}
 
 /**
  * 反查歌手 id 并跳转到歌手详情页
  * @param singerName 歌手名
  * @param source 音源
- * @param closePopup 关闭设置弹窗的回调（跳转前调用，避免弹窗覆盖详情页）
+ * @param closePopup 关闭设置弹窗的回调（跳转前调用，避免弹窗覆盖详情页；传回调则等待弹窗完全消失）
  */
 export const jumpToSinger = async(
   singerName: string,
   source: LX.OnlineSource,
-  closePopup?: () => void,
+  closePopup?: (callback?: () => void) => void,
 ): Promise<boolean> => {
   const cacheKey = `${source}__${singerName}`
   let singerId: string | null | undefined = singerIdCache.get(cacheKey)
   // 先关闭弹窗，再反查歌手 id：
   // 反查是网络请求（首次可能耗时数百毫秒），若弹窗一直开着，读屏会停留在弹窗等待，
-  // 跳转时焦点切换导致重复播报"播放设置"。先关弹窗可让读屏焦点在动画结束后干净切到目标页。
-  if (closePopup) closePopup()
+  // 跳转时焦点切换导致重复播报"播放设置"。先关弹窗可让读屏焦点干净切换。
+  await waitPopupClosed(closePopup)
   if (!singerId) {
     singerId = await findSingerId(singerName, source)
     if (!singerId) return false
     singerIdCache.set(cacheKey, singerId)
   }
-  if (closePopup) await sleep(POPUP_CLOSE_DELAY)
   navigations.pushSingerDetailScreen(commonState.componentIds.playDetail!, {
     id: singerId,
     name: singerName,
@@ -104,13 +119,13 @@ export const jumpToSinger = async(
 /**
  * 跳转到当前歌曲所在专辑的详情页
  */
-export const jumpToAlbum = async(musicInfo: JumpTargetMusic, closePopup?: () => void): Promise<boolean> => {
+export const jumpToAlbum = async(
+  musicInfo: JumpTargetMusic,
+  closePopup?: (callback?: () => void) => void,
+): Promise<boolean> => {
   const albumId = musicInfo?.meta?.albumId
   if (!albumId) return false
-  if (closePopup) {
-    closePopup()
-    await sleep(POPUP_CLOSE_DELAY)
-  }
+  await waitPopupClosed(closePopup)
   const albumName = musicInfo.meta?.albumName
   navigations.pushAlbumDetailScreen(commonState.componentIds.playDetail!, {
     id: String(albumId),
