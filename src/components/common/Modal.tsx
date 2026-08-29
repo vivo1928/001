@@ -42,6 +42,8 @@ export interface ModalProps extends Omit<_ModalProps, 'visible'> {
 
 export interface ModalType {
   setVisible: (visible: boolean) => void
+  /** 关闭动画期间对无障碍阅读器隐藏弹窗内容，避免读屏在过渡期重复播报弹窗标题 */
+  setAccessibilityHidden: (hidden: boolean) => void
 }
 
 export default forwardRef<ModalType, ModalProps>(({
@@ -54,6 +56,7 @@ export default forwardRef<ModalType, ModalProps>(({
   ...props
 }: ModalProps, ref) => {
   const [visible, setVisible] = useState(false)
+  const [accessibilityHidden, setAccessibilityHidden] = useState(false)
   // const { window: windowSize } = useWindowSize()
   const statusBarHeight = useStatusbarHeight()
   const handleRequestClose = () => {
@@ -75,6 +78,9 @@ export default forwardRef<ModalType, ModalProps>(({
       setVisible(_visible)
       if (!_visible) onHide()
     },
+    setAccessibilityHidden(hidden) {
+      setAccessibilityHidden(hidden)
+    },
   }))
 
   const memoChildren = useMemo(() => children, [children])
@@ -92,7 +98,8 @@ export default forwardRef<ModalType, ModalProps>(({
       {/* <StatusBar /> */}
       {/* <View style={{ flex: 1, paddingTop: statusBarPadding ? StatusBar.currentHeight : 0 }}> */}
       <TouchableWithoutFeedback style={{ flex: 1, paddingTop: statusBarPadding ? statusBarHeight : 0 }} onPress={handleBgClose}>
-        <View style={{ flex: 1, backgroundColor: bgColor }} accessibilityViewIsModal>
+        <View style={{ flex: 1, backgroundColor: bgColor }} accessibilityViewIsModal={!accessibilityHidden}
+          importantForAccessibility={accessibilityHidden ? 'no-hide-descendants' : 'auto'}>
           {memoChildren}
         </View>
       </TouchableWithoutFeedback>

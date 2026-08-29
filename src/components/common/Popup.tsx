@@ -61,6 +61,8 @@ export interface PopupProps {
 
 export interface PopupType {
   setVisible: (visible: boolean) => void
+  /** 对无障碍阅读器隐藏弹窗内容（关闭动画期间使用，避免重复播报） */
+  setAccessibilityHidden: (hidden: boolean) => void
 }
 
 export default forwardRef<PopupType, PopupProps>(({
@@ -82,6 +84,9 @@ export default forwardRef<PopupType, PopupProps>(({
   useImperativeHandle(ref, () => ({
     setVisible(visible: boolean) {
       modalRef.current?.setVisible(visible)
+    },
+    setAccessibilityHidden(hidden: boolean) {
+      modalRef.current?.setAccessibilityHidden(hidden)
     },
   }))
 

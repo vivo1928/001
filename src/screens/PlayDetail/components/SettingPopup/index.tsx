@@ -32,6 +32,8 @@ export default forwardRef<SettingPopupType, SettingPopupProps>(({ direction, ...
 
   const closeSettingPopup = useRef((callback?: () => void) => {
     pendingAfterCloseRef.current = callback ?? null
+    // 先对无障碍阅读器隐藏弹窗内容，再关闭：避免 fade 关闭动画期间读屏重复播报弹窗标题（如"播放设置"）
+    popupRef.current?.setAccessibilityHidden(true)
     popupRef.current?.setVisible(false)
   }).current
 
