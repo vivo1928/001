@@ -13,6 +13,7 @@ import SettingPlayQuality from './settings/SettingPlayQuality'
 import SettingDownload from './settings/SettingDownload'
 import SettingJumpToSinger from './settings/SettingJumpToSinger'
 import SettingJumpToAlbum from './settings/SettingJumpToAlbum'
+import JumpingPopup, { type JumpingPopupType } from './JumpingPopup'
 
 export interface SettingPopupProps extends Omit<PopupProps, 'children'> {
   direction: 'vertical' | 'horizontal'
@@ -20,27 +21,19 @@ export interface SettingPopupProps extends Omit<PopupProps, 'children'> {
 
 export interface SettingPopupType {
   show: () => void
+  showJumping: () => void
+  closeJumping: () => void
 }
 
 export default forwardRef<SettingPopupType, SettingPopupProps>(({ direction, ...props }, ref) => {
   const [visible, setVisible] = useState(false)
   const popupRef = useRef<PopupType>(null)
+  const jumpingRef = useRef<JumpingPopupType>(null)
   // console.log('render import export')
   const t = useI18n()
-  // 弹窗完全关闭（onDismiss）后要执行的回调（如跳转导航），避免读屏在关闭动画期间重复播报弹窗标题
-  const pendingAfterCloseRef = useRef<(() => void) | null>(null)
 
-  const closeSettingPopup = useRef((callback?: () => void) => {
-    pendingAfterCloseRef.current = callback ?? null
-    // 先对无障碍阅读器隐藏弹窗内容，再关闭：避免 fade 关闭动画期间读屏重复播报弹窗标题（如"播放设置"）
-    popupRef.current?.setAccessibilityHidden(true)
+  const closeSettingPopup = useRef(() => {
     popupRef.current?.setVisible(false)
-  }).current
-
-  const handlePopupDismiss = useRef(() => {
-    const cb = pendingAfterCloseRef.current
-    pendingAfterCloseRef.current = null
-    cb?.()
   }).current
 
   useImperativeHandle(ref, () => ({
@@ -53,28 +46,45 @@ export default forwardRef<SettingPopupType, SettingPopupProps>(({ direction, ...
         })
       }
     },
+    showJumping() {
+      jumpingRef.current?.show()
+    },
+    closeJumping() {
+      jumpingRef.current?.close()
+    },
   }))
 
 
   return (
     visible
       ? (
-        <Popup ref={popupRef} title={t('play_detail_setting_title')} {...props} onDismiss={handlePopupDismiss}>
-          <ScrollView>
-            <View onStartShouldSetResponder={() => true}>
-              <SettingLyricProgress />
-              <SettingVolume />
-              <SettingPlaybackRate />
-              <SettingPlayQuality onCloseSettingPopup={closeSettingPopup} />
-              <SettingDownload />
-              <SettingJumpToSinger onCloseSettingPopup={closeSettingPopup} />
-              <SettingJumpToAlbum onCloseSettingPopup={closeSettingPopup} />
-              <SettingLrcFontSize direction={direction} />
-              <SettingLrcAlign />
-              <SettingEqualizer />
-            </View>
-          </ScrollView>
-        </Popup>
+        <View style={{ flex: 1 }}>
+          <Popup ref={popupRef} title={t('play_detail_setting_title')} {...props}>
+            <ScrollView>
+              <View onStartShouldSetResponder={() => true}>
+                <SettingLyricProgress />
+                <SettingVolume />
+                <SettingPlaybackRate />
+                <SettingPlayQuality onCloseSettingPopup={closeSettingPopup} />
+                <SettingDownload />
+                <SettingJumpToSinger
+                  onCloseSettingPopup={closeSettingPopup}
+                  onShowJumping={() => jumpingRef.current?.show()}
+                  onCloseJumping={() => jumpingRef.current?.close()}
+                />
+                <SettingJumpToAlbum
+                  onCloseSettingPopup={closeSettingPopup}
+                  onShowJumping={() => jumpingRef.current?.show()}
+                  onCloseJumping={() => jumpingRef.current?.close()}
+                />
+                <SettingLrcFontSize direction={direction} />
+                <SettingLrcAlign />
+                <SettingEqualizer />
+              </View>
+            </ScrollView>
+          </Popup>
+          <JumpingPopup ref={jumpingRef} />
+        </View>
         )
       : null
   )

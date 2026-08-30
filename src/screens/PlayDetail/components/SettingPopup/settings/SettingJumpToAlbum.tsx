@@ -3,9 +3,10 @@ import { View, TouchableOpacity } from 'react-native'
 import Text from '@/components/common/Text'
 import { useTheme } from '@/store/theme/hook'
 import { useI18n } from '@/lang'
-import { createStyle } from '@/utils/tools'
+import { createStyle, toast } from '@/utils/tools'
 import playerState from '@/store/player/state'
 import { jumpToAlbum } from './jumpAction'
+import { sleep } from './sleep'
 
 interface AlbumJumpInfo {
   albumId: string | number
@@ -35,14 +36,25 @@ const getAlbumJumpInfo = (): AlbumJumpInfo | null => {
   }
 }
 
-export default ({ onCloseSettingPopup }: { onCloseSettingPopup?: (callback?: () => void) => void }) => {
+export default ({ onCloseSettingPopup, onShowJumping, onCloseJumping }: {
+  onCloseSettingPopup?: () => void
+  onShowJumping?: () => void
+  onCloseJumping?: () => void
+}) => {
   const theme = useTheme()
   const t = useI18n()
 
-  const handlePress = useCallback(() => {
+  // 跳转中弹窗至少展示时长，避免跳转太快导致弹窗闪烁
+  const MIN_JUMPING_MS = 400
+
+  const handlePress = useCallback(async() => {
     const info = getAlbumJumpInfo()
     if (!info) return
-    void jumpToAlbum({
+    const startTime = Date.now()
+    // 先展示"跳转中"弹窗承接读屏焦点，再关闭设置弹窗，避免焦点落回播放封面
+    onShowJumping?.()
+    onCloseSettingPopup?.()
+    const ok = await jumpToAlbum({
       source: info.source,
       name: info.albumName || '',
       singer: info.singer,
@@ -51,8 +63,12 @@ export default ({ onCloseSettingPopup }: { onCloseSettingPopup?: (callback?: () 
         albumName: info.albumName,
         picUrl: info.picUrl,
       },
-    }, onCloseSettingPopup)
-  }, [onCloseSettingPopup])
+    })
+    const elapsed = Date.now() - startTime
+    if (elapsed < MIN_JUMPING_MS) await sleep(MIN_JUMPING_MS - elapsed)
+    onCloseJumping?.()
+    if (!ok) toast(t('play_detail_setting_jump_singer_failed'))
+  }, [onShowJumping, onCloseSettingPopup, onCloseJumping, t])
 
   const info = getAlbumJumpInfo()
 

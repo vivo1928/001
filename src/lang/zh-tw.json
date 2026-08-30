@@ -637,5 +637,6 @@
   "singer_info_latest": "最新動態",
   "singer_info_latest_empty": "暫無最新動態",
   "singer_info_latest_songs": "最新單曲",
-  "singer_info_latest_albums": "最新專輯"
+  "singer_info_latest_albums": "最新專輯",
+  "jumping": "跳轉中..."
 }

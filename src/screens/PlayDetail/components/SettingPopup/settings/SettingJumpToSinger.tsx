@@ -8,6 +8,7 @@ import playerState from '@/store/player/state'
 import SingerSelectModal, { type SingerSelectModalType } from './SingerSelectModal'
 import { jumpToSinger } from './jumpAction'
 import { splitSingers } from './splitSingers'
+import { sleep } from './sleep'
 
 interface SingerJumpInfo {
   singer: string
@@ -26,15 +27,29 @@ const getJumpInfo = (): SingerJumpInfo | null => {
   return { singer, source }
 }
 
-export default ({ onCloseSettingPopup }: { onCloseSettingPopup?: (callback?: () => void) => void }) => {
+export default ({ onCloseSettingPopup, onShowJumping, onCloseJumping }: {
+  onCloseSettingPopup?: () => void
+  onShowJumping?: () => void
+  onCloseJumping?: () => void
+}) => {
   const theme = useTheme()
   const t = useI18n()
   const modalRef = useRef<SingerSelectModalType>(null)
 
+  // 跳转中弹窗至少展示时长，避免跳转太快导致弹窗闪烁
+  const MIN_JUMPING_MS = 400
+
   const handleJumpToSinger = useCallback(async(singerName: string, source: LX.OnlineSource) => {
-    const ok = await jumpToSinger(singerName, source, onCloseSettingPopup)
+    const startTime = Date.now()
+    // 先展示"跳转中"弹窗承接读屏焦点，再关闭设置弹窗，避免焦点落回播放封面
+    onShowJumping?.()
+    onCloseSettingPopup?.()
+    const ok = await jumpToSinger(singerName, source)
+    const elapsed = Date.now() - startTime
+    if (elapsed < MIN_JUMPING_MS) await sleep(MIN_JUMPING_MS - elapsed)
+    onCloseJumping?.()
     if (!ok) toast(t('play_detail_setting_jump_singer_failed'))
-  }, [onCloseSettingPopup, t])
+  }, [onShowJumping, onCloseSettingPopup, onCloseJumping, t])
 
   const handlePress = useCallback(() => {
     const info = getJumpInfo()

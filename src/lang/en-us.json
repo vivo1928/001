@@ -637,5 +637,6 @@
   "singer_info_latest": "Latest",
   "singer_info_latest_empty": "No recent releases",
   "singer_info_latest_songs": "New Songs",
-  "singer_info_latest_albums": "New Albums"
+  "singer_info_latest_albums": "New Albums",
+  "jumping": "Jumping..."
 }
