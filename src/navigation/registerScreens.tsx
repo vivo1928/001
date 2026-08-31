@@ -8,7 +8,7 @@ import {
   SonglistDetail,
   SingerDetail,
   AlbumDetail,
-  SingerIntro,
+  AlbumIntro,
   Comment,
   // Setting,
 } from '@/screens'
@@ -20,7 +20,7 @@ import {
   SONGLIST_DETAIL_SCREEN,
   SINGER_DETAIL_SCREEN,
   ALBUM_DETAIL_SCREEN,
-  SINGER_INTRO_SCREEN,
+  ALBUM_INTRO_SCREEN,
   COMMENT_SCREEN,
   VERSION_MODAL,
   PACT_MODAL,
@@ -47,7 +47,7 @@ export default () => {
   Navigation.registerComponent(SONGLIST_DETAIL_SCREEN, () => WrappedComponent(SonglistDetail))
   Navigation.registerComponent(SINGER_DETAIL_SCREEN, () => WrappedComponent(SingerDetail))
   Navigation.registerComponent(ALBUM_DETAIL_SCREEN, () => WrappedComponent(AlbumDetail))
-  Navigation.registerComponent(SINGER_INTRO_SCREEN, () => WrappedComponent(SingerIntro))
+  Navigation.registerComponent(ALBUM_INTRO_SCREEN, () => WrappedComponent(AlbumIntro))
   Navigation.registerComponent(COMMENT_SCREEN, () => WrappedComponent(Comment))
   Navigation.registerComponent(VERSION_MODAL, () => WrappedComponent(VersionModal))
   Navigation.registerComponent(PACT_MODAL, () => WrappedComponent(PactModal))

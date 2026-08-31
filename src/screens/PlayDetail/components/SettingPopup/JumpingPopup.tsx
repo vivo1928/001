@@ -15,6 +15,7 @@ export interface JumpingPopupType {
  * 跳转中弹窗
  * 跳转歌手/专辑时先显示此弹窗并把读屏焦点移动到它上面，
  * 避免设置弹窗关闭瞬间焦点落回播放封面；跳转完成后关闭并露出目标页。
+ * 用 state 直接控制 Modal 显示，避免 ref+rAF 早于挂载导致弹窗不显示。
  */
 export default forwardRef<JumpingPopupType, {}>((_props, ref) => {
   const theme = useTheme()
@@ -24,29 +25,22 @@ export default forwardRef<JumpingPopupType, {}>((_props, ref) => {
   const focusRef = useRef<View>(null)
 
   const focusAccessibility = () => {
-    requestAnimationFrame(() => {
+    // 等 Modal 真正渲染后再移动焦点，多试一次以覆盖动画挂载时序
+    setTimeout(() => {
       const node = findNodeHandle(focusRef.current)
       if (node != null) AccessibilityInfo.setAccessibilityFocus(node)
-    })
+    }, 80)
   }
 
   useImperativeHandle(ref, () => ({
     show() {
-      if (visible) {
-        modalRef.current?.setVisible(true)
-        focusAccessibility()
-      } else {
-        setVisible(true)
-        requestAnimationFrame(() => {
-          modalRef.current?.setVisible(true)
-          focusAccessibility()
-        })
-      }
+      setVisible(true)
+      focusAccessibility()
     },
     close() {
       modalRef.current?.setVisible(false)
     },
-  }), [visible])
+  }), [])
 
   return visible ? (
     <Modal ref={modalRef} bgColor="rgba(50,50,50,0.3)" statusBarPadding={false}>

@@ -448,7 +448,6 @@
   "share_title_music": "歌曲分享",
   "singer": "演出者：{name}",
   "singer_intro": "歌手資訊",
-  "singer_intro_empty": "暫無歌手資訊",
   "song_title": "歌曲標題",
   "songlist_hot": "最熱",
   "songlist_hot_collect": "熱藏",
@@ -632,11 +631,11 @@
   "play_detail_setting_jump_album": "跳轉到專輯",
   "play_detail_setting_jump_singer_select_title": "選擇歌手",
   "play_detail_setting_jump_singer_failed": "找不到該歌手",
-  "singer_info_career": "從藝歷程",
-  "singer_info_awards": "獲獎歷程",
-  "singer_info_latest": "最新動態",
-  "singer_info_latest_empty": "暫無最新動態",
-  "singer_info_latest_songs": "最新單曲",
-  "singer_info_latest_albums": "最新專輯",
-  "jumping": "跳轉中..."
+  "jumping": "跳轉中...",
+  "album_intro": "專輯資訊",
+  "album_intro_empty": "暫無專輯資訊",
+  "album_info_singer": "歌手",
+  "album_info_publish": "發行日期",
+  "album_info_count": "曲目數",
+  "album_info_desc": "專輯簡介"
 }

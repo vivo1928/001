@@ -7,7 +7,7 @@ import {
   SONGLIST_DETAIL_SCREEN,
   SINGER_DETAIL_SCREEN,
   ALBUM_DETAIL_SCREEN,
-  SINGER_INTRO_SCREEN,
+  ALBUM_INTRO_SCREEN,
   COMMENT_SCREEN,
   // SETTING_SCREEN,
 } from './screenNames'
@@ -412,13 +412,13 @@ export function pushAlbumDetailScreen(componentId: string, info: { id: string, n
     })
   })
 }
-export function pushSingerIntroScreen(componentId: string, info: { name?: string, img?: string, source?: LX.OnlineSource, id?: string }) {
+export function pushAlbumIntroScreen(componentId: string, info: { id?: string, name?: string, singer?: string, img?: string, source?: LX.OnlineSource, publish_date?: string, song_count?: number }) {
   const theme = themeState.theme
 
   requestAnimationFrame(() => {
     void Navigation.push(componentId, {
       component: {
-        name: SINGER_INTRO_SCREEN,
+        name: ALBUM_INTRO_SCREEN,
         passProps: {
           info,
         },

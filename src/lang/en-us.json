@@ -449,7 +449,6 @@
   "share_title_music": "Song Sharing",
   "singer": "Artist: {name}",
   "singer_intro": "Artist Info",
-  "singer_intro_empty": "No artist info available",
   "song_title": "Song Title",
   "songlist_hot": "Top",
   "songlist_hot_collect": "Top Collect",
@@ -632,11 +631,11 @@
   "play_detail_setting_jump_album": "Go to Album",
   "play_detail_setting_jump_singer_select_title": "Select Artist",
   "play_detail_setting_jump_singer_failed": "Artist not found",
-  "singer_info_career": "Career",
-  "singer_info_awards": "Awards",
-  "singer_info_latest": "Latest",
-  "singer_info_latest_empty": "No recent releases",
-  "singer_info_latest_songs": "New Songs",
-  "singer_info_latest_albums": "New Albums",
-  "jumping": "Jumping..."
+  "jumping": "Jumping...",
+  "album_intro": "Album Info",
+  "album_intro_empty": "No album info",
+  "album_info_singer": "Singer",
+  "album_info_publish": "Released",
+  "album_info_count": "Tracks",
+  "album_info_desc": "About"
 }

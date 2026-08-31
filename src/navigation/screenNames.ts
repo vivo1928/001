@@ -4,6 +4,7 @@ export const SONGLIST_DETAIL_SCREEN = 'lxm.SonglistDetailScreen'
 export const SINGER_DETAIL_SCREEN = 'lxm.SingerDetailScreen'
 export const ALBUM_DETAIL_SCREEN = 'lxm.AlbumDetailScreen'
 export const SINGER_INTRO_SCREEN = 'lxm.SingerIntroScreen'
+export const ALBUM_INTRO_SCREEN = 'lxm.AlbumIntroScreen'
 export const COMMENT_SCREEN = 'lxm.CommentScreen'
 
 export const VERSION_MODAL = 'lxm.VersionModal'
