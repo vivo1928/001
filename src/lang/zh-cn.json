@@ -630,7 +630,7 @@
   "play_detail_setting_jump_album": "跳转到专辑",
   "play_detail_setting_jump_singer_select_title": "选择歌手",
   "play_detail_setting_jump_singer_failed": "未找到该歌手",
-  "jumping": "跳转中...",
+  "jumping": "正在跳转...",
   "album_intro": "专辑信息",
   "album_intro_empty": "暂无专辑信息",
   "album_info_singer": "歌手",

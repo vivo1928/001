@@ -12,10 +12,10 @@ export interface JumpingPopupType {
 }
 
 /**
- * 跳转中弹窗
- * 跳转歌手/专辑时先显示此弹窗并把读屏焦点移动到它上面，
+ * 跳转过渡界面
+ * 跳转歌手/专辑时以全屏过渡界面承接读屏焦点并朗读"正在跳转"，
  * 避免设置弹窗关闭瞬间焦点落回播放封面；跳转完成后关闭并露出目标页。
- * 用 state 直接控制 Modal 显示，避免 ref+rAF 早于挂载导致弹窗不显示。
+ * 用 state 直接控制 Modal 显示，避免 ref+rAF 早于挂载导致不显示。
  */
 export default forwardRef<JumpingPopupType, {}>((_props, ref) => {
   const theme = useTheme()
@@ -25,11 +25,12 @@ export default forwardRef<JumpingPopupType, {}>((_props, ref) => {
   const focusRef = useRef<View>(null)
 
   const focusAccessibility = () => {
-    // 等 Modal 真正渲染后再移动焦点，多试一次以覆盖动画挂载时序
+    // 等 Modal 真正渲染后再移动焦点并朗读，覆盖动画挂载时序
     setTimeout(() => {
+      AccessibilityInfo.announceForAccessibility(t('jumping'))
       const node = findNodeHandle(focusRef.current)
       if (node != null) AccessibilityInfo.setAccessibilityFocus(node)
-    }, 80)
+    }, 100)
   }
 
   useImperativeHandle(ref, () => ({
@@ -40,14 +41,14 @@ export default forwardRef<JumpingPopupType, {}>((_props, ref) => {
     close() {
       modalRef.current?.setVisible(false)
     },
-  }), [])
+  }), [t])
 
   return visible ? (
-    <Modal ref={modalRef} bgColor="rgba(50,50,50,0.3)" statusBarPadding={false}>
+    <Modal ref={modalRef} bgColor={theme['c-content-background']} statusBarPadding={false}>
       <View style={styles.center}>
-        <View ref={focusRef} accessible style={styles.box} accessibilityRole="text">
-          <ActivityIndicator size="small" color={theme['c-primary']} style={styles.spinner} />
-          <Text size={15} color={theme['c-font']}>{t('jumping')}</Text>
+        <View ref={focusRef} accessible style={styles.box} accessibilityRole="header">
+          <ActivityIndicator size="large" color={theme['c-primary']} style={styles.spinner} />
+          <Text size={18} color={theme['c-font']}>{t('jumping')}</Text>
         </View>
       </View>
     </Modal>
@@ -61,14 +62,11 @@ const styles = createStyle({
     alignItems: 'center',
   },
   box: {
-    flexDirection: 'row',
+    flexDirection: 'column',
     alignItems: 'center',
-    paddingHorizontal: 28,
-    paddingVertical: 18,
-    borderRadius: 12,
-    backgroundColor: 'rgba(0,0,0,0.75)',
+    justifyContent: 'center',
   },
   spinner: {
-    marginRight: 12,
+    marginBottom: 18,
   },
 })

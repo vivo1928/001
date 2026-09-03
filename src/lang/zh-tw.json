@@ -631,7 +631,7 @@
   "play_detail_setting_jump_album": "跳轉到專輯",
   "play_detail_setting_jump_singer_select_title": "選擇歌手",
   "play_detail_setting_jump_singer_failed": "找不到該歌手",
-  "jumping": "跳轉中...",
+  "jumping": "正在跳轉...",
   "album_intro": "專輯資訊",
   "album_intro_empty": "暫無專輯資訊",
   "album_info_singer": "歌手",
