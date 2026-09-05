@@ -25,7 +25,7 @@ export interface SettingPopupType {
   closeJumping: () => void
 }
 
-export default forwardRef<SettingPopupType, SettingPopupProps>(({ direction, ...props }, ref) => {
+const SettingPopup = forwardRef<SettingPopupType, SettingPopupProps>(({ direction, ...props }, ref) => {
   const [visible, setVisible] = useState(false)
   const popupRef = useRef<PopupType>(null)
   const jumpingRef = useRef<JumpingPopupType>(null)
@@ -33,6 +33,9 @@ export default forwardRef<SettingPopupType, SettingPopupProps>(({ direction, ...
   const t = useI18n()
 
   const closeSettingPopup = useRef(() => {
+    // 关闭播放设置弹窗前先对读屏隐藏其内容：避免 Modal 关闭瞬间把焦点归还给弹窗元素，
+    // 抢走"跳转中"过渡界面的焦点（否则朗读"正在跳转"后焦点又落回"播放设置"）
+    popupRef.current?.setAccessibilityHidden(true)
     popupRef.current?.setVisible(false)
   }).current
 
@@ -89,3 +92,5 @@ export default forwardRef<SettingPopupType, SettingPopupProps>(({ direction, ...
       : null
   )
 })
+
+export default SettingPopup

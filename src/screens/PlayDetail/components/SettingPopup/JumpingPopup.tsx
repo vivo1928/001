@@ -1,4 +1,4 @@
-import { forwardRef, useImperativeHandle, useRef, useState } from 'react'
+import { forwardRef, useCallback, useImperativeHandle, useRef, useState } from 'react'
 import { View, ActivityIndicator, findNodeHandle, AccessibilityInfo } from 'react-native'
 import Modal, { type ModalType } from '@/components/common/Modal'
 import Text from '@/components/common/Text'
@@ -24,14 +24,20 @@ export default forwardRef<JumpingPopupType, {}>((_props, ref) => {
   const [visible, setVisible] = useState(false)
   const focusRef = useRef<View>(null)
 
-  const focusAccessibility = () => {
-    // 等 Modal 真正渲染后再移动焦点并朗读，覆盖动画挂载时序
-    setTimeout(() => {
-      AccessibilityInfo.announceForAccessibility(t('jumping'))
-      const node = findNodeHandle(focusRef.current)
-      if (node != null) AccessibilityInfo.setAccessibilityFocus(node)
-    }, 100)
-  }
+  const focusAccessibility = useCallback(() => {
+    // 朗读"正在跳转"，并把焦点稳定移到过渡界面上。
+    // 设置弹窗关闭动画期间系统可能把焦点移走，因此多时间点重试。
+    AccessibilityInfo.announceForAccessibility(t('jumping'))
+    const tryFocus = (delay: number) => {
+      setTimeout(() => {
+        const node = findNodeHandle(focusRef.current)
+        if (node != null) AccessibilityInfo.setAccessibilityFocus(node)
+      }, delay)
+    }
+    tryFocus(100)
+    tryFocus(350)
+    tryFocus(700)
+  }, [t])
 
   useImperativeHandle(ref, () => ({
     show() {
@@ -41,7 +47,7 @@ export default forwardRef<JumpingPopupType, {}>((_props, ref) => {
     close() {
       modalRef.current?.setVisible(false)
     },
-  }), [t])
+  }), [focusAccessibility])
 
   return visible ? (
     <Modal ref={modalRef} bgColor={theme['c-content-background']} statusBarPadding={false}>
