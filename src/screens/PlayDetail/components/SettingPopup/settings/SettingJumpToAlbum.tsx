@@ -36,27 +36,28 @@ const getAlbumJumpInfo = (): AlbumJumpInfo | null => {
   }
 }
 
-export default ({ onCloseSettingPopup }: { onCloseSettingPopup?: () => void }) => {
+export default ({ onCloseSettingPopup }: { onCloseSettingPopup?: (callback?: () => void) => void }) => {
   const theme = useTheme()
   const t = useI18n()
 
   const handlePress = useCallback(() => {
     const info = getAlbumJumpInfo()
     if (!info) return
-    // 先关闭设置弹窗，再 push 独立的"跳转中"页面承接读屏焦点，避免焦点落回播放设置
-    onCloseSettingPopup?.()
-    navigations.pushJumpingScreen(commonState.componentIds.playDetail!, {
-      type: 'album',
-      musicInfo: {
-        source: info.source,
-        name: info.albumName || '',
-        singer: info.singer,
-        meta: {
-          albumId: info.albumId,
-          albumName: info.albumName,
-          picUrl: info.picUrl,
+    // 先关闭设置弹窗（隐藏其读屏内容），等弹窗完全关闭后再 push 独立的"跳转中"页面
+    onCloseSettingPopup?.(() => {
+      navigations.pushJumpingScreen(commonState.componentIds.playDetail!, {
+        type: 'album',
+        musicInfo: {
+          source: info.source,
+          name: info.albumName || '',
+          singer: info.singer,
+          meta: {
+            albumId: info.albumId,
+            albumName: info.albumName,
+            picUrl: info.picUrl,
+          },
         },
-      },
+      })
     })
   }, [onCloseSettingPopup])
 

@@ -27,18 +27,20 @@ const getJumpInfo = (): SingerJumpInfo | null => {
   return { singer, source }
 }
 
-export default ({ onCloseSettingPopup }: { onCloseSettingPopup?: () => void }) => {
+export default ({ onCloseSettingPopup }: { onCloseSettingPopup?: (callback?: () => void) => void }) => {
   const theme = useTheme()
   const t = useI18n()
   const modalRef = useRef<SingerSelectModalType>(null)
 
   const handleJumpToSinger = useCallback((singerName: string, source: LX.OnlineSource) => {
-    // 先关闭设置弹窗，再 push 独立的"跳转中"页面承接读屏焦点，避免焦点落回播放设置
-    onCloseSettingPopup?.()
-    navigations.pushJumpingScreen(commonState.componentIds.playDetail!, {
-      type: 'singer',
-      singerName,
-      source,
+    // 先关闭设置弹窗（隐藏其读屏内容），等弹窗完全关闭后再 push 独立的"跳转中"页面，
+    // 确保读屏焦点直接落在跳转页面，不会落回"播放设置"
+    onCloseSettingPopup?.(() => {
+      navigations.pushJumpingScreen(commonState.componentIds.playDetail!, {
+        type: 'singer',
+        singerName,
+        source,
+      })
     })
   }, [onCloseSettingPopup])
 

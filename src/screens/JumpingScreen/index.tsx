@@ -33,8 +33,8 @@ export interface JumpingScreenInfo {
 /**
  * 跳转过渡页面（独立 RNN 页面）
  * 跳转歌手/专辑时 push 本页面：RNN push 新页面后读屏会自动聚焦页面首个可聚焦元素，
- * 读屏朗读"正在跳转"，不会再落回播放设置弹窗。
- * 页面内完成反查歌手 id 等准备后，无动画移除本页并 push 目标页，读屏焦点顺势落到目标页。
+ * 读屏朗读"正在跳转"，不会落回播放设置弹窗（弹窗在关闭前已对读屏隐藏）。
+ * 页面内完成反查歌手 id 等准备后，无动画移除本页并 push 目标页，读屏焦点落到目标页。
  */
 export default ({ componentId, info }: { componentId: string, info: JumpingScreenInfo }) => {
   const theme = useTheme()
@@ -50,7 +50,8 @@ export default ({ componentId, info }: { componentId: string, info: JumpingScree
         if (info.type === 'singer' && info.singerName && info.source) {
           const singerId = await findSingerId(info.singerName, info.source)
           if (!singerId) throw new Error('singer not found')
-          // 先移除跳转页（无动画），再 push 目标页，读屏焦点随 push 落到新页面
+          // 先无动画移除跳转页（回播放详情），再 push 目标页：
+          // 播放详情弹窗已在关闭前对读屏隐藏，pop 不会读"播放设置"；push 后焦点落到目标页
           await Navigation.pop(componentId, { animations: { pop: { enabled: false } } }).catch(() => {})
           if (playDetailId) {
             navigations.pushSingerDetailScreen(playDetailId, {
@@ -61,17 +62,15 @@ export default ({ componentId, info }: { componentId: string, info: JumpingScree
           }
         } else if (info.type === 'album' && info.musicInfo) {
           const musicInfo = info.musicInfo
-          const meta = musicInfo.meta
-          const albumId = meta?.albumId
+          const albumId = musicInfo.meta?.albumId
           if (albumId == null) throw new Error('album id not found')
-          const albumName = meta?.albumName
           await Navigation.pop(componentId, { animations: { pop: { enabled: false } } }).catch(() => {})
           if (playDetailId) {
             navigations.pushAlbumDetailScreen(playDetailId, {
               id: String(albumId),
-              name: albumName ?? musicInfo.name,
+              name: musicInfo.meta?.albumName ?? musicInfo.name,
               singer: musicInfo.singer,
-              img: meta?.picUrl != null ? meta.picUrl : undefined,
+              img: musicInfo.meta?.picUrl != null ? musicInfo.meta.picUrl : undefined,
               source: musicInfo.source as LX.OnlineSource,
             })
           }
@@ -79,12 +78,8 @@ export default ({ componentId, info }: { componentId: string, info: JumpingScree
           throw new Error('invalid jump target')
         }
       } catch {
-        // 跳转失败：回退到播放详情页
-        if (playDetailId) {
-          void Navigation.pop(componentId).catch(() => {})
-        } else {
-          void Navigation.pop(componentId).catch(() => {})
-        }
+        // 跳转失败：移除跳转页回播放详情
+        void Navigation.pop(componentId).catch(() => {})
       }
     })()
   // eslint-disable-next-line react-hooks/exhaustive-deps

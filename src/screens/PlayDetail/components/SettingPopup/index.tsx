@@ -27,9 +27,22 @@ export default forwardRef<SettingPopupType, SettingPopupProps>(({ direction, ...
   const popupRef = useRef<PopupType>(null)
   // console.log('render import export')
   const t = useI18n()
+  // 弹窗完全关闭（onDismiss）后要执行的回调（如跳转导航），
+  // 确保设置弹窗彻底关闭且已对读屏隐藏后再进入跳转页，避免读屏焦点落回弹窗
+  const pendingAfterCloseRef = useRef<(() => void) | null>(null)
 
-  const closeSettingPopup = useRef(() => {
+  const closeSettingPopup = useRef((callback?: () => void) => {
+    pendingAfterCloseRef.current = callback ?? null
+    // 关闭播放设置弹窗前先对读屏隐藏其内容：避免 Modal 关闭瞬间 TalkBack 把焦点归还给弹窗元素
+    // （"播放设置"标题），抢走后续跳转页面的焦点
+    popupRef.current?.setAccessibilityHidden(true)
     popupRef.current?.setVisible(false)
+  }).current
+
+  const handlePopupDismiss = useRef(() => {
+    const cb = pendingAfterCloseRef.current
+    pendingAfterCloseRef.current = null
+    cb?.()
   }).current
 
   useImperativeHandle(ref, () => ({
@@ -48,7 +61,7 @@ export default forwardRef<SettingPopupType, SettingPopupProps>(({ direction, ...
   return (
     visible
       ? (
-        <Popup ref={popupRef} title={t('play_detail_setting_title')} {...props}>
+        <Popup ref={popupRef} title={t('play_detail_setting_title')} {...props} onDismiss={handlePopupDismiss}>
           <ScrollView>
             <View onStartShouldSetResponder={() => true}>
               <SettingLyricProgress />
