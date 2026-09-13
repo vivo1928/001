@@ -5,6 +5,7 @@ import wy from './wy'
 import mg from './mg'
 // import bd from './bd'
 import { supportQuality } from './api-source'
+import { versionChars } from './versionChars'
 
 
 const sources = {
@@ -110,8 +111,14 @@ export const findMusic = async(musicInfo) => {
   const fSinger = filterStr(sortSingle(singer)).toLowerCase()
   const fAlbumName = filterStr(albumName).toLowerCase()
   const fInterval = getIntv(interval)
-  const isEqualsInterval = (intv) => Math.abs((fInterval || intv) - (intv || fInterval)) < 5
-  const isIncludesName = (name) => (fMusicName.includes(name) || name.includes(fMusicName))
+  const isEqualsInterval = (intv) => Math.abs((fInterval || intv) - (intv || fInterval)) <= 5
+  const isEqualsVersionMusicNameChar = (name) => {
+    for (const char of versionChars) {
+      if (name.includes(char) != fMusicName.includes(char)) return false
+    }
+    return true
+  }
+  const isIncludesName = (name) => (fMusicName.includes(name) || name.includes(fMusicName)) && isEqualsVersionMusicNameChar(name)
   const isIncludesSinger = (singer) => fSinger ? (fSinger.includes(singer) || singer.includes(fSinger)) : true
   const isEqualsAlbum = (album) => fAlbumName ? fAlbumName == album : true
 

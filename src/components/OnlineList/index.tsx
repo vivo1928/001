@@ -11,7 +11,7 @@ import DownloadProgressModal, { type DownloadProgressModalType } from '@/compone
 import DownloadFailedModal, { type DownloadFailedModalType } from '@/components/DownloadFailedModal'
 import RangeSelectModal, { type RangeSelectModalType } from '@/components/RangeSelectModal'
 import ConfirmAlert, { type ConfirmAlertType } from '@/components/common/ConfirmAlert'
-import { handleDislikeMusic, handlePlay, handlePlayLater, handleShare, handleShowMusicSourceDetail } from './listAction'
+import { clearMusicUrl, handleDislikeMusic, handlePlay, handlePlayLater, handleShare, handleShowMusicSourceDetail } from './listAction'
 import { createStyle, toast } from '@/utils/tools'
 import { requestStoragePermission } from '@/utils/permissions'
 import { useBackHandler } from '@/utils/hooks/useBackHandler'
@@ -433,6 +433,7 @@ export default forwardRef<OnlineListType, OnlineListProps>(({
         onCopyName={info => { handleShare(info.musicInfo) }}
         onAdd={handleAddMusic}
         onMusicSourceDetail={info => { void handleShowMusicSourceDetail(info.musicInfo) }}
+        onRemoveCache={info => { void clearMusicUrl(info.musicInfo) }}
         onDislikeMusic={info => { void handleDislikeMusic(info.musicInfo) }}
       />
       <DownloadQualityModal ref={downloadQualityRef} />
