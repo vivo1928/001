@@ -635,5 +635,6 @@
   "album_info_desc": "專輯簡介",
   "list_remove_cache": "清理快取",
   "list_remove_cache_fail_tip": "清理失敗：{msg}",
-  "list_remove_cache_success_tip": "清理完成"
+  "list_remove_cache_success_tip": "清理完成",
+  "jumping_tip": "正在跳轉，請稍候..."
 }

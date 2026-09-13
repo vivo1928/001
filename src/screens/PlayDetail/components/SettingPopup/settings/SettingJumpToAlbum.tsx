@@ -3,10 +3,10 @@ import { View, TouchableOpacity } from 'react-native'
 import Text from '@/components/common/Text'
 import { useTheme } from '@/store/theme/hook'
 import { useI18n } from '@/lang'
-import { createStyle, toast } from '@/utils/tools'
+import { createStyle } from '@/utils/tools'
 import playerState from '@/store/player/state'
-import { jumpToAlbum } from './jumpAction'
-import { sleep } from './sleep'
+import { navigations } from '@/navigation'
+import commonState from '@/store/common/state'
 
 interface AlbumJumpInfo {
   albumId: string | number
@@ -36,39 +36,29 @@ const getAlbumJumpInfo = (): AlbumJumpInfo | null => {
   }
 }
 
-export default ({ onCloseSettingPopup, onShowJumping, onCloseJumping }: {
-  onCloseSettingPopup?: () => void
-  onShowJumping?: () => void
-  onCloseJumping?: () => void
-}) => {
+export default ({ onCloseSettingPopup }: { onCloseSettingPopup?: () => void }) => {
   const theme = useTheme()
   const t = useI18n()
 
-  // 跳转中弹窗至少展示时长，避免跳转太快导致弹窗闪烁
-  const MIN_JUMPING_MS = 400
-
-  const handlePress = useCallback(async() => {
+  const handlePress = useCallback(() => {
     const info = getAlbumJumpInfo()
     if (!info) return
-    const startTime = Date.now()
-    // 先展示"跳转中"弹窗承接读屏焦点，再关闭设置弹窗，避免焦点落回播放封面
-    onShowJumping?.()
+    // 先关闭设置弹窗，再 push 独立的"跳转中"页面承接读屏焦点，避免焦点落回播放设置
     onCloseSettingPopup?.()
-    const ok = await jumpToAlbum({
-      source: info.source,
-      name: info.albumName || '',
-      singer: info.singer,
-      meta: {
-        albumId: info.albumId,
-        albumName: info.albumName,
-        picUrl: info.picUrl,
+    navigations.pushJumpingScreen(commonState.componentIds.playDetail!, {
+      type: 'album',
+      musicInfo: {
+        source: info.source,
+        name: info.albumName || '',
+        singer: info.singer,
+        meta: {
+          albumId: info.albumId,
+          albumName: info.albumName,
+          picUrl: info.picUrl,
+        },
       },
     })
-    const elapsed = Date.now() - startTime
-    if (elapsed < MIN_JUMPING_MS) await sleep(MIN_JUMPING_MS - elapsed)
-    onCloseJumping?.()
-    if (!ok) toast(t('play_detail_setting_jump_singer_failed'))
-  }, [onShowJumping, onCloseSettingPopup, onCloseJumping, t])
+  }, [onCloseSettingPopup])
 
   const info = getAlbumJumpInfo()
 

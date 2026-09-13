@@ -635,5 +635,6 @@
   "album_info_desc": "About",
   "list_remove_cache": "Clear cache",
   "list_remove_cache_fail_tip": "Cleanup failed: {msg}",
-  "list_remove_cache_success_tip": "Cleanup completed"
+  "list_remove_cache_success_tip": "Cleanup completed",
+  "jumping_tip": "Jumping, please wait..."
 }

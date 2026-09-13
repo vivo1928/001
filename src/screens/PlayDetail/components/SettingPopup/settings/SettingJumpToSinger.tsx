@@ -3,12 +3,12 @@ import { View, TouchableOpacity } from 'react-native'
 import Text from '@/components/common/Text'
 import { useTheme } from '@/store/theme/hook'
 import { useI18n } from '@/lang'
-import { createStyle, toast } from '@/utils/tools'
+import { createStyle } from '@/utils/tools'
 import playerState from '@/store/player/state'
 import SingerSelectModal, { type SingerSelectModalType } from './SingerSelectModal'
-import { jumpToSinger } from './jumpAction'
+import { navigations } from '@/navigation'
+import commonState from '@/store/common/state'
 import { splitSingers } from './splitSingers'
-import { sleep } from './sleep'
 
 interface SingerJumpInfo {
   singer: string
@@ -27,29 +27,20 @@ const getJumpInfo = (): SingerJumpInfo | null => {
   return { singer, source }
 }
 
-export default ({ onCloseSettingPopup, onShowJumping, onCloseJumping }: {
-  onCloseSettingPopup?: () => void
-  onShowJumping?: () => void
-  onCloseJumping?: () => void
-}) => {
+export default ({ onCloseSettingPopup }: { onCloseSettingPopup?: () => void }) => {
   const theme = useTheme()
   const t = useI18n()
   const modalRef = useRef<SingerSelectModalType>(null)
 
-  // 跳转中弹窗至少展示时长，避免跳转太快导致弹窗闪烁
-  const MIN_JUMPING_MS = 400
-
-  const handleJumpToSinger = useCallback(async(singerName: string, source: LX.OnlineSource) => {
-    const startTime = Date.now()
-    // 先展示"跳转中"弹窗承接读屏焦点，再关闭设置弹窗，避免焦点落回播放封面
-    onShowJumping?.()
+  const handleJumpToSinger = useCallback((singerName: string, source: LX.OnlineSource) => {
+    // 先关闭设置弹窗，再 push 独立的"跳转中"页面承接读屏焦点，避免焦点落回播放设置
     onCloseSettingPopup?.()
-    const ok = await jumpToSinger(singerName, source)
-    const elapsed = Date.now() - startTime
-    if (elapsed < MIN_JUMPING_MS) await sleep(MIN_JUMPING_MS - elapsed)
-    onCloseJumping?.()
-    if (!ok) toast(t('play_detail_setting_jump_singer_failed'))
-  }, [onShowJumping, onCloseSettingPopup, onCloseJumping, t])
+    navigations.pushJumpingScreen(commonState.componentIds.playDetail!, {
+      type: 'singer',
+      singerName,
+      source,
+    })
+  }, [onCloseSettingPopup])
 
   const handlePress = useCallback(() => {
     const info = getJumpInfo()
@@ -57,7 +48,7 @@ export default ({ onCloseSettingPopup, onShowJumping, onCloseJumping }: {
     const list = splitSingers(info.singer)
     if (list.length <= 1) {
       // 单歌手直接跳转
-      void handleJumpToSinger(list[0] || info.singer, info.source)
+      handleJumpToSinger(list[0] || info.singer, info.source)
     } else {
       // 合唱：弹出歌手选择
       modalRef.current?.show(list)
@@ -82,7 +73,7 @@ export default ({ onCloseSettingPopup, onShowJumping, onCloseJumping }: {
       </TouchableOpacity>
       <SingerSelectModal
         ref={modalRef}
-        onSelect={(singer) => { void handleJumpToSinger(singer, info.source) }}
+        onSelect={(singer) => { handleJumpToSinger(singer, info.source) }}
       />
     </View>
   )
