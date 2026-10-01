@@ -1,10 +1,10 @@
 import { useEffect, useRef } from 'react'
-import { View } from 'react-native'
+import { View, AccessibilityInfo } from 'react-native'
 import { Navigation } from 'react-native-navigation'
 
 import { useTheme } from '@/store/theme/hook'
 import { useI18n } from '@/lang'
-import { createStyle } from '@/utils/tools'
+import { createStyle, toast } from '@/utils/tools'
 import Text from '@/components/common/Text'
 import Loading from '@/components/common/Loading'
 import StatusBar from '@/components/common/StatusBar'
@@ -47,6 +47,7 @@ export default ({ componentId, info }: { componentId: string, info: JumpingScree
     void (async() => {
       const playDetailId = commonState.componentIds.playDetail
       try {
+        if (!playDetailId) throw new Error('play detail not found')
         if (info.type === 'singer' && info.singerName && info.source) {
           const singerId = await findSingerId(info.singerName, info.source)
           if (!singerId) throw new Error('singer not found')
@@ -78,8 +79,13 @@ export default ({ componentId, info }: { componentId: string, info: JumpingScree
           throw new Error('invalid jump target')
         }
       } catch {
-        // 跳转失败：移除跳转页回播放详情
-        void Navigation.pop(componentId).catch(() => {})
+        // 跳转失败：无动画移除跳转页回播放详情，并通过 Toast + 读屏播报提示用户
+        const message = info.type === 'singer'
+          ? t('play_detail_setting_jump_singer_failed')
+          : t('play_detail_setting_jump_album_failed')
+        toast(message)
+        AccessibilityInfo.announceForAccessibility(message)
+        void Navigation.pop(componentId, { animations: { pop: { enabled: false } } }).catch(() => {})
       }
     })()
   // eslint-disable-next-line react-hooks/exhaustive-deps

@@ -626,6 +626,7 @@
   "play_detail_setting_jump_album": "Go to Album",
   "play_detail_setting_jump_singer_select_title": "Select Artist",
   "play_detail_setting_jump_singer_failed": "Artist not found",
+  "play_detail_setting_jump_album_failed": "Album not found",
   "jumping": "Jumping...",
   "album_intro": "Album Info",
   "album_intro_empty": "No album info",

@@ -27,30 +27,27 @@ export default forwardRef<SettingPopupType, SettingPopupProps>(({ direction, ...
   const popupRef = useRef<PopupType>(null)
   // console.log('render import export')
   const t = useI18n()
-  // 弹窗完全关闭（onDismiss）后要执行的回调（如跳转导航），
-  // 确保设置弹窗彻底关闭且已对读屏隐藏后再进入跳转页，避免读屏焦点落回弹窗
-  const pendingAfterCloseRef = useRef<(() => void) | null>(null)
-
+  // 弹窗关闭后要执行的回调（如跳转导航）。
+  // 注意：RN Modal 的 onDismiss 回调只在 iOS 生效，Android 上不会触发，
+  // 因此这里改用定时器等待原生弹窗关闭动画结束后再执行回调，保证两端都能可靠跳转。
   const closeSettingPopup = useRef((callback?: () => void) => {
-    pendingAfterCloseRef.current = callback ?? null
     // 关闭播放设置弹窗前先对读屏隐藏其内容：避免 Modal 关闭瞬间 TalkBack 把焦点归还给弹窗元素
     // （"播放设置"标题），抢走后续跳转页面的焦点
     popupRef.current?.setAccessibilityHidden(true)
     popupRef.current?.setVisible(false)
-  }).current
-
-  const handlePopupDismiss = useRef(() => {
-    const cb = pendingAfterCloseRef.current
-    pendingAfterCloseRef.current = null
-    cb?.()
+    if (callback) setTimeout(callback, 350)
   }).current
 
   useImperativeHandle(ref, () => ({
     show() {
-      if (visible) popupRef.current?.setVisible(true)
-      else {
+      // 每次重新打开都要恢复对读屏可见（关闭时曾被隐藏，用于过渡期避免读屏读回弹窗）
+      if (visible) {
+        popupRef.current?.setAccessibilityHidden(false)
+        popupRef.current?.setVisible(true)
+      } else {
         setVisible(true)
         requestAnimationFrame(() => {
+          popupRef.current?.setAccessibilityHidden(false)
           popupRef.current?.setVisible(true)
         })
       }
@@ -61,7 +58,7 @@ export default forwardRef<SettingPopupType, SettingPopupProps>(({ direction, ...
   return (
     visible
       ? (
-        <Popup ref={popupRef} title={t('play_detail_setting_title')} {...props} onDismiss={handlePopupDismiss}>
+        <Popup ref={popupRef} title={t('play_detail_setting_title')} {...props}>
           <ScrollView>
             <View onStartShouldSetResponder={() => true}>
               <SettingLyricProgress />
