@@ -628,6 +628,7 @@
   "play_detail_setting_jump_singer_failed": "Artist not found",
   "play_detail_setting_jump_album_failed": "Album not found",
   "jumping": "Jumping...",
+  "jumping_done": "Jump complete",
   "album_intro": "Album Info",
   "album_intro_empty": "No album info",
   "album_info_singer": "Singer",

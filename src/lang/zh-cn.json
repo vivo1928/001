@@ -628,6 +628,7 @@
   "play_detail_setting_jump_singer_failed": "未找到该歌手",
   "play_detail_setting_jump_album_failed": "未找到该专辑",
   "jumping": "正在跳转...",
+  "jumping_done": "跳转已完成",
   "album_intro": "专辑信息",
   "album_intro_empty": "暂无专辑信息",
   "album_info_singer": "歌手",
