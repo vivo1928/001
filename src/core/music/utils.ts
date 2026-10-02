@@ -61,10 +61,12 @@ export const getOtherSource = async(musicInfo: LX.Music.MusicInfo | LX.Download.
   if (getOtherSourcePromises.has(key)) return getOtherSourcePromises.get(key)
 
   const promise = new Promise<LX.Music.MusicInfoOnline[]>((resolve, reject) => {
+    // 换源搜索已在 findMusic/searchMusic 内部做了预算（约 2.5s），
+    // 这里的安全超时相应收紧，避免异常情况下换源等待过久
     let timeout: null | number = BackgroundTimer.setTimeout(() => {
       timeout = null
       reject(new Error('find music timeout'))
-    }, 12_000)
+    }, 5_000)
     findMusic(searchMusicInfo).then((otherSource) => {
       if (otherSourceCache.size > 10) otherSourceCache.clear()
       const source = otherSource.map(toNewMusicInfo) as LX.Music.MusicInfoOnline[]
