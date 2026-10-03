@@ -4,7 +4,7 @@ import Header, { type HeaderType } from './Header'
 import { useAlbumInfo } from './state'
 import { handlePlay, handlePlayAll } from './listAction'
 import musicSdk from '@/utils/musicSdk'
-import { toNewMusicInfo } from '@/utils'
+import { toNewMusicInfo, normalizeAlbumDesc } from '@/utils'
 import DownloadQualityModal, { type DownloadQualityModalType } from '@/components/DownloadQualityModal'
 import DownloadProgressModal, { type DownloadProgressModalType } from '@/components/DownloadProgressModal'
 import DownloadFailedModal, { type DownloadFailedModalType } from '@/components/DownloadFailedModal'
@@ -107,7 +107,7 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId }, ref) 
           if (result.info) {
             headerRef.current?.setInfo({
               name: result.info.name || info.name || '',
-              desc: result.info.desc || result.info.author || (info.singer ? info.singer : ''),
+              desc: normalizeAlbumDesc(result.info.desc) || result.info.author || (info.singer ? info.singer : ''),
               imgUrl: result.info.img || info.img,
             })
           }

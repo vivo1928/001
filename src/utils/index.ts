@@ -199,3 +199,25 @@ export const decodeName = (str: string | null = '') => {
   if (!str) return ''
   return he.decode(str)
 }
+
+/**
+ * 清洗专辑简介：把各音源返回的 HTML/实体/空白统一成适合阅读的纯文本
+ * 不同音源简介格式不一：有的用 <br> 分段、有的带 HTML 实体、有的段落间空白不规范
+ */
+export const normalizeAlbumDesc = (desc: string | null | undefined): string => {
+  if (!desc) return ''
+  let text = String(desc)
+  // 换行标签转成真正的换行
+  text = text.replace(/<br\s*\/?>/gi, '\n')
+  text = text.replace(/<\/(p|div|h[1-6]|li|tr|section)>/gi, '\n')
+  text = text.replace(/<li[^>]*>/gi, '\n· ')
+  // 去掉其余 HTML 标签
+  text = text.replace(/<[^>]+>/g, '')
+  // 解码 HTML 实体
+  text = he.decode(text)
+  // 归一化空白与换行
+  text = text.replace(/\r\n?/g, '\n')
+  text = text.replace(/[ \t\u00a0]+\n/g, '\n')
+  text = text.replace(/\n{3,}/g, '\n\n')
+  return text.trim()
+}

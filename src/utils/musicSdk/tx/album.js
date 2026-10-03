@@ -33,6 +33,36 @@ async function fetchWithRetry(body, retryCount = 2) {
   throw new Error('Get album detail failed: retry exhausted')
 }
 
+/**
+ * 通过 albumMid 获取专辑信息（名称/简介/歌手/发行日期）
+ * musicu 的 GetAlbumSongList 不返回专辑简介（albumName/albumDesc/singerName 均为空），
+ * 这里改用经典接口 fcg_v8_album_info_cp.fcg，可拿到完整的专辑简介 desc。
+ */
+async function getAlbumInfo(id, retryNum = 0) {
+  if (retryNum > 2) throw new Error('Get album info failed')
+  try {
+    const res = await httpFetch(
+      `https://c.y.qq.com/v8/fcg-bin/fcg_v8_album_info_cp.fcg?albummid=${encodeURIComponent(id)}&format=json&inCharset=utf8&outCharset=utf-8`,
+      { headers: { 'Referer': 'https://y.qq.com/' } },
+    ).promise
+    const body = res.body
+    if (!body || body.code !== 0 || !body.data) throw new Error('invalid album info response')
+    const data = body.data
+    return {
+      name: data.name || '',
+      desc: data.desc || '',
+      author: data.singername || '',
+      publish_date: data.aDate || '',
+    }
+  } catch (err) {
+    if (retryNum < 2) {
+      await new Promise(r => setTimeout(r, 300 * (retryNum + 1)))
+      return getAlbumInfo(id, retryNum + 1)
+    }
+    throw err
+  }
+}
+
 export default {
   limit: 200,
 
@@ -55,6 +85,14 @@ export default {
     })
 
     const data = body.albumSongList.data
+    // GetAlbumSongList 不返回专辑简介，单独请求经典接口补全名称/简介/歌手/发行日期
+    let albumInfo = null
+    try {
+      albumInfo = await getAlbumInfo(id)
+    } catch (err) {
+      console.log('[tx album] getAlbumInfo failed:', err && err.message)
+    }
+    const albumName = albumInfo?.name || data.albumName || ''
     const list = (data.songList || []).map(item => {
       const songInfo = item.songInfo || item
       let types = []
@@ -82,7 +120,7 @@ export default {
       return {
         singer: formatSingerName(songInfo.singer, 'name'),
         name: songInfo.title || songInfo.name,
-        albumName: data.albumName || '',
+        albumName,
         albumId: id,
         source: 'tx',
         interval: formatPlayTime(songInfo.interval),
@@ -106,10 +144,11 @@ export default {
       total: data.totalNum || data.total_song_num || 0,
       source: 'tx',
       info: {
-        name: data.albumName || '',
+        name: albumName,
         img: `https://y.gtimg.cn/music/photo_new/T002R300x300M000${id}.jpg`,
-        desc: data.albumDesc || '',
-        author: data.singerName || '',
+        desc: albumInfo?.desc || data.albumDesc || '',
+        author: albumInfo?.author || data.singerName || '',
+        publish_date: albumInfo?.publish_date || '',
       },
     }
   },

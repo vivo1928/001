@@ -15,6 +15,7 @@ import { useStatusbarHeight } from '@/store/common/hook'
 import { useTheme } from '@/store/theme/hook'
 import PageContent from '@/components/PageContent'
 import musicSdk from '@/utils/musicSdk'
+import { normalizeAlbumDesc } from '@/utils'
 
 const HEADER_HEIGHT = scaleSizeH(_HEADER_HEIGHT)
 
@@ -98,7 +99,7 @@ export default ({ componentId, info }: { componentId: string, info?: AlbumIntroI
   const albumImg = detail.img ?? fallbackImg
   const author = detail.author ?? info?.singer
   const publishDate = detail.publish_date ?? info?.publish_date
-  const desc = (detail.desc ?? '').trim()
+  const desc = normalizeAlbumDesc(detail.desc)
   const descParagraphs = desc.split(/\n+/).map(s => s.trim()).filter(Boolean)
   const songCount = info?.song_count
   const hasContent = !!albumName || !!author || !!publishDate || descParagraphs.length > 0
