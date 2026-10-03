@@ -466,57 +466,36 @@ export function pushAlbumIntroScreen(componentId: string, info: { id?: string, n
     })
   })
 }
-export function pushJumpingScreen(componentId: string, info: { type: 'singer' | 'album', singerName?: string, source?: LX.OnlineSource, musicInfo?: { source: string, name: string, singer: string, meta?: { albumId?: string | number | null, albumName?: string, picUrl?: string | null } } }) {
+export function showJumpingOverlay(info: { type: 'singer' | 'album', singerName?: string, source?: LX.OnlineSource, musicInfo?: { source: string, name: string, singer: string, meta?: { albumId?: string | number | null, albumName?: string, picUrl?: string | null } } }) {
   const theme = themeState.theme
 
-  requestAnimationFrame(() => {
-    void Navigation.push(componentId, {
-      component: {
-        name: JUMPING_SCREEN,
-        passProps: {
-          info,
+  // 以全屏浮层（overlay）呈现"正在跳转/跳转已完成"，而不是 push 一个独立页面：
+  // overlay 不占导航栈，目标页在 overlay 之下直接 push，随后 dismiss 浮层即可落到目标页，
+  // 避免"pop 跳转页 + push 目标页"在 Android 上不可靠/有延迟导致读屏焦点长时间停留在播放详情
+  void Navigation.showOverlay({
+    component: {
+      name: JUMPING_SCREEN,
+      passProps: {
+        info,
+      },
+      options: {
+        layout: {
+          componentBackgroundColor: 'transparent',
         },
-        options: {
-          topBar: {
-            visible: false,
-            height: 0,
-            drawBehind: false,
-          },
-          statusBar: {
-            drawBehind: true,
-            visible: true,
-            style: getStatusBarStyle(theme.isDark),
-            backgroundColor: 'transparent',
-          },
-          navigationBar: {
-            backgroundColor: theme['c-content-background'],
-          },
-          layout: {
-            componentBackgroundColor: theme['c-content-background'],
-          },
-          animations: {
-            push: {
-              content: {
-                translationX: {
-                  from: windowSizeTools.getSize().width,
-                  to: 0,
-                  duration: 300,
-                },
-              },
-            },
-            pop: {
-              content: {
-                translationX: {
-                  from: 0,
-                  to: windowSizeTools.getSize().width,
-                  duration: 300,
-                },
-              },
-            },
-          },
+        overlay: {
+          interceptTouchOutside: false,
+        },
+        statusBar: {
+          drawBehind: true,
+          visible: true,
+          style: getStatusBarStyle(theme.isDark),
+          backgroundColor: 'transparent',
+        },
+        navigationBar: {
+          backgroundColor: theme['c-content-background'],
         },
       },
-    })
+    },
   })
 }
 export function pushCommentScreen(componentId: string) {

@@ -31,10 +31,11 @@ export interface JumpingScreenInfo {
 }
 
 /**
- * 跳转过渡页面（独立 RNN 页面，全屏）
- * 流程：push 本页 → 显示"正在跳转" → 完成反查歌手 id 等准备 → 显示"跳转已完成"
- * → 稍作停留后无动画移除本页并 push 目标页，读屏焦点落到目标页。
- * 弹窗在关闭前已对读屏隐藏，因此读屏会直接聚焦本页，不会落回播放设置弹窗。
+ * 跳转过渡浮层（RNN overlay，全屏）
+ * 流程：弹出浮层显示"正在跳转" → 完成反查歌手 id 等准备 → 显示"跳转已完成"
+ * → 直接把目标页 push 到导航栈（在浮层之下），随后 dismiss 浮层落到目标页，读屏焦点跟随到目标页。
+ * 采用 overlay 而非独立页面：目标页只需一次 push，不需要"pop 跳转页 + push 目标页"，
+ * 避免 Android 上该连环操作不可靠或延迟导致读屏/触摸浏览长时间停留在播放详情。
  */
 const wait = (ms: number) => new Promise<void>(resolve => setTimeout(resolve, ms))
 
@@ -74,15 +75,12 @@ export default ({ componentId, info }: { componentId: string, info: JumpingScree
           throw new Error('invalid jump target')
         }
         if (!mountedRef.current) return
-        // 跳转准备完成：先展示"跳转已完成"，稍作停留让读屏/用户感知，再过渡到目标页
+        // 跳转准备完成：先展示"跳转已完成"，稍作停留让读屏/用户感知
         setPhase('done')
         AccessibilityInfo.announceForAccessibility(t('jumping_done'))
-        await wait(600)
+        await wait(450)
         if (!mountedRef.current) return
-        // 无动画移除跳转页（回播放详情），再 push 目标页：
-        // 播放详情弹窗已在关闭前对读屏隐藏，pop 不会读"播放设置"；push 后焦点落到目标页
-        await Navigation.pop(componentId, { animations: { pop: { enabled: false } } }).catch(() => {})
-        if (!mountedRef.current) return
+        // 直接在浮层之下 push 目标页，再 dismiss 浮层：读屏焦点直接落到目标页，不会经过播放详情
         if (singerId) {
           navigations.pushSingerDetailScreen(playDetailId, {
             id: singerId,
@@ -92,9 +90,13 @@ export default ({ componentId, info }: { componentId: string, info: JumpingScree
         } else if (albumInfo) {
           navigations.pushAlbumDetailScreen(playDetailId, albumInfo)
         }
+        // 目标页 push 走 rAF 派发，稍等其下发到原生后再关闭浮层，避免中间露出播放详情
+        await wait(80)
+        if (!mountedRef.current) return
+        void Navigation.dismissOverlay(componentId).catch(() => {})
       } catch {
         if (!mountedRef.current) return
-        // 跳转失败：展示失败原因，稍作停留后无动画移除本页回播放详情，并 Toast + 读屏播报提示
+        // 跳转失败：展示失败原因，稍作停留后关闭浮层回播放详情，并 Toast + 读屏播报提示
         const message = info.type === 'singer'
           ? t('play_detail_setting_jump_singer_failed')
           : t('play_detail_setting_jump_album_failed')
@@ -102,9 +104,9 @@ export default ({ componentId, info }: { componentId: string, info: JumpingScree
         setPhase('failed')
         toast(message)
         AccessibilityInfo.announceForAccessibility(message)
-        await wait(1200)
+        await wait(1000)
         if (!mountedRef.current) return
-        void Navigation.pop(componentId, { animations: { pop: { enabled: false } } }).catch(() => {})
+        void Navigation.dismissOverlay(componentId).catch(() => {})
       }
     })()
     return () => {

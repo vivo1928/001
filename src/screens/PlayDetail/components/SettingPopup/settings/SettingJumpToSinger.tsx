@@ -7,7 +7,6 @@ import { createStyle } from '@/utils/tools'
 import playerState from '@/store/player/state'
 import SingerSelectModal, { type SingerSelectModalType } from './SingerSelectModal'
 import { navigations } from '@/navigation'
-import commonState from '@/store/common/state'
 import { splitSingers } from './splitSingers'
 
 interface SingerJumpInfo {
@@ -33,10 +32,10 @@ export default ({ onCloseSettingPopup }: { onCloseSettingPopup?: (callback?: () 
   const modalRef = useRef<SingerSelectModalType>(null)
 
   const handleJumpToSinger = useCallback((singerName: string, source: LX.OnlineSource) => {
-    // 先关闭设置弹窗（隐藏其读屏内容），等弹窗完全关闭后再 push 独立的"跳转中"页面，
-    // 确保读屏焦点直接落在跳转页面，不会落回"播放设置"
+    // 先关闭设置弹窗（隐藏其读屏内容），等弹窗完全关闭后再弹出全屏"跳转中"浮层，
+    // 确保读屏焦点直接落在跳转浮层，不会落回"播放设置"
     onCloseSettingPopup?.(() => {
-      navigations.pushJumpingScreen(commonState.componentIds.playDetail!, {
+      navigations.showJumpingOverlay({
         type: 'singer',
         singerName,
         source,

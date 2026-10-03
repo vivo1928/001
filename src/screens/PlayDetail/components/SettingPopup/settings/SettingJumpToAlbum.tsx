@@ -6,7 +6,6 @@ import { useI18n } from '@/lang'
 import { createStyle } from '@/utils/tools'
 import playerState from '@/store/player/state'
 import { navigations } from '@/navigation'
-import commonState from '@/store/common/state'
 
 interface AlbumJumpInfo {
   albumId: string | number
@@ -43,9 +42,9 @@ export default ({ onCloseSettingPopup }: { onCloseSettingPopup?: (callback?: () 
   const handlePress = useCallback(() => {
     const info = getAlbumJumpInfo()
     if (!info) return
-    // 先关闭设置弹窗（隐藏其读屏内容），等弹窗完全关闭后再 push 独立的"跳转中"页面
+    // 先关闭设置弹窗（隐藏其读屏内容），等弹窗完全关闭后再弹出全屏"跳转中"浮层
     onCloseSettingPopup?.(() => {
-      navigations.pushJumpingScreen(commonState.componentIds.playDetail!, {
+      navigations.showJumpingOverlay({
         type: 'album',
         musicInfo: {
           source: info.source,
