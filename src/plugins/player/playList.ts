@@ -11,6 +11,37 @@ const list: LX.Player.Track[] = []
 const defaultUserAgent = 'Mozilla/5.0 (Linux; Android 10; Pixel 3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/79.0.3945.79 Mobile Safari/537.36'
 const httpRxp = /^(https?:\/\/.+|\/.+)/
 
+/**
+ * 各音源播放链接所在 CDN 要求的 Referer 请求头。
+ * 应用 JS 侧取歌曲 URL 时携带对应 Referer 才能通过 CDN 校验，
+ * 但原生播放器（ExoPlayer）请求音频时默认不带 Referer，
+ * 导致部分按 Referer 校验的 CDN 返回 403 → 一直缓冲 → 音频加载出错。
+ * 这里把平台 Referer 下发到播放器的请求头，播放请求与取 URL 请求保持一致。
+ */
+const sourceRefererMap: Partial<Record<LX.OnlineSource, string>> = {
+  kw: 'https://www.kuwo.cn/',
+  kg: 'https://www.kugou.com/',
+  tx: 'https://y.qq.com/',
+  wy: 'https://music.163.com/',
+  mg: 'https://music.migu.cn/',
+}
+
+const getPlaySource = (musicInfo: LX.Player.PlayMusic): string | null => {
+  if ('progress' in musicInfo) {
+    const source = musicInfo.metadata?.musicInfo?.source
+    return typeof source === 'string' ? source : null
+  }
+  const source = musicInfo.source
+  return typeof source === 'string' ? source : null
+}
+
+const getPlayHeaders = (musicInfo: LX.Player.PlayMusic): { [key: string]: string } | undefined => {
+  const source = getPlaySource(musicInfo)
+  if (!source || source.startsWith('user_api_')) return undefined
+  const referer = sourceRefererMap[source as LX.OnlineSource]
+  return referer ? { Referer: referer } : undefined
+}
+
 export const state = {
   isPlaying: false,
   prevDuration: -1,
@@ -46,6 +77,7 @@ const buildTracks = (musicInfo: LX.Player.PlayMusic, url?: LX.Player.Track['url'
   const album = mInfo.album || undefined
   const artwork = isShowNotificationImage && mInfo.pic && httpRxp.test(mInfo.pic) ? mInfo.pic : undefined
   const lyric = getCurrentFullLyric(mInfo.id)
+  const playHeaders = getPlayHeaders(musicInfo)
   if (url) {
     track.push({
       id: `${mInfo.id}__//${Math.random()}__//${url}`,
@@ -55,6 +87,7 @@ const buildTracks = (musicInfo: LX.Player.PlayMusic, url?: LX.Player.Track['url'
       album,
       artwork,
       userAgent: defaultUserAgent,
+      ...(playHeaders ? { headers: playHeaders } : null),
       musicId: mInfo.id,
       lyric,
       // original: { ...musicInfo },
