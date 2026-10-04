@@ -6,7 +6,7 @@ import { useI18n } from '@/lang'
 import { createStyle } from '@/utils/tools'
 import playerState from '@/store/player/state'
 import SingerSelectModal, { type SingerSelectModalType } from './SingerSelectModal'
-import { navigations } from '@/navigation'
+import type { JumpingScreenInfo } from '@/screens/JumpingScreen'
 import { splitSingers } from './splitSingers'
 
 interface SingerJumpInfo {
@@ -26,22 +26,19 @@ const getJumpInfo = (): SingerJumpInfo | null => {
   return { singer, source }
 }
 
-export default ({ onCloseSettingPopup }: { onCloseSettingPopup?: (callback?: () => void) => void }) => {
+export default ({ onJumpTo }: { onJumpTo?: (info: JumpingScreenInfo) => void }) => {
   const theme = useTheme()
   const t = useI18n()
   const modalRef = useRef<SingerSelectModalType>(null)
 
   const handleJumpToSinger = useCallback((singerName: string, source: LX.OnlineSource) => {
-    // 先关闭设置弹窗（隐藏其读屏内容），等弹窗完全关闭后再弹出全屏"跳转中"浮层，
-    // 确保读屏焦点直接落在跳转浮层，不会落回"播放设置"
-    onCloseSettingPopup?.(() => {
-      navigations.showJumpingOverlay({
-        type: 'singer',
-        singerName,
-        source,
-      })
+    // 直接触发跳转：设置弹窗原地切换为全屏跳转页（不关闭/重开窗口，读屏无空窗）
+    onJumpTo?.({
+      type: 'singer',
+      singerName,
+      source,
     })
-  }, [onCloseSettingPopup])
+  }, [onJumpTo])
 
   const handlePress = useCallback(() => {
     const info = getJumpInfo()

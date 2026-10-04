@@ -56,6 +56,12 @@ export interface PopupProps {
   closeBtn?: boolean
   position?: 'top' | 'left' | 'right' | 'bottom'
   title?: string
+  /**
+   * 全屏模式：跳过底部弹层布局与标题栏，children 直接铺满整个 Modal 窗口。
+   * 用于"设置弹窗原地变身跳转页"——同一个 Modal 窗口内直接切换内容，
+   * 不关闭/重开窗口，读屏与触摸不会出现空窗或重复播报。
+   */
+  fullScreen?: boolean
   children: React.ReactNode
 }
 
@@ -73,6 +79,7 @@ export default forwardRef<PopupType, PopupProps>(({
   closeBtn = true,
   position = 'bottom',
   title = '',
+  fullScreen = false,
   children,
 }: PopupProps, ref) => {
   const theme = useTheme()
@@ -183,15 +190,21 @@ export default forwardRef<PopupType, PopupProps>(({
 
   return (
     <Modal onHide={onHide} keyHide={keyHide} bgHide={bgHide} bgColor="rgba(50,50,50,.2)" ref={modalRef} onDismiss={onDismiss}>
-      <View style={{ ...styles.centeredView, ...centeredViewStyle, paddingBottom: keyboardShown ? keyboardHeight : 0 }}>
-        <View style={{ ...styles.modalView, ...modalViewStyle, backgroundColor: theme['c-content-background'] }} onStartShouldSetResponder={() => true}>
-          <View style={styles.header}>
-            <Text size={13} style={styles.title} numberOfLines={1}>{title}</Text>
-            {closeBtnComponent}
-          </View>
+      {fullScreen ? (
+        <View style={{ flex: 1 }} onStartShouldSetResponder={() => true}>
           {children}
         </View>
-      </View>
+      ) : (
+        <View style={{ ...styles.centeredView, ...centeredViewStyle, paddingBottom: keyboardShown ? keyboardHeight : 0 }}>
+          <View style={{ ...styles.modalView, ...modalViewStyle, backgroundColor: theme['c-content-background'] }} onStartShouldSetResponder={() => true}>
+            <View style={styles.header}>
+              <Text size={13} style={styles.title} numberOfLines={1}>{title}</Text>
+              {closeBtnComponent}
+            </View>
+            {children}
+          </View>
+        </View>
+      )}
     </Modal>
   )
 })

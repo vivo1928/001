@@ -5,7 +5,7 @@ import { useTheme } from '@/store/theme/hook'
 import { useI18n } from '@/lang'
 import { createStyle } from '@/utils/tools'
 import playerState from '@/store/player/state'
-import { navigations } from '@/navigation'
+import type { JumpingScreenInfo } from '@/screens/JumpingScreen'
 
 interface AlbumJumpInfo {
   albumId: string | number
@@ -35,30 +35,28 @@ const getAlbumJumpInfo = (): AlbumJumpInfo | null => {
   }
 }
 
-export default ({ onCloseSettingPopup }: { onCloseSettingPopup?: (callback?: () => void) => void }) => {
+export default ({ onJumpTo }: { onJumpTo?: (info: JumpingScreenInfo) => void }) => {
   const theme = useTheme()
   const t = useI18n()
 
   const handlePress = useCallback(() => {
     const info = getAlbumJumpInfo()
     if (!info) return
-    // 先关闭设置弹窗（隐藏其读屏内容），等弹窗完全关闭后再弹出全屏"跳转中"浮层
-    onCloseSettingPopup?.(() => {
-      navigations.showJumpingOverlay({
-        type: 'album',
-        musicInfo: {
-          source: info.source,
-          name: info.albumName || '',
-          singer: info.singer,
-          meta: {
-            albumId: info.albumId,
-            albumName: info.albumName,
-            picUrl: info.picUrl,
-          },
+    // 直接触发跳转：设置弹窗原地切换为全屏跳转页（不关闭/重开窗口，读屏无空窗）
+    onJumpTo?.({
+      type: 'album',
+      musicInfo: {
+        source: info.source,
+        name: info.albumName || '',
+        singer: info.singer,
+        meta: {
+          albumId: info.albumId,
+          albumName: info.albumName,
+          picUrl: info.picUrl,
         },
-      })
+      },
     })
-  }, [onCloseSettingPopup])
+  }, [onJumpTo])
 
   const info = getAlbumJumpInfo()
 
