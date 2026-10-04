@@ -105,31 +105,4 @@ export default forwardRef<SettingPopupType, SettingPopupProps>(({ direction, ...
       : null
   )
 })
-      }
-    },
-  }))
 
-
-  return (
-    visible
-      ? (
-        <Popup ref={popupRef} title={t('play_detail_setting_title')} {...props}>
-          <ScrollView>
-            <View onStartShouldSetResponder={() => true}>
-              <SettingLyricProgress />
-              <SettingVolume />
-              <SettingPlaybackRate />
-              <SettingPlayQuality onCloseSettingPopup={closeSettingPopup} />
-              <SettingDownload />
-              <SettingJumpToSinger onCloseSettingPopup={closeSettingPopup} />
-              <SettingJumpToAlbum onCloseSettingPopup={closeSettingPopup} />
-              <SettingLrcFontSize direction={direction} />
-              <SettingLrcAlign />
-              <SettingEqualizer />
-            </View>
-          </ScrollView>
-        </Popup>
-        )
-      : null
-  )
-})
