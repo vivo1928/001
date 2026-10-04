@@ -483,7 +483,9 @@ export function showJumpingOverlay(info: { type: 'singer' | 'album', singerName?
           componentBackgroundColor: 'transparent',
         },
         overlay: {
-          interceptTouchOutside: false,
+          // 必须拦截外部触摸：设为 false 时触摸会穿透浮层，
+          // 跳转期间触摸浏览/快速滑动仍能探索到浮层下方的播放详情页面
+          interceptTouchOutside: true,
         },
         statusBar: {
           drawBehind: true,

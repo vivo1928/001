@@ -27,15 +27,22 @@ export default forwardRef<SettingPopupType, SettingPopupProps>(({ direction, ...
   const popupRef = useRef<PopupType>(null)
   // console.log('render import export')
   const t = useI18n()
-  // 弹窗关闭后要执行的回调（如跳转导航）。
+  // 弹窗关闭时要执行的回调（如跳转导航）。
   // 注意：RN Modal 的 onDismiss 回调只在 iOS 生效，Android 上不会触发，
-  // 因此这里改用定时器等待原生弹窗关闭动画结束后再执行回调，保证两端都能可靠跳转。
+  // 因此不能依赖它在两侧都可靠地先关弹窗再执行动作。
+  // 跳转类回调：先立即执行回调把全屏跳转浮层弹到原生层上（位于弹窗之下），
+  // 稍作延迟再关闭设置弹窗，弹窗淡出后露出的直接就是跳转浮层，
+  // 消除"弹窗关闭动画期间读屏/触摸浏览一瞬间落在播放详情"的空窗。
   const closeSettingPopup = useRef((callback?: () => void) => {
     // 关闭播放设置弹窗前先对读屏隐藏其内容：避免 Modal 关闭瞬间 TalkBack 把焦点归还给弹窗元素
     // （"播放设置"标题），抢走后续跳转页面的焦点
     popupRef.current?.setAccessibilityHidden(true)
-    popupRef.current?.setVisible(false)
-    if (callback) setTimeout(callback, 350)
+    if (callback) {
+      callback()
+      setTimeout(() => popupRef.current?.setVisible(false), 100)
+    } else {
+      popupRef.current?.setVisible(false)
+    }
   }).current
 
   useImperativeHandle(ref, () => ({

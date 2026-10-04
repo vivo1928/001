@@ -36,6 +36,7 @@ export interface JumpingScreenInfo {
  * → 直接把目标页 push 到导航栈（在浮层之下），随后 dismiss 浮层落到目标页，读屏焦点跟随到目标页。
  * 采用 overlay 而非独立页面：目标页只需一次 push，不需要"pop 跳转页 + push 目标页"，
  * 避免 Android 上该连环操作不可靠或延迟导致读屏/触摸浏览长时间停留在播放详情。
+ * 浮层配置 interceptTouchOutside=true，跳转期间触摸会被浮层拦截，不会穿透到播放详情。
  */
 const wait = (ms: number) => new Promise<void>(resolve => setTimeout(resolve, ms))
 
@@ -49,6 +50,8 @@ export default ({ componentId, info }: { componentId: string, info: JumpingScree
 
   useEffect(() => {
     mountedRef.current = true
+    // 浮层出现时播报"正在跳转"，让读屏立刻感知已离开播放详情
+    AccessibilityInfo.announceForAccessibility(t('jumping'))
     if (startedRef.current) return
     startedRef.current = true
     void (async() => {
@@ -90,8 +93,8 @@ export default ({ componentId, info }: { componentId: string, info: JumpingScree
         } else if (albumInfo) {
           navigations.pushAlbumDetailScreen(playDetailId, albumInfo)
         }
-        // 目标页 push 走 rAF 派发，稍等其下发到原生后再关闭浮层，避免中间露出播放详情
-        await wait(80)
+        // 目标页 push 走 rAF 派发，稍等其下发到原生并提交后再关闭浮层，避免中间露出播放详情
+        await wait(150)
         if (!mountedRef.current) return
         void Navigation.dismissOverlay(componentId).catch(() => {})
       } catch {
