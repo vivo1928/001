@@ -12,12 +12,25 @@ const defaultUserAgent = 'Mozilla/5.0 (Linux; Android 10; Pixel 3) AppleWebKit/5
 const httpRxp = /^(https?:\/\/.+|\/.+)/
 
 /**
- * 各音源播放链接所在 CDN 要求的 Referer 请求头。
+ * 音频 CDN 域名 → 平台 Referer。
  * 应用 JS 侧取歌曲 URL 时携带对应 Referer 才能通过 CDN 校验，
  * 但原生播放器（ExoPlayer）请求音频时默认不带 Referer，
- * 导致部分按 Referer 校验的 CDN 返回 403 → 一直缓冲 → 音频加载出错。
- * 这里把平台 Referer 下发到播放器的请求头，播放请求与取 URL 请求保持一致。
+ * 导致按 Referer 校验的 CDN 返回 403 → 一直缓冲 → 音频加载出错。
+ *
+ * 这里按"实际音频 URL 的域名"推断 Referer（而不是按歌曲声明的 source）：
+ * 自定义音源（user_api）是聚合代理，返回的往往是另一平台的 CDN 链接，
+ * 按 source 发 Referer 可能发错平台；按 URL 域名推断才能对得上 CDN 要求。
  */
+const hostRefererRules: Array<[RegExp, string]> = [
+  [/(?:^|\.)kuwo\.cn\//i, 'https://www.kuwo.cn/'],
+  [/(?:^|\.)kugou\.com\//i, 'https://www.kugou.com/'],
+  [/(?:^|\.)qqmusic\.qq\.com\//i, 'https://y.qq.com/'],
+  [/(?:^|\.)music\.126\.net\//i, 'https://music.163.com/'],
+  [/(?:^|\.)migu\.cn\//i, 'https://music.migu.cn/'],
+  [/(?:^|\.)qianqian\.com\//i, 'https://music.baidu.com/'],
+]
+
+// 兜底：歌曲声明的官方源 → 平台 Referer（URL 域名无法识别时使用）
 const sourceRefererMap: Partial<Record<LX.OnlineSource, string>> = {
   kw: 'https://www.kuwo.cn/',
   kg: 'https://www.kugou.com/',
@@ -35,10 +48,18 @@ const getPlaySource = (musicInfo: LX.Player.PlayMusic): string | null => {
   return typeof source === 'string' ? source : null
 }
 
-const getPlayHeaders = (musicInfo: LX.Player.PlayMusic): { [key: string]: string } | undefined => {
-  const source = getPlaySource(musicInfo)
-  if (!source || source.startsWith('user_api_')) return undefined
-  const referer = sourceRefererMap[source as LX.OnlineSource]
+const getPlayHeaders = (musicInfo: LX.Player.PlayMusic, url: string): { [key: string]: string } | undefined => {
+  let referer: string | null = null
+  for (const [rx, r] of hostRefererRules) {
+    if (rx.test(url)) {
+      referer = r
+      break
+    }
+  }
+  if (!referer) {
+    const source = getPlaySource(musicInfo)
+    if (source && !source.startsWith('user_api_')) referer = sourceRefererMap[source as LX.OnlineSource] ?? null
+  }
   return referer ? { Referer: referer } : undefined
 }
 
@@ -77,7 +98,7 @@ const buildTracks = (musicInfo: LX.Player.PlayMusic, url?: LX.Player.Track['url'
   const album = mInfo.album || undefined
   const artwork = isShowNotificationImage && mInfo.pic && httpRxp.test(mInfo.pic) ? mInfo.pic : undefined
   const lyric = getCurrentFullLyric(mInfo.id)
-  const playHeaders = getPlayHeaders(musicInfo)
+  const playHeaders = getPlayHeaders(musicInfo, typeof url == 'string' ? url : '')
   if (url) {
     track.push({
       id: `${mInfo.id}__//${Math.random()}__//${url}`,

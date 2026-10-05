@@ -6,6 +6,7 @@ import BackgroundTimer from 'react-native-background-timer'
 import playerState from '@/store/player/state'
 import { setNowPlayTime } from '@/core/player/progress'
 import { clearTempPlayQuality } from '@/core/music/utils'
+import { log } from '@/utils/log'
 
 
 export default () => {
@@ -126,7 +127,9 @@ export default () => {
 
   const handleWating = () => {
     setStatusText(global.i18n.t('player__buffering'))
-    // 缓冲 5s 后仍未进入 Playing 则自动刷新 URL（更快响应卡缓冲）
+    // 缓冲后仍未进入 Playing 则自动刷新 URL。
+    // 阈值不能太短：CDN 较慢时（起播需要 6-8 秒）过早刷新会打断正在缓冲的有效链接，
+    // 换新链接重来反而更容易被判"加载出错"。留足耐心，仅对真正卡住的链接刷新。
     if (bufferingTimer == null) {
       bufferingTimer = BackgroundTimer.setTimeout(() => {
         bufferingTimer = null
@@ -134,14 +137,16 @@ export default () => {
         if (musicInfo && retryNum < getMaxRetryNum()) {
           refreshUrl(musicInfo)
         }
-      }, 5000)
+      }, 8000)
     }
   }
 
-  const handleError = () => {
+  const handleError = (message?: string) => {
     if (!playerState.musicInfo.id) return
     clearLoadingTimeout()
     if (global.lx.isPlayedStop) return
+    // 把原生播放器上报的具体错误写入日志（error.log），便于定位是 403/连接失败/URL 无效等
+    if (message) log.error('[player] error:', message)
     const musicInfo = playerState.playMusicInfo.musicInfo
     if (musicInfo && retryNum < getMaxRetryNum()) { // 若音频URL无效则尝试刷新URL续播
       void getPosition().then((position) => {

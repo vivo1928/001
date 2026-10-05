@@ -110,8 +110,8 @@ export class AppEvent extends Event {
     this.emit('playerEnded')
   }
 
-  playerError() {
-    this.emit('playerError')
+  playerError(message?: string) {
+    this.emit('playerError', message)
   }
 
   // playerLoadeddata() {
