@@ -29,7 +29,16 @@ const initial = async({ volume, playRate, cacheSize, isHandleAudioFocus, isEnabl
   await migratePlayerCache()
   await TrackPlayer.setupPlayer({
     maxCacheSize: cacheSize * 1024,
-    maxBuffer: 1000,
+    // 缓冲区调优（单位：秒，Android 原生确实读取这四项，见 fork 的 MusicManager.createLocalPlayback）：
+    // - playBuffer：攒够多少秒才开始出声。默认 2.5 秒，这是"URL 已就绪却仍要等很久才播放"的直接闸门，调到 1 秒可显著缩短起播等待。
+    // - minBuffer：播放过程中持续保持的最小缓冲量。默认 50 秒，音乐文件小，15 秒足够，能少占带宽、加快首段缓冲。
+    // - maxBuffer：最大缓冲量。原值 1000（秒）明显异常，收敛到 60 秒。
+    // - backBuffer：播放头后方保留的缓冲，便于回退重听，10 秒。
+    minBuffer: 15,
+    maxBuffer: 60,
+    playBuffer: 1,
+    backBuffer: 10,
+    // waitForBuffer 仅 iOS 生效，Android 会忽略，保留以兼容 iOS。
     waitForBuffer: true,
     handleAudioFocus: isHandleAudioFocus,
     audioOffload: isEnableAudioOffload,
