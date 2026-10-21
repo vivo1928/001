@@ -26,6 +26,9 @@ send_notify() {
   else
     echo "（提示：安装 termux-api 后可在编译完成时收到系统通知）"
   fi
+  if command -v termux-tts-speak >/dev/null 2>&1; then
+    termux-tts-speak "${title}，${content}" 2>/dev/null || true
+  fi
 }
 trap 'send_notify "LX Music 构建失败" "编译出错，请打开 Termux 查看日志"' ERR
 
