@@ -18,6 +18,17 @@ export PATH="${JAVA_HOME}/bin:${SDK}/platform-tools:${PATH}"
 echo ""
 echo "[1/7] Termux 本地编译助手，模式: ${MODE}"
 
+send_notify() {
+  local title="$1"
+  local content="$2"
+  if command -v termux-notification >/dev/null 2>&1; then
+    termux-notification --id lx-build --title "${title}" --content "${content}" --priority high 2>/dev/null || true
+  else
+    echo "（提示：安装 termux-api 后可在编译完成时收到系统通知）"
+  fi
+}
+trap 'send_notify "LX Music 构建失败" "编译出错，请打开 Termux 查看日志"' ERR
+
 git config --global url."${GHFAST}https://github.com/".insteadOf "https://github.com/"
 git config --global url."${GHFAST}https://github.com/".insteadOf "ssh://git@github.com/"
 git config --global url."${GHFAST}https://github.com/".insteadOf "git@github.com:"
@@ -129,3 +140,5 @@ ls -lh "${OUT_DIR}"/*.apk
 echo "保存位置: ${OUT_DIR}/lx-music-mobile-v1.9.1-universal.apk"
 echo "模式: ${MODE}"
 echo "============================================="
+trap - ERR
+send_notify "LX Music 构建完成" "${MODE} 构建成功，APK 已保存到 ${OUT_DIR}/lx-music-mobile-v1.9.1-universal.apk"
