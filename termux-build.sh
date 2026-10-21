@@ -20,24 +20,33 @@ if [ "${MODE}" = "menu" ]; then
   echo "============================================="
   echo "          Termux 本地编译助手"
   echo "============================================="
-  echo "  1) 开始编译（release 正式包，含签名）"
-  echo "  2) 仅同步代码，不编译"
-  echo "  3) 退出"
+  echo "  输入【开始编译】= 自动拉取代码并编译 release"
+  echo "  输入【同步代码】= 仅更新代码，不编译"
+  echo "  输入【退出】    = 退出"
+  echo "  直接回车        = 开始编译"
   echo "---------------------------------------------"
   echo ""
-  read -r -p "输入 1/2/3 后回车（直接回车 = 开始编译）: " ANS
-  case "${ANS}" in
-    2)
-      MODE="sync"
-      ;;
-    3)
-      echo "已退出。"
-      exit 0
-      ;;
-    *)
-      MODE="release"
-      ;;
-  esac
+  while true; do
+    read -r -p ">>> " ANS
+    case "${ANS}" in
+      *同步*|2)
+        MODE="sync"
+        break
+        ;;
+      *退出*|3|*exit*|*quit*)
+        [ -n "${ANS}" ] && [ "${ANS}" != "3" ] || true
+        echo "已退出。"
+        exit 0
+        ;;
+      *编译*|1|"")
+        MODE="release"
+        break
+        ;;
+      *)
+        echo "未识别的指令：${ANS}，请输入【开始编译】【同步代码】【退出】其中一个。"
+        ;;
+    esac
+  done
   echo ""
 fi
 
