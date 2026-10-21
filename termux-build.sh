@@ -7,7 +7,7 @@ SDK="${HOME}/android/android-sdk"
 NDK="${HOME}/android/android-ndk-r29"
 OUT_DIR="/sdcard/Download"
 GHFAST="https://ghfast.top/"
-MODE="${1:-debug}"
+MODE="${1:-menu}"
 
 export JAVA_HOME="${PREFIX}/lib/jvm/java-17-openjdk"
 export ANDROID_HOME="${SDK}"
@@ -15,20 +15,54 @@ export ANDROID_SDK_ROOT="${SDK}"
 export ANDROID_NDK_HOME="${NDK}"
 export PATH="${JAVA_HOME}/bin:${SDK}/platform-tools:${PATH}"
 
+if [ "${MODE}" = "menu" ]; then
+  echo ""
+  echo "============================================="
+  echo "          Termux 本地编译助手"
+  echo "============================================="
+  echo "  1) 开始编译（release 正式包，含签名）"
+  echo "  2) 仅同步代码，不编译"
+  echo "  3) 退出"
+  echo "---------------------------------------------"
+  echo ""
+  read -r -p "输入 1/2/3 后回车（直接回车 = 开始编译）: " ANS
+  case "${ANS}" in
+    2)
+      MODE="sync"
+      ;;
+    3)
+      echo "已退出。"
+      exit 0
+      ;;
+    *)
+      MODE="release"
+      ;;
+  esac
+  echo ""
+fi
+
 git config --global url."${GHFAST}https://github.com/".insteadOf "https://github.com/"
 git config --global url."${GHFAST}https://github.com/".insteadOf "ssh://git@github.com/"
 git config --global url."${GHFAST}https://github.com/".insteadOf "git@github.com:"
 npm config set registry https://registry.npmmirror.com >/dev/null 2>&1 || true
 
 if [ ! -d "${APP_DIR}/.git" ]; then
+  echo "[1/7] 首次运行，克隆仓库..."
   git clone --depth 1 "${GHFAST}${REPO_URL}" "${APP_DIR}"
 fi
 
 cd "${APP_DIR}"
+echo "[2/7] 同步最新代码..."
 git fetch --depth 1 origin
 git reset --hard origin/HEAD
 git clean -fd -e android/local.properties -e android/keystore.properties -e android/app/*.keystore
 
+if [ "${MODE}" = "sync" ]; then
+  echo "代码已同步到: ${APP_DIR}"
+  exit 0
+fi
+
+echo "[3/7] 安装依赖..."
 npm ci
 node dependencies-patch.js
 
@@ -78,13 +112,20 @@ for dirpath, _, files in os.walk(root):
 PY
 fi
 
+echo "[4/7] 签名检查..."
+if [ "${MODE}" = "release" ]; then
+  if [ ! -f android/keystore.properties ]; then
+    echo "ERROR: 缺少签名配置 android/keystore.properties"
+    exit 1
+  fi
+else
+  echo "（debug 模式使用内置调试签名）"
+fi
+
+echo "[5/7] 开始 Gradle 编译（手机端约 2-5 分钟，请保持亮屏）..."
 cd android
 chmod +x gradlew
 if [ "${MODE}" = "release" ]; then
-  if [ ! -f keystore.properties ]; then
-    echo "ERROR: release 构建需要 android/keystore.properties，请先生成签名（见说明）"
-    exit 1
-  fi
   ./gradlew assembleRelease --init-script init.gradle --no-daemon -PreactNativeArchitectures=arm64-v8a
   APK_SRC="app/build/outputs/apk/release"
 else
@@ -92,8 +133,13 @@ else
   APK_SRC="app/build/outputs/apk/debug"
 fi
 
+echo "[6/7] 复制 APK 到下载目录..."
 mkdir -p "${OUT_DIR}"
 cp -f "${APK_SRC}"/*.apk "${OUT_DIR}/"
+
+echo "[7/7] 构建完成！"
+echo "============================================="
 ls -lh "${OUT_DIR}"/*.apk
-echo "APK: ${OUT_DIR}/lx-music-mobile-v1.9.1-universal.apk"
-echo "构建完成，模式: ${MODE}"
+echo "保存位置: ${OUT_DIR}/lx-music-mobile-v1.9.1-universal.apk"
+echo "模式: ${MODE}"
+echo "============================================="
