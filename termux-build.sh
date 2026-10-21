@@ -7,7 +7,7 @@ SDK="${HOME}/android/android-sdk"
 NDK="${HOME}/android/android-ndk-r29"
 OUT_DIR="/sdcard/Download"
 GHFAST="https://ghfast.top/"
-MODE="${1:-menu}"
+MODE="${1:-release}"
 
 export JAVA_HOME="${PREFIX}/lib/jvm/java-17-openjdk"
 export ANDROID_HOME="${SDK}"
@@ -15,40 +15,8 @@ export ANDROID_SDK_ROOT="${SDK}"
 export ANDROID_NDK_HOME="${NDK}"
 export PATH="${JAVA_HOME}/bin:${SDK}/platform-tools:${PATH}"
 
-if [ "${MODE}" = "menu" ]; then
-  echo ""
-  echo "============================================="
-  echo "          Termux 本地编译助手"
-  echo "============================================="
-  echo "  输入【开始编译】= 自动拉取代码并编译 release"
-  echo "  输入【同步代码】= 仅更新代码，不编译"
-  echo "  输入【退出】    = 退出"
-  echo "  直接回车        = 开始编译"
-  echo "---------------------------------------------"
-  echo ""
-  while true; do
-    read -r -p ">>> " ANS
-    case "${ANS}" in
-      *同步*|2)
-        MODE="sync"
-        break
-        ;;
-      *退出*|3|*exit*|*quit*)
-        [ -n "${ANS}" ] && [ "${ANS}" != "3" ] || true
-        echo "已退出。"
-        exit 0
-        ;;
-      *编译*|1|"")
-        MODE="release"
-        break
-        ;;
-      *)
-        echo "未识别的指令：${ANS}，请输入【开始编译】【同步代码】【退出】其中一个。"
-        ;;
-    esac
-  done
-  echo ""
-fi
+echo ""
+echo "[1/7] Termux 本地编译助手，模式: ${MODE}"
 
 git config --global url."${GHFAST}https://github.com/".insteadOf "https://github.com/"
 git config --global url."${GHFAST}https://github.com/".insteadOf "ssh://git@github.com/"
