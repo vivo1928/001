@@ -127,6 +127,15 @@ if [ "${MODE}" = "release" ]; then
     echo "ERROR: 缺少签名配置 android/keystore.properties"
     exit 1
   fi
+  KS_FILE="${APP_DIR}/android/app/my-release.keystore"
+  if [ -f "${KS_FILE}" ]; then
+    STORE_PATH="$(readlink -f "${KS_FILE}")"
+    sed -i "s|^storeFile=.*|storeFile=${STORE_PATH}|" android/keystore.properties
+    echo "签名: ${STORE_PATH}"
+  else
+    echo "ERROR: 未找到 ${KS_FILE}"
+    exit 1
+  fi
 else
   echo "（debug 模式使用内置调试签名）"
 fi
