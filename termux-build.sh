@@ -255,9 +255,11 @@ build_variant() {
   echo "[6/7] 开始 ${variant} 编译（手机端约 2-5 分钟，请保持亮屏）..."
   echo ">>> ./gradlew ${task}"
   variant_log="${OUT_DIR}/lx-music-build-${BUILD_NO}-${variant}.log"
+  LATEST_LOG="${OUT_DIR}/lx-music-build-latest.log"
   CUR_BUILD_LOG="${variant_log}"
   ./gradlew "${task}" --init-script init.gradle --no-daemon -PusePrebuiltBundle -PreactNativeArchitectures=arm64-v8a 2>&1 | tee "${variant_log}"
   CUR_BUILD_LOG=""
+  cp -f "${variant_log}" "${LATEST_LOG}"
   echo "构建日志已保存: ${variant_log}"
 
   if ! compgen -G "${outdir}/*.apk" >/dev/null; then
@@ -328,13 +330,12 @@ echo "============================================="
 ls -lh "${OUT_DIR}"/*.apk
 echo "（release 包不应出现 application-debuggable，debug 包会带 debug 后缀包名）"
 echo "---------------------------------------------"
-echo "构建日志（位于 /sdcard/Download 下，方便日后查看）:"
-ls -lh "${OUT_DIR}"/lx-music-build-*.log 2>/dev/null
-echo "---------------------------------------------"
-echo "本次构建日志摘要:"
-LAST_LOG=$(ls -t "${OUT_DIR}"/lx-music-build-*.log 2>/dev/null | head -1)
-if [ -n "${LAST_LOG}" ]; then
-  grep -E "BUILD (SUCCESSFUL|FAILED)|^> Task :app:| ERROR|error:" "${LAST_LOG}" | tail -n 20 || true
+LATEST_LOG="${OUT_DIR}/lx-music-build-latest.log"
+if [ -f "${LATEST_LOG}" ]; then
+  echo "本次构建日志: ${LATEST_LOG}"
+  echo "---------------------------------------------"
+  echo "本次构建日志摘要:"
+  grep -E "BUILD (SUCCESSFUL|FAILED)|^> Task :app:| ERROR|error:" "${LATEST_LOG}" | tail -n 20 || true
 else
   echo "（未找到日志文件）"
 fi
