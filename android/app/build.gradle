@@ -217,8 +217,10 @@ dependencies {
     }
 }
 
-// 当使用 -PusePrebuiltBundle 时（Termux 构建），跳过 Gradle 自带的 JS bundle 生成，
-// 直接打包预先生成的 android/app/src/main/assets/index.android.bundle
+// 当使用 -PusePrebuiltBundle 时（Termux 构建），跳过 Gradle 自带的 JS bundle 生成任务，
+// 直接打包预先生成的 android/app/src/main/assets/index.android.bundle。
+// Termux 是 arm64 环境，无法运行桌面版 hermesc（x86_64），但 Hermes 引擎本身可以执行纯 JS bundle，
+// 所以保留 hermesEnabled=true 让 App 链接 Hermes 库，同时用 react-native bundle 预生成纯 JS bundle。
 if (project.hasProperty("usePrebuiltBundle")) {
   tasks.configureEach {
     if (name == "bundleReleaseJsAndAssets" || name == "bundleDebugJsAndAssets") {

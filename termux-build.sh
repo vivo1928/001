@@ -70,7 +70,6 @@ t = t.replace('ndkVersion = "26.1.10909125"', 'ndkVersion = "29.0.14206865"')
 p.write_text(t)
 p = Path("android/gradle.properties")
 t = p.read_text()
-t = t.replace("hermesEnabled=true", "hermesEnabled=false")
 t = t.replace("AsyncStorage_useNextStorage=true", "AsyncStorage_useNextStorage=false")
 p.write_text(t)
 PY
@@ -105,8 +104,9 @@ for dirpath, _, files in os.walk(root):
 PY
 fi
 
-# Termux 为 arm64 环境，无法运行桌面版 hermesc，必须禁用 Hermes 并使用 JSC
-# 显式用 react-native bundle（纯 Node 实现）预生成 JS bundle，再让 Gradle 打包
+# Termux 为 arm64 环境，无法运行桌面版 hermesc（x86_64），但 Hermes 引擎本身可以执行纯 JS bundle
+# 显式用 react-native bundle（纯 Node 实现）预生成纯 JS bundle，再让 Gradle 打包
+# 保留 hermesEnabled=true 让 App 链接 Hermes 库（JSC 不支持命名捕获组等现代正则特性）
 echo "[4/7] 生成 JS bundle（纯 Node，绕过 hermesc）..."
 mkdir -p android/app/src/main/assets
 npx react-native bundle --platform android --dev false --entry-file index.js \
@@ -151,8 +151,10 @@ cp -f "${APK_SRC}"/*.apk "${OUT_DIR}/"
 echo "构建完成！"
 echo "============================================="
 ls -lh "${OUT_DIR}"/*.apk
-echo "保存位置: ${OUT_DIR}/lx-music-mobile-v1.9.1-universal.apk"
+APK_NAME=$(ls "${OUT_DIR}"/app-*.apk 2>/dev/null | tail -1 | xargs basename)
+APK_PATH="${OUT_DIR}/${APK_NAME:-lx-music-mobile.apk}"
+echo "APK: ${APK_PATH}"
 echo "模式: ${MODE}"
 echo "============================================="
 trap - ERR
-send_notify "LX Music 构建完成" "${MODE} 构建成功，APK 已保存到 ${OUT_DIR}/lx-music-mobile-v1.9.1-universal.apk"
+send_notify "LX Music 构建完成" "${MODE} 构建成功，APK: ${APK_NAME}"
