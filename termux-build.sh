@@ -16,7 +16,9 @@ export ANDROID_NDK_HOME="${NDK}"
 export PATH="${JAVA_HOME}/bin:${SDK}/platform-tools:${PATH}"
 
 echo ""
-echo "[1/7] Termux 本地编译助手，模式: ${MODE}"
+echo "============================================="
+echo "  LX Music Termux 本地编译，模式: ${MODE}"
+echo "============================================="
 
 send_notify() {
   local title="$1"
@@ -103,7 +105,16 @@ for dirpath, _, files in os.walk(root):
 PY
 fi
 
-echo "[4/7] 签名检查..."
+# Termux 为 arm64 环境，无法运行桌面版 hermesc，必须禁用 Hermes 并使用 JSC
+# 显式用 react-native bundle（纯 Node 实现）预生成 JS bundle，再让 Gradle 打包
+echo "[4/7] 生成 JS bundle（纯 Node，绕过 hermesc）..."
+mkdir -p android/app/src/main/assets
+npx react-native bundle --platform android --dev false --entry-file index.js \
+  --bundle-output android/app/src/main/assets/index.android.bundle \
+  --assets-dest android/app/src/main/res
+echo "JS bundle 生成完成: $(ls -lh android/app/src/main/assets/index.android.bundle | awk '{print $5}')"
+
+echo "[5/7] 签名检查..."
 if [ "${MODE}" = "release" ]; then
   if [ ! -f android/keystore.properties ]; then
     echo "ERROR: 缺少签名配置 android/keystore.properties"
@@ -122,22 +133,22 @@ else
   echo "（debug 模式使用内置调试签名）"
 fi
 
-echo "[5/7] 开始 Gradle 编译（手机端约 2-5 分钟，请保持亮屏）..."
+echo "[6/7] 开始 Gradle 编译（手机端约 2-5 分钟，请保持亮屏）..."
 cd android
 chmod +x gradlew
 if [ "${MODE}" = "release" ]; then
-  ./gradlew assembleRelease --init-script init.gradle --no-daemon -PreactNativeArchitectures=arm64-v8a
+  ./gradlew assembleRelease --init-script init.gradle --no-daemon -PusePrebuiltBundle -PreactNativeArchitectures=arm64-v8a
   APK_SRC="app/build/outputs/apk/release"
 else
-  ./gradlew assembleDebug --init-script init.gradle --no-daemon -PreactNativeArchitectures=arm64-v8a
+  ./gradlew assembleDebug --init-script init.gradle --no-daemon -PusePrebuiltBundle -PreactNativeArchitectures=arm64-v8a
   APK_SRC="app/build/outputs/apk/debug"
 fi
 
-echo "[6/7] 复制 APK 到下载目录..."
+echo "[7/7] 复制 APK 到下载目录..."
 mkdir -p "${OUT_DIR}"
 cp -f "${APK_SRC}"/*.apk "${OUT_DIR}/"
 
-echo "[7/7] 构建完成！"
+echo "构建完成！"
 echo "============================================="
 ls -lh "${OUT_DIR}"/*.apk
 echo "保存位置: ${OUT_DIR}/lx-music-mobile-v1.9.1-universal.apk"

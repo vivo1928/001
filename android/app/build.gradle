@@ -217,4 +217,14 @@ dependencies {
     }
 }
 
+// 当使用 -PusePrebuiltBundle 时（Termux 构建），跳过 Gradle 自带的 JS bundle 生成，
+// 直接打包预先生成的 android/app/src/main/assets/index.android.bundle
+if (project.hasProperty("usePrebuiltBundle")) {
+  tasks.configureEach {
+    if (name == "bundleReleaseJsAndAssets" || name == "bundleDebugJsAndAssets") {
+      enabled = false
+    }
+  }
+}
+
 apply from: file("../../node_modules/@react-native-community/cli-platform-android/native_modules.gradle"); applyNativeModulesAppBuildGradle(project)
