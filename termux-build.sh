@@ -162,6 +162,17 @@ for dirpath, _, files in os.walk(root):
 PY
 fi
 
+# 磁盘空间预检：低于阈值直接报错退出，避免构建一半失败
+DF_OUTPUT=$(df -k "${APP_DIR}" 2>/dev/null | tail -1)
+if [ -n "${DF_OUTPUT}" ]; then
+  DF_AVAIL_KB=$(echo "${DF_OUTPUT}" | awk '{print $4}')
+  if [ -n "${DF_AVAIL_KB}" ] && [ "${DF_AVAIL_KB}" -lt 2097152 ]; then
+    echo "ERROR: 磁盘剩余空间不足 2GB（当前 ${DF_AVAIL_KB} KB），请先清理空间"
+    exit 1
+  fi
+  echo "磁盘剩余: $((DF_AVAIL_KB / 1024)) MB"
+fi
+
 # Termux 为 arm64 环境，无法运行桌面版 hermesc（x86_64），但 Hermes 引擎本身可以执行纯 JS bundle
 # 显式用 react-native bundle（纯 Node 实现）预生成纯 JS bundle，再让 Gradle 打包
 # 保留 hermesEnabled=true 让 App 链接 Hermes 库（JSC 不支持命名捕获组等现代正则特性）
@@ -169,9 +180,19 @@ echo "[4/7] 生成 JS bundle（纯 Node，绕过 hermesc）..."
 mkdir -p android/app/src/main/assets
 npx react-native bundle --platform android --dev false --entry-file index.js \
   --bundle-output android/app/src/main/assets/index.android.bundle \
-  --assets-dest android/app/src/main/res
+  --assets-dest android/app/src/main/res \
+  --sourcemap-output android/app/src/main/assets/index.android.bundle.map
 BUNDLE_SRC="${APP_DIR}/android/app/src/main/assets/index.android.bundle"
 echo "JS bundle 生成完成: $(ls -lh "${BUNDLE_SRC}" | awk '{print $5}')"
+
+# 校验 bundle 魔数：Hermes 字节码以 c61fbc03 开头，纯 JS 不应是它。
+# 若检测到 Hermes 字节码说明生成了错误格式，直接报错防止打错包。
+MAGIC=$(od -A n -t x1 -N 4 "${BUNDLE_SRC}" 2>/dev/null | tr -d ' \n')
+if [ "${MAGIC}" = "c61fbc03" ]; then
+  echo "ERROR: bundle 开头是 Hermes 字节码魔数（c61fbc03），不是纯 JS，构建终止"
+  exit 1
+fi
+echo "bundle 格式校验通过（纯 JS，魔数 ${MAGIC}）"
 
 # Gradle 会合并 build/generated/assets 下旧的 bundle（优先级高于 src/main/assets），
 # 用本次生成的 bundle 覆盖，避免把旧的 dev bundle 打进 APK
@@ -180,6 +201,7 @@ for d in \
   "android/app/build/generated/assets/createBundleDebugJsAndAssets"; do
   mkdir -p "$d"
   cp -f "${BUNDLE_SRC}" "$d/index.android.bundle"
+  cp -f "${BUNDLE_SRC}.map" "$d/index.android.bundle.map" 2>/dev/null || true
 done
 
 echo "[5/7] 签名检查..."
@@ -211,6 +233,15 @@ EOF
   fi
   STORE_PATH="$(readlink -f "${KS_FILE}")"
   sed -i "s|^storeFile=.*|storeFile=${STORE_PATH}|" "${KS_PROPS}"
+
+  # 备份密钥到下载目录，防止误删后无法升级已安装的 App
+  BACKUP_DIR="${OUT_DIR}/lx-music-signing-backup"
+  if [ "${KS_FILE}" != "${BACKUP_DIR}/my-release.keystore" ]; then
+    mkdir -p "${BACKUP_DIR}"
+    cp -f "${KS_FILE}" "${BACKUP_DIR}/my-release.keystore"
+    cp -f "${KS_PROPS}" "${BACKUP_DIR}/keystore.properties"
+    echo "签名密钥已备份: ${BACKUP_DIR}/my-release.keystore"
+  fi
 else
   echo "（debug 模式使用内置调试签名）"
 fi
@@ -238,6 +269,10 @@ build_variant() {
   for f in "${outdir}"/*.apk; do
     dest="${OUT_DIR}/$(basename "${f%.apk}")-${BUILD_NO}-${variant}.apk"
     cp -f "$f" "$dest"
+    if [ -f "${BUNDLE_SRC}.map" ]; then
+      cp -f "${BUNDLE_SRC}.map" "${dest%.apk}.map"
+      echo "sourcemap: ${dest%.apk}.map"
+    fi
     echo "---------------------------------------------"
     echo "变体: ${variant}"
     echo "APK: ${dest}"
