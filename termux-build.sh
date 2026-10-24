@@ -167,6 +167,10 @@ build_variant() {
     echo "变体: ${variant}"
     echo "APK: ${dest}"
     ls -lh "$dest"
+    if command -v unzip >/dev/null 2>&1 && ! unzip -l "$dest" | grep -q "assets/index.android.bundle"; then
+      echo "ERROR: ${variant} 包内缺少 assets/index.android.bundle"
+      exit 1
+    fi
     if command -v aapt2 >/dev/null 2>&1; then
       aapt2 dump badging "$dest" 2>/dev/null \
         | grep -E "^(package|application-debuggable)" || true

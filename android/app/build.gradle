@@ -227,8 +227,14 @@ dependencies {
 // Termux 是 arm64 环境，无法运行桌面版 hermesc（x86_64），但 Hermes 引擎本身可以执行纯 JS bundle，
 // 所以保留 hermesEnabled=true 让 App 链接 Hermes 库，同时用 react-native bundle 预生成纯 JS bundle。
 if (project.hasProperty("usePrebuiltBundle")) {
+  def prebuiltBundleTasks = [
+    "createBundleReleaseJsAndAssets",
+    "createBundleDebugJsAndAssets",
+    "bundleReleaseJsAndAssets",
+    "bundleDebugJsAndAssets",
+  ]
   tasks.configureEach {
-    if (name == "bundleReleaseJsAndAssets" || name == "bundleDebugJsAndAssets") {
+    if (prebuiltBundleTasks.contains(name)) {
       enabled = false
     }
   }
