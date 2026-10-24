@@ -196,12 +196,12 @@ echo "bundle 格式校验通过（纯 JS，魔数 ${MAGIC}）"
 
 # Gradle 会合并 build/generated/assets 下旧的 bundle（优先级高于 src/main/assets），
 # 用本次生成的 bundle 覆盖，避免把旧的 dev bundle 打进 APK
+# 注意：只拷 bundle，不拷 .map，否则 sourcemap 会被打包进 APK 使包体变大
 for d in \
   "android/app/build/generated/assets/createBundleReleaseJsAndAssets" \
   "android/app/build/generated/assets/createBundleDebugJsAndAssets"; do
   mkdir -p "$d"
   cp -f "${BUNDLE_SRC}" "$d/index.android.bundle"
-  cp -f "${BUNDLE_SRC}.map" "$d/index.android.bundle.map" 2>/dev/null || true
 done
 
 echo "[5/7] 签名检查..."
