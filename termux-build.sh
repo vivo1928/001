@@ -183,19 +183,33 @@ done
 
 echo "[5/7] 签名检查..."
 if [ "${MODE}" = "release" ] || [ "${MODE}" = "all" ]; then
-  if [ ! -f android/keystore.properties ]; then
-    echo "ERROR: 缺少签名配置 android/keystore.properties"
-    exit 1
-  fi
   KS_FILE="${APP_DIR}/android/app/my-release.keystore"
-  if [ -f "${KS_FILE}" ]; then
-    STORE_PATH="$(readlink -f "${KS_FILE}")"
-    sed -i "s|^storeFile=.*|storeFile=${STORE_PATH}|" android/keystore.properties
-    echo "签名: ${STORE_PATH}"
+  KS_PROPS="${APP_DIR}/android/keystore.properties"
+  # 密码和别名固定，保证每次构建签名一致；文件在设备本地且被 git clean 排除，不删就永久复用
+  KS_PASS="lxmusic-release-2026"
+  KS_ALIAS="lxmusic"
+
+  if [ ! -f "${KS_FILE}" ] || [ ! -f "${KS_PROPS}" ]; then
+    echo "首次构建：在设备本地生成签名密钥（之后一直复用，请勿删除 android/app/my-release.keystore）..."
+    keytool -genkeypair -v \
+      -keystore "${KS_FILE}" \
+      -alias "${KS_ALIAS}" \
+      -keyalg RSA -keysize 2048 -validity 36500 \
+      -storepass "${KS_PASS}" -keypass "${KS_PASS}" \
+      -dname "CN=lx-music-mobile, OU=LX, O=LX, L=Beijing, ST=Beijing, C=CN" \
+      >/dev/null 2>&1
+    cat > "${KS_PROPS}" <<EOF
+storeFile=${KS_FILE}
+storePassword=${KS_PASS}
+keyAlias=${KS_ALIAS}
+keyPassword=${KS_PASS}
+EOF
+    echo "已生成: ${KS_FILE}"
   else
-    echo "ERROR: 未找到 ${KS_FILE}"
-    exit 1
+    echo "复用已有签名: ${KS_FILE}"
   fi
+  STORE_PATH="$(readlink -f "${KS_FILE}")"
+  sed -i "s|^storeFile=.*|storeFile=${STORE_PATH}|" "${KS_PROPS}"
 else
   echo "（debug 模式使用内置调试签名）"
 fi
@@ -217,7 +231,7 @@ build_variant() {
 
   local f dest
   for f in "${outdir}"/*.apk; do
-    dest="${OUT_DIR}/$(basename "${f%.apk}")-${variant}.apk"
+    dest="${OUT_DIR}/$(basename "${f%.apk}")-${BUILD_NO}-${variant}.apk"
     cp -f "$f" "$dest"
     echo "---------------------------------------------"
     echo "变体: ${variant}"
@@ -246,6 +260,14 @@ build_variant() {
 cd android
 chmod +x gradlew
 mkdir -p "${OUT_DIR}"
+
+# 构建序号：存放在 $HOME，不被 git clean 清除，每次构建 +1
+COUNT_FILE="${HOME}/.lx-build-count"
+BUILD_NO=$(cat "${COUNT_FILE}" 2>/dev/null || echo 0)
+BUILD_NO=$((BUILD_NO + 1))
+BUILD_NO=$(printf '%04d' "${BUILD_NO}")
+echo "${BUILD_NO}" > "${COUNT_FILE}"
+echo "本次构建序号: ${BUILD_NO}"
 
 case "${MODE}" in
   release)
