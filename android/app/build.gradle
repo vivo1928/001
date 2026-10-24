@@ -168,11 +168,16 @@ android {
     }
     buildTypes {
         debug {
+            // 加 .debug 后缀，让调试包和正式包可以同时安装，互不覆盖
+            applicationIdSuffix ".debug"
+            // 使用预生成 bundle 时关闭 Metro dev server，让调试包也能独立运行
+            buildConfigField "boolean", "USE_DEV_SUPPORT", project.hasProperty("usePrebuiltBundle") ? "false" : "true"
             signingConfig project.hasProperty('MYAPP_UPLOAD_STORE_FILE') ? signingConfigs.release : signingConfigs.debug
         }
         release {
             // Caution! In production, you need to generate your own keystore file.
             // see https://reactnative.dev/docs/signed-apk-android.
+            buildConfigField "boolean", "USE_DEV_SUPPORT", "false"
             signingConfig signingConfigs.release
             minifyEnabled enableProguardInReleaseBuilds
             proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"

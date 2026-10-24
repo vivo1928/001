@@ -21,7 +21,7 @@ public class MainApplication extends NavigationApplication {
       new NavigationReactNativeHost(this) {
         @Override
         public boolean getUseDeveloperSupport() {
-          return BuildConfig.DEBUG;
+          return BuildConfig.USE_DEV_SUPPORT;
         }
 
         @Override

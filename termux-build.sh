@@ -9,9 +9,12 @@ OUT_DIR="/sdcard/Download"
 GHFAST="https://ghfast.top/"
 MODE="${1:-release}"
 case "${MODE}" in
-  release|debug|sync) ;;
+  release|debug|all|sync) ;;
   *)
-    echo "用法: $0 [release|debug|sync]（默认 release）"
+    echo "用法: $0 [release|debug|all|sync]（默认 release）"
+    echo "  release: 只打正式包"
+    echo "  debug:   只打调试包"
+    echo "  all:     同时打正式包和调试包"
     echo "收到无效参数: ${MODE}"
     exit 1
     ;;
@@ -123,7 +126,7 @@ npx react-native bundle --platform android --dev false --entry-file index.js \
 echo "JS bundle 生成完成: $(ls -lh android/app/src/main/assets/index.android.bundle | awk '{print $5}')"
 
 echo "[5/7] 签名检查..."
-if [ "${MODE}" = "release" ]; then
+if [ "${MODE}" = "release" ] || [ "${MODE}" = "all" ]; then
   if [ ! -f android/keystore.properties ]; then
     echo "ERROR: 缺少签名配置 android/keystore.properties"
     exit 1
@@ -141,43 +144,58 @@ else
   echo "（debug 模式使用内置调试签名）"
 fi
 
-echo "[6/7] 开始 Gradle 编译（模式: ${MODE}，手机端约 2-5 分钟，请保持亮屏）..."
+build_variant() {
+  local variant="$1"
+  local task="$2"
+  local outdir="$3"
+
+  echo ""
+  echo "[6/7] 开始 ${variant} 编译（手机端约 2-5 分钟，请保持亮屏）..."
+  echo ">>> ./gradlew ${task}"
+  ./gradlew "${task}" --init-script init.gradle --no-daemon -PusePrebuiltBundle -PreactNativeArchitectures=arm64-v8a
+
+  if ! compgen -G "${outdir}/*.apk" >/dev/null; then
+    echo "ERROR: 未找到构建产物 ${outdir}/*.apk"
+    exit 1
+  fi
+
+  local f dest
+  for f in "${outdir}"/*.apk; do
+    dest="${OUT_DIR}/$(basename "${f%.apk}")-${variant}.apk"
+    cp -f "$f" "$dest"
+    echo "---------------------------------------------"
+    echo "变体: ${variant}"
+    echo "APK: ${dest}"
+    ls -lh "$dest"
+    if command -v aapt2 >/dev/null 2>&1; then
+      aapt2 dump badging "$dest" 2>/dev/null \
+        | grep -E "^(package|application-debuggable)" || true
+    fi
+  done
+}
+
 cd android
 chmod +x gradlew
-if [ "${MODE}" = "release" ]; then
-  echo ">>> ./gradlew assembleRelease"
-  ./gradlew assembleRelease --init-script init.gradle --no-daemon -PusePrebuiltBundle -PreactNativeArchitectures=arm64-v8a
-  APK_SRC="app/build/outputs/apk/release"
-else
-  echo ">>> ./gradlew assembleDebug"
-  ./gradlew assembleDebug --init-script init.gradle --no-daemon -PusePrebuiltBundle -PreactNativeArchitectures=arm64-v8a
-  APK_SRC="app/build/outputs/apk/debug"
-fi
-
-echo "[7/7] 复制 APK 到下载目录..."
-if ! compgen -G "${APK_SRC}/*.apk" >/dev/null; then
-  echo "ERROR: 未找到构建产物 ${APK_SRC}/*.apk"
-  exit 1
-fi
 mkdir -p "${OUT_DIR}"
-cp -f "${APK_SRC}"/*.apk "${OUT_DIR}/"
 
-echo "构建完成！"
+case "${MODE}" in
+  release)
+    build_variant release assembleRelease app/build/outputs/apk/release
+    ;;
+  debug)
+    build_variant debug assembleDebug app/build/outputs/apk/debug
+    ;;
+  all)
+    build_variant release assembleRelease app/build/outputs/apk/release
+    build_variant debug assembleDebug app/build/outputs/apk/debug
+    ;;
+esac
+
+echo ""
+echo "[7/7] 构建完成！"
 echo "============================================="
-APK_DEST=""
-for f in "${APK_SRC}"/*.apk; do
-  APK_DEST="${OUT_DIR}/$(basename "$f")"
-  echo "变体: ${MODE}"
-  echo "APK: ${APK_DEST}"
-  ls -lh "${APK_DEST}"
-done
-if command -v aapt2 >/dev/null 2>&1 && [ -n "${APK_DEST}" ]; then
-  echo "---------------------------------------------"
-  echo "APK 属性校验:"
-  aapt2 dump badging "${APK_DEST}" 2>/dev/null \
-    | grep -E "^(package|application-debuggable)" || true
-  echo "（未出现 application-debuggable 即为正式 release 包）"
-fi
+ls -lh "${OUT_DIR}"/*.apk
+echo "（release 包不应出现 application-debuggable，debug 包会带 debug 后缀包名）"
 echo "============================================="
 trap - ERR
 send_notify "LX Music 构建完成" "${MODE} 构建成功，APK 已保存到 ${OUT_DIR}"
