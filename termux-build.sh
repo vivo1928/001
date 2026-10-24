@@ -8,6 +8,14 @@ NDK="${HOME}/android/android-ndk-r29"
 OUT_DIR="/sdcard/Download"
 GHFAST="https://ghfast.top/"
 MODE="${1:-release}"
+case "${MODE}" in
+  release|debug|sync) ;;
+  *)
+    echo "用法: $0 [release|debug|sync]（默认 release）"
+    echo "收到无效参数: ${MODE}"
+    exit 1
+    ;;
+esac
 
 export JAVA_HOME="${PREFIX}/lib/jvm/java-17-openjdk"
 export ANDROID_HOME="${SDK}"
@@ -133,28 +141,43 @@ else
   echo "（debug 模式使用内置调试签名）"
 fi
 
-echo "[6/7] 开始 Gradle 编译（手机端约 2-5 分钟，请保持亮屏）..."
+echo "[6/7] 开始 Gradle 编译（模式: ${MODE}，手机端约 2-5 分钟，请保持亮屏）..."
 cd android
 chmod +x gradlew
 if [ "${MODE}" = "release" ]; then
+  echo ">>> ./gradlew assembleRelease"
   ./gradlew assembleRelease --init-script init.gradle --no-daemon -PusePrebuiltBundle -PreactNativeArchitectures=arm64-v8a
   APK_SRC="app/build/outputs/apk/release"
 else
+  echo ">>> ./gradlew assembleDebug"
   ./gradlew assembleDebug --init-script init.gradle --no-daemon -PusePrebuiltBundle -PreactNativeArchitectures=arm64-v8a
   APK_SRC="app/build/outputs/apk/debug"
 fi
 
 echo "[7/7] 复制 APK 到下载目录..."
+if ! compgen -G "${APK_SRC}/*.apk" >/dev/null; then
+  echo "ERROR: 未找到构建产物 ${APK_SRC}/*.apk"
+  exit 1
+fi
 mkdir -p "${OUT_DIR}"
 cp -f "${APK_SRC}"/*.apk "${OUT_DIR}/"
 
 echo "构建完成！"
 echo "============================================="
-ls -lh "${OUT_DIR}"/*.apk
-APK_NAME=$(ls "${OUT_DIR}"/app-*.apk 2>/dev/null | tail -1 | xargs basename)
-APK_PATH="${OUT_DIR}/${APK_NAME:-lx-music-mobile.apk}"
-echo "APK: ${APK_PATH}"
-echo "模式: ${MODE}"
+APK_DEST=""
+for f in "${APK_SRC}"/*.apk; do
+  APK_DEST="${OUT_DIR}/$(basename "$f")"
+  echo "变体: ${MODE}"
+  echo "APK: ${APK_DEST}"
+  ls -lh "${APK_DEST}"
+done
+if command -v aapt2 >/dev/null 2>&1 && [ -n "${APK_DEST}" ]; then
+  echo "---------------------------------------------"
+  echo "APK 属性校验:"
+  aapt2 dump badging "${APK_DEST}" 2>/dev/null \
+    | grep -E "^(package|application-debuggable)" || true
+  echo "（未出现 application-debuggable 即为正式 release 包）"
+fi
 echo "============================================="
 trap - ERR
-send_notify "LX Music 构建完成" "${MODE} 构建成功，APK: ${APK_NAME}"
+send_notify "LX Music 构建完成" "${MODE} 构建成功，APK 已保存到 ${OUT_DIR}"
