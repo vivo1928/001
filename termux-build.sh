@@ -8,10 +8,56 @@ NDK="${HOME}/android/android-ndk-r29"
 OUT_DIR="/sdcard/Download"
 GHFAST="https://ghfast.top/"
 MODE="${1:-release}"
+
+# 无参数时弹出中文菜单（也可直接传参数：release/debug/all/sync）
+if [ $# -eq 0 ]; then
+  echo ""
+  echo "============================================="
+  echo "          Termux 本地编译助手"
+  echo "============================================="
+  echo "  输入【开始编译】= 打正式包 (release)"
+  echo "  输入【全部构建】= 一次出正式包 + 调试包"
+  echo "  输入【调试包】  = 只打调试包 (debug)"
+  echo "  输入【同步代码】= 仅更新代码，不编译"
+  echo "  输入【退出】    = 退出"
+  echo "  直接回车        = 打正式包"
+  echo "---------------------------------------------"
+  echo ""
+  while true; do
+    read -r -p ">>> " ANS
+    case "${ANS}" in
+      *同步*|2)
+        MODE="sync"
+        break
+        ;;
+      *调试*|3)
+        MODE="debug"
+        break
+        ;;
+      *全部*|4)
+        MODE="all"
+        break
+        ;;
+      *退出*|0|*exit*|*quit*)
+        echo "已退出。"
+        exit 0
+        ;;
+      *编译*|1|"")
+        MODE="release"
+        break
+        ;;
+      *)
+        echo "请输入【开始编译】【全部构建】【调试包】【同步代码】【退出】其中一个。"
+        ;;
+    esac
+  done
+  echo ""
+fi
+
 case "${MODE}" in
   release|debug|all|sync) ;;
   *)
-    echo "用法: $0 [release|debug|all|sync]（默认 release）"
+    echo "用法: $0 [release|debug|all|sync]（不带参数会弹出中文菜单）"
     echo "  release: 只打正式包"
     echo "  debug:   只打调试包"
     echo "  all:     同时打正式包和调试包"
