@@ -257,7 +257,21 @@ build_variant() {
   variant_log="${OUT_DIR}/lx-music-build-${BUILD_NO}-${variant}.log"
   LATEST_LOG="${OUT_DIR}/lx-music-build-latest.log"
   CUR_BUILD_LOG="${variant_log}"
-  ./gradlew "${task}" --init-script init.gradle --no-daemon -PusePrebuiltBundle -PreactNativeArchitectures=arm64-v8a 2>&1 | tee "${variant_log}"
+  attempt=0
+  while :; do
+    attempt=$((attempt + 1))
+    # 清掉 LD_LIBRARY_PATH 可避免 Termux 系统库干扰 NDK 的 clang/lld，
+    # 减少 native 链接阶段偶发 Segmentation fault
+    if env -u LD_LIBRARY_PATH ./gradlew "${task}" --init-script init.gradle --no-daemon -PusePrebuiltBundle -PreactNativeArchitectures=arm64-v8a 2>&1 | tee "${variant_log}"; then
+      break
+    fi
+    if [ "${attempt}" -ge 2 ]; then
+      echo "ERROR: gradle 连续失败 ${attempt} 次，终止构建"
+      exit 1
+    fi
+    echo "WARN: gradle 第 ${attempt} 次失败（Termux native 编译偶发崩溃），1 秒后自动重试..."
+    sleep 1
+  done
   CUR_BUILD_LOG=""
   cp -f "${variant_log}" "${LATEST_LOG}"
   echo "构建日志已保存: ${variant_log}"
