@@ -123,7 +123,17 @@ mkdir -p android/app/src/main/assets
 npx react-native bundle --platform android --dev false --entry-file index.js \
   --bundle-output android/app/src/main/assets/index.android.bundle \
   --assets-dest android/app/src/main/res
-echo "JS bundle 生成完成: $(ls -lh android/app/src/main/assets/index.android.bundle | awk '{print $5}')"
+BUNDLE_SRC="${APP_DIR}/android/app/src/main/assets/index.android.bundle"
+echo "JS bundle 生成完成: $(ls -lh "${BUNDLE_SRC}" | awk '{print $5}')"
+
+# Gradle 会合并 build/generated/assets 下旧的 bundle（优先级高于 src/main/assets），
+# 用本次生成的 bundle 覆盖，避免把旧的 dev bundle 打进 APK
+for d in \
+  "android/app/build/generated/assets/createBundleReleaseJsAndAssets" \
+  "android/app/build/generated/assets/createBundleDebugJsAndAssets"; do
+  mkdir -p "$d"
+  cp -f "${BUNDLE_SRC}" "$d/index.android.bundle"
+done
 
 echo "[5/7] 签名检查..."
 if [ "${MODE}" = "release" ] || [ "${MODE}" = "all" ]; then
@@ -167,9 +177,18 @@ build_variant() {
     echo "变体: ${variant}"
     echo "APK: ${dest}"
     ls -lh "$dest"
-    if command -v unzip >/dev/null 2>&1 && ! unzip -l "$dest" | grep -q "assets/index.android.bundle"; then
-      echo "ERROR: ${variant} 包内缺少 assets/index.android.bundle"
-      exit 1
+    if command -v unzip >/dev/null 2>&1; then
+      LOCAL_SIZE=$(wc -c < "${BUNDLE_SRC}" | tr -d ' ')
+      APK_SIZE=$(unzip -l "$dest" 2>/dev/null | awk '$4 == "assets/index.android.bundle" {print $1}')
+      if [ -z "${APK_SIZE}" ]; then
+        echo "ERROR: ${variant} 包内缺少 assets/index.android.bundle"
+        exit 1
+      fi
+      echo "bundle 大小: APK 内 $(numfmt --to=iec "${APK_SIZE}" 2>/dev/null || echo "${APK_SIZE}") / 本地 $(numfmt --to=iec "${LOCAL_SIZE}" 2>/dev/null || echo "${LOCAL_SIZE}")"
+      if [ "${APK_SIZE}" != "${LOCAL_SIZE}" ]; then
+        echo "ERROR: ${variant} 包内 bundle 与本地不一致（被打进了旧 bundle）"
+        exit 1
+      fi
     fi
     if command -v aapt2 >/dev/null 2>&1; then
       aapt2 dump badging "$dest" 2>/dev/null \
