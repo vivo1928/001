@@ -77,12 +77,12 @@ export default forwardRef<SpeedPopupType, { currentRate: number, onRateChange: (
 
     const applySpeed = useCallback((rate: number) => {
       const clampedRate = Math.max(0.5, Math.min(3.0, rate))
-      void setPlaybackRate(clampedRate).then(() => {
-        void setLyricPlaybackRate(clampedRate)
-        void updateMetaData(playerState.musicInfo, playerState.isPlay, true)
-        void updateSetting({ 'player.playbackRate': clampedRate })
-        onRateChange(clampedRate)
-      })
+      // 直接同步设置倍速，不再串行 await 元数据刷新，倍速立即生效
+      void setPlaybackRate(clampedRate)
+      void setLyricPlaybackRate(clampedRate)
+      void updateMetaData(playerState.musicInfo, playerState.isPlay, true)
+      updateSetting({ 'player.playbackRate': clampedRate })
+      onRateChange(clampedRate)
     }, [onRateChange])
 
     const handlePresetPress = useCallback((speed: number) => {
