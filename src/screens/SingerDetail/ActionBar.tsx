@@ -3,9 +3,7 @@ import { View } from 'react-native'
 import Button from '@/components/common/Button'
 
 import { createStyle } from '@/utils/tools'
-import { pop } from '@/navigation'
 import { useTheme } from '@/store/theme/hook'
-import commonState from '@/store/common/state'
 import Text from '@/components/common/Text'
 import { useI18n } from '@/lang'
 
@@ -14,13 +12,10 @@ export interface ActionBarProps {
   onBatchDownload?: () => void
 }
 
+// 返回按钮已移至顶部栏，这里只保留两个操作，等宽大触点，读屏时各占一个焦点
 export default memo(({ onPlayAll, onBatchDownload }: ActionBarProps) => {
   const theme = useTheme()
   const t = useI18n()
-
-  const back = () => {
-    void pop(commonState.componentIds.singerDetail!)
-  }
 
   const handlePlayAll = () => {
     onPlayAll?.()
@@ -32,14 +27,11 @@ export default memo(({ onPlayAll, onBatchDownload }: ActionBarProps) => {
 
   return (
     <View style={styles.container}>
-      <Button onPress={handlePlayAll} style={styles.controlBtn} accessibilityLabel={t('play_all')}>
+      <Button onPress={handlePlayAll} style={styles.controlBtn} accessibilityLabel={t('play_all')} accessibilityRole="button">
         <Text style={{ ...styles.controlBtnText, color: theme['c-button-font'] }}>{t('play_all')}</Text>
       </Button>
-      <Button onPress={handleBatchDownload} style={styles.controlBtn} accessibilityLabel={t('download_all')}>
+      <Button onPress={handleBatchDownload} style={styles.controlBtn} accessibilityLabel={t('download_all')} accessibilityRole="button">
         <Text style={{ ...styles.controlBtnText, color: theme['c-button-font'] }}>{t('download_all')}</Text>
-      </Button>
-      <Button onPress={back} style={styles.controlBtn} accessibilityLabel={t('back')}>
-        <Text style={{ ...styles.controlBtnText, color: theme['c-button-font'] }}>{t('back')}</Text>
       </Button>
     </View>
   )
@@ -55,7 +47,7 @@ const styles = createStyle({
   controlBtn: {
     flexGrow: 1,
     flexShrink: 1,
-    width: '33%',
+    width: '50%',
     paddingTop: 12,
     paddingBottom: 12,
     paddingLeft: 10,

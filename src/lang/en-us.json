@@ -446,6 +446,8 @@
   "share_title_music": "Song Sharing",
   "singer": "Artist: {name}",
   "singer_intro": "Artist Info",
+  "singer_tab_album": "Albums",
+  "singer_tab_song": "Songs",
   "song_title": "Song Title",
   "songlist_hot": "Top",
   "songlist_hot_collect": "Top Collect",

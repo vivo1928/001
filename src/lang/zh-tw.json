@@ -445,6 +445,8 @@
   "share_title_music": "歌曲分享",
   "singer": "演出者：{name}",
   "singer_intro": "歌手資訊",
+  "singer_tab_album": "專輯",
+  "singer_tab_song": "單曲",
   "song_title": "歌曲標題",
   "songlist_hot": "最熱",
   "songlist_hot_collect": "熱藏",
