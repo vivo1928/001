@@ -1,6 +1,8 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react'
 
 import { search, clearListInfo } from '@/core/search/singer'
+import { getListDetail } from '@/core/singerDetail'
+import singerDetailActions from '@/store/singerDetail/action'
 import Songlist, { type SonglistProps, type SonglistType } from '@/screens/Home/Views/SongList/components/Songlist'
 import searchSingerState, { type Source } from '@/store/search/singer/state'
 import { navigations } from '@/navigation'
@@ -66,6 +68,11 @@ export default forwardRef<SingerListType, {}>((props, ref) => {
   }
 
   const handleOpenDetail = (item: ListInfoItem, index: number) => {
+    // 预取第一页，与导航动画并行：先设好歌手名（getListLimit 依赖全局 singerName），
+    // getListDetail 内部对同 key 同页去重，SingerDetail 的 loadList 会复用这个请求/缓存结果
+    const compositeId = `${item.source}__${item.id}`
+    singerDetailActions.setSingerName(item.name)
+    void getListDetail(compositeId, 1).catch(() => {})
     const albumCount = item.desc ? parseInt(item.desc) : undefined
     navigations.pushSingerDetailScreen(commonState.componentIds.home!, {
       id: item.id,
