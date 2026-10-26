@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, forwardRef, useImperativeHandle } from 'react'
+import { useMemo, useRef, useState, forwardRef, useImperativeHandle, useEffect } from 'react'
 import { FlatList, type FlatListProps, RefreshControl, View } from 'react-native'
 
 // import { useMusicList } from '@/store/list/hook'
@@ -10,6 +10,10 @@ import { useI18n } from '@/lang'
 import Text from '@/components/common/Text'
 
 type FlatListType = FlatListProps<Comment>
+
+// 自动续加载：进入页面后持续加载下一页直到到底，无需滚动
+// AUTO_FILL_MAX_PAGE 为安全上限，防止 maxPage 判定异常时无限请求
+const AUTO_FILL_MAX_PAGE = 500
 
 export interface ListProps {
   onRefresh: () => void
@@ -32,26 +36,60 @@ const List = forwardRef<ListType, ListProps>(({
   const [currentList, setList] = useState<Comment[]>([])
   const listDataRef = useRef<Comment[]>([])
   const [status, setStatus] = useState<Status>('idle')
+  const statusRef = useRef<Status>('idle')
+  const autoFillCountRef = useRef(0)
+  const autoFillLastLenRef = useRef(0)
+  const autoFillStoppedRef = useRef(false)
   // const currentListIdRef = useRef('')
   // console.log('render comment list')
 
   useImperativeHandle(ref, () => ({
     setList(list) {
+      const prevLen = listDataRef.current.length
       listDataRef.current = list
+      // 列表变短视为刷新/重新加载，重置续加载状态（评论 setList 总传全量，用长度判断）
+      if (list.length < prevLen) {
+        autoFillCountRef.current = 0
+        autoFillLastLenRef.current = 0
+        autoFillStoppedRef.current = false
+      }
       setList(list)
     },
     getList() {
       return listDataRef.current
     },
     setStatus(val) {
+      statusRef.current = val
       setStatus(val)
     },
   }))
 
   const handleLoadMore = () => {
-    if (status != 'idle') return
+    if (statusRef.current !== 'idle') return
     onLoadMore()
   }
+
+  const onLoadMoreRef = useRef(onLoadMore)
+  onLoadMoreRef.current = onLoadMore
+  // 自动续加载：空闲且未到底时持续加载下一页，直到全部加载完或某页无进展（失败）停止。
+  // 列表为空时等父组件加载首页，避免挂载时与父组件重复拉第一页。
+  useEffect(() => {
+    if (autoFillStoppedRef.current) return
+    if (statusRef.current !== 'idle') return
+    if (autoFillCountRef.current >= AUTO_FILL_MAX_PAGE) {
+      autoFillStoppedRef.current = true
+      return
+    }
+    const len = currentList.length
+    if (len === 0) return
+    if (len === autoFillLastLenRef.current) {
+      autoFillStoppedRef.current = true
+      return
+    }
+    autoFillLastLenRef.current = len
+    autoFillCountRef.current += 1
+    onLoadMoreRef.current?.()
+  }, [currentList, status])
 
   const renderItem: FlatListType['renderItem'] = ({ item }) => <CommentFloor comment={item} />
 
