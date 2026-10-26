@@ -23,9 +23,9 @@ const USE_RECYCLERLIST = true
 // 不用等滚到最底部才加载，配合 onEndReached 兜底
 const PRELOAD_DISTANCE = ITEM_HEIGHT * 6
 
-// 自动补页：首屏内容未填满一屏时自动加载下一页，直到填满或到底；
-// 每个列表最多自动补 5 页，防止网络异常时无限循环请求
-const AUTO_FILL_MAX_PAGE = 5
+// 自动续加载：进入页面后持续加载下一页直到到底，无需滚动；
+// AUTO_FILL_MAX_PAGE 为安全上限，防止 maxPage 判定异常时无限请求
+const AUTO_FILL_MAX_PAGE = 500
 
 type FlatListType = FlatListProps<LX.Music.MusicInfoOnline>
 
@@ -88,6 +88,8 @@ const List = forwardRef<ListType, ListProps>(({
   const [status, setStatusState] = useState<Status>('idle')
   const statusRef = useRef<Status>('idle')
   const autoFillCountRef = useRef(0)
+  const autoFillLastLenRef = useRef(0)
+  const autoFillStoppedRef = useRef(false)
   const rowInfo = useRef(getRowInfo(rowType))
   const isShowAlbumName = useSettingValue('list.isShowAlbumName')
   const isShowInterval = useSettingValue('list.isShowInterval')
@@ -107,8 +109,10 @@ const List = forwardRef<ListType, ListProps>(({
       setList(list)
       setShowSource(showSource)
       if (!isAppend) {
-        // 切换列表时重置自动补页计数
+        // 切换列表时重置自动续加载状态
         autoFillCountRef.current = 0
+        autoFillLastLenRef.current = 0
+        autoFillStoppedRef.current = false
         // 切换列表时自动取消多选模式
         if (selectedListRef.current.length) setSelectedList(selectedListRef.current = [])
         if (isMultiSelectModeRef.current) {
@@ -415,25 +419,27 @@ const List = forwardRef<ListType, ListProps>(({
     if (remaining <= PRELOAD_DISTANCE) handleLoadMore()
   }, [handleLoadMore])
 
-  // 自动补页：首屏/当前列表内容不足以填满一屏且状态空闲时，自动加载下一页，
-  // 直到填满一屏或已到末尾，避免"内容太短、不滚动就无法继续加载"。
-  // 用 maxPage 记录自动补页次数上限，防止网络异常时无限循环请求。
+  // 自动续加载：空闲且未到底时持续加载下一页，直到全部加载完或某页无进展（失败）停止。
+  // 通过"本次长度 == 上次长度"判定无进展，避免某页失败后无限重试同一页。
   const onLoadMoreRef = useRef(onLoadMore)
   onLoadMoreRef.current = onLoadMore
   useEffect(() => {
-    if (statusRef.current != 'idle' && status != 'idle') return
+    if (autoFillStoppedRef.current) return
+    if (statusRef.current !== 'idle') return
     if (!onLoadMoreRef.current) return
-    if (autoFillCountRef.current >= AUTO_FILL_MAX_PAGE) return
-    const containerHeight = containerRectRef.current.height || Dimensions.get('window').height
-    if (containerHeight <= 0) return
-    const rowNum = rowInfo.current.rowNum || 1
-    const rows = Math.ceil(currentList.length / rowNum)
-    const contentHeight = rows * ITEM_HEIGHT
-    // 内容未填满一屏才补页；已满则停止
-    if (contentHeight < containerHeight) {
-      autoFillCountRef.current += 1
-      handleLoadMore()
+    if (autoFillCountRef.current >= AUTO_FILL_MAX_PAGE) {
+      autoFillStoppedRef.current = true
+      return
     }
+    const len = currentList.length
+    // 首次(len=0)放行；之后若长度没增长，说明上一页没成功，停止
+    if (len !== 0 && len === autoFillLastLenRef.current) {
+      autoFillStoppedRef.current = true
+      return
+    }
+    autoFillLastLenRef.current = len
+    autoFillCountRef.current += 1
+    handleLoadMore()
   }, [currentList, status, handleLoadMore])
 
 
