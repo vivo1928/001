@@ -19,6 +19,14 @@ import { useSettingValue } from '@/store/setting/hook'
 // 若该方案失效，改此值为 false 即可整体回退到原版 FlatList
 const USE_RECYCLERLIST = true
 
+// 滚动预加载：离列表底部还剩多少像素就提前触发加载下一页（约 6 行），
+// 不用等滚到最底部才加载，配合 onEndReached 兜底
+const PRELOAD_DISTANCE = ITEM_HEIGHT * 6
+
+// 自动补页：首屏内容未填满一屏时自动加载下一页，直到填满或到底；
+// 每个列表最多自动补 5 页，防止网络异常时无限循环请求
+const AUTO_FILL_MAX_PAGE = 5
+
 type FlatListType = FlatListProps<LX.Music.MusicInfoOnline>
 
 export type {
@@ -77,7 +85,9 @@ const List = forwardRef<ListType, ListProps>(({
   const [selectedList, setSelectedList] = useState<LX.Music.MusicInfoOnline[]>([])
   const selectedListRef = useRef<LX.Music.MusicInfoOnline[]>([])
   const [visibleMultiSelect, setVisibleMultiSelect] = useState(false)
-  const [status, setStatus] = useState<Status>('idle')
+  const [status, setStatusState] = useState<Status>('idle')
+  const statusRef = useRef<Status>('idle')
+  const autoFillCountRef = useRef(0)
   const rowInfo = useRef(getRowInfo(rowType))
   const isShowAlbumName = useSettingValue('list.isShowAlbumName')
   const isShowInterval = useSettingValue('list.isShowInterval')
@@ -97,6 +107,8 @@ const List = forwardRef<ListType, ListProps>(({
       setList(list)
       setShowSource(showSource)
       if (!isAppend) {
+        // 切换列表时重置自动补页计数
+        autoFillCountRef.current = 0
         // 切换列表时自动取消多选模式
         if (selectedListRef.current.length) setSelectedList(selectedListRef.current = [])
         if (isMultiSelectModeRef.current) {
@@ -153,7 +165,8 @@ const List = forwardRef<ListType, ListProps>(({
       return currentList
     },
     setStatus(val) {
-      setStatus(val)
+      statusRef.current = val
+      setStatusState(val)
     },
   }))
 
@@ -353,11 +366,17 @@ const List = forwardRef<ListType, ListProps>(({
   // 记录滚动位置
   const handleScroll = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>) => {
     scrollOffsetRef.current = e.nativeEvent.contentOffset.y
-  }, [])
+    const { contentSize, layoutMeasurement } = e.nativeEvent
+    smartLoadMoreIfNeeded(contentSize.height - (e.nativeEvent.contentOffset.y + layoutMeasurement.height))
+  }, [smartLoadMoreIfNeeded])
   // RecyclerListView 的 onScroll 签名不同：onScroll(rawEvent, offsetX, offsetY)
-  const handleRecyclerScroll = useCallback((_rawEvent: any, _offsetX: number, offsetY: number) => {
+  const handleRecyclerScroll = useCallback((rawEvent: any, _offsetX: number, offsetY: number) => {
     scrollOffsetRef.current = offsetY
-  }, [])
+    const ne = rawEvent?.nativeEvent
+    if (ne?.contentSize && ne?.layoutMeasurement) {
+      smartLoadMoreIfNeeded(ne.contentSize.height - (offsetY + ne.layoutMeasurement.height))
+    }
+  }, [smartLoadMoreIfNeeded])
   // 记录表头高度
   const handleHeaderLayout = useCallback((e: LayoutChangeEvent) => {
     headerHeightRef.current = e.nativeEvent.layout.height
@@ -385,10 +404,37 @@ const List = forwardRef<ListType, ListProps>(({
     }
   }, [])
 
-  const handleLoadMore = () => {
-    if (status != 'idle') return
+  const handleLoadMore = useCallback(() => {
+    if (statusRef.current != 'idle') return
     onLoadMore()
-  }
+  }, [onLoadMore])
+
+  // 智能预加载：距底部不足 PRELOAD_DISTANCE 即提前加载下一页，不用滚到底
+  const smartLoadMoreIfNeeded = useCallback((remaining: number) => {
+    if (remaining < 0) return
+    if (remaining <= PRELOAD_DISTANCE) handleLoadMore()
+  }, [handleLoadMore])
+
+  // 自动补页：首屏/当前列表内容不足以填满一屏且状态空闲时，自动加载下一页，
+  // 直到填满一屏或已到末尾，避免"内容太短、不滚动就无法继续加载"。
+  // 用 maxPage 记录自动补页次数上限，防止网络异常时无限循环请求。
+  const onLoadMoreRef = useRef(onLoadMore)
+  onLoadMoreRef.current = onLoadMore
+  useEffect(() => {
+    if (statusRef.current != 'idle' && status != 'idle') return
+    if (!onLoadMoreRef.current) return
+    if (autoFillCountRef.current >= AUTO_FILL_MAX_PAGE) return
+    const containerHeight = containerRectRef.current.height || Dimensions.get('window').height
+    if (containerHeight <= 0) return
+    const rowNum = rowInfo.current.rowNum || 1
+    const rows = Math.ceil(currentList.length / rowNum)
+    const contentHeight = rows * ITEM_HEIGHT
+    // 内容未填满一屏才补页；已满则停止
+    if (contentHeight < containerHeight) {
+      autoFillCountRef.current += 1
+      handleLoadMore()
+    }
+  }, [currentList, status, handleLoadMore])
 
 
   const renderItem: FlatListType['renderItem'] = ({ item, index }) => (
