@@ -16,6 +16,10 @@ import Text from '@/components/common/Text'
 // 若失效，改此值为 false 即可整体回退原版 FlatList
 const USE_RECYCLERLIST = true
 
+// 自动续加载：进入页面后持续加载下一页直到到底，无需滚动
+// AUTO_FILL_MAX_PAGE 为安全上限，防止 maxPage 判定异常时无限请求
+const AUTO_FILL_MAX_PAGE = 500
+
 type FlatListType = FlatListProps<ListInfoItem>
 
 // const MAX_WIDTH = scaleSizeW(110)
@@ -43,6 +47,10 @@ export default forwardRef<ListType, ListProps>(({ onRefresh, onLoadMore, onOpenD
   const [currentList, setList] = useState<ListInfoItem[]>([])
   const [showSource, setShowSource] = useState(false)
   const [status, setStatus] = useState<Status>('idle')
+  const statusRef = useRef<Status>('idle')
+  const autoFillCountRef = useRef(0)
+  const autoFillLastLenRef = useRef(0)
+  const autoFillStoppedRef = useRef(false)
   const [screenReaderEnabled, setScreenReaderEnabled] = useState(false)
   const { onLayout, width } = useLayout()
   const theme = useTheme()
@@ -50,10 +58,17 @@ export default forwardRef<ListType, ListProps>(({ onRefresh, onLoadMore, onOpenD
 
   useImperativeHandle(ref, () => ({
     setList(list, isAppend = false, showSource = false) {
+      if (!isAppend) {
+        // 切换列表时重置自动续加载状态
+        autoFillCountRef.current = 0
+        autoFillLastLenRef.current = 0
+        autoFillStoppedRef.current = false
+      }
       setList(prev => isAppend ? [...prev, ...list] : list)
       setShowSource(showSource)
     },
     setStatus(val) {
+      statusRef.current = val
       setStatus(val)
     },
   }))
@@ -75,9 +90,32 @@ export default forwardRef<ListType, ListProps>(({ onRefresh, onLoadMore, onOpenD
   }, [])
 
   const handleLoadMore = () => {
-    if (status != 'idle') return
+    if (statusRef.current !== 'idle') return
     onLoadMore()
   }
+
+  const onLoadMoreRef = useRef(onLoadMore)
+  onLoadMoreRef.current = onLoadMore
+  // 自动续加载：空闲且未到底时持续加载下一页，直到全部加载完或某页无进展（失败）停止。
+  // 通过"本次长度 == 上次长度"判定无进展，避免某页失败后无限重试同一页。
+  // 列表为空时等父组件加载首页，避免挂载时与父组件重复拉第一页。
+  useEffect(() => {
+    if (autoFillStoppedRef.current) return
+    if (statusRef.current !== 'idle') return
+    if (autoFillCountRef.current >= AUTO_FILL_MAX_PAGE) {
+      autoFillStoppedRef.current = true
+      return
+    }
+    const len = currentList.length
+    if (len === 0) return
+    if (len === autoFillLastLenRef.current) {
+      autoFillStoppedRef.current = true
+      return
+    }
+    autoFillLastLenRef.current = len
+    autoFillCountRef.current += 1
+    onLoadMoreRef.current?.()
+  }, [currentList, status])
 
   const renderItem: FlatListType['renderItem'] = ({ item, index }) => (
     <ListItem

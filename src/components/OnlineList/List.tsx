@@ -432,8 +432,10 @@ const List = forwardRef<ListType, ListProps>(({
       return
     }
     const len = currentList.length
-    // 首次(len=0)放行；之后若长度没增长，说明上一页没成功，停止
-    if (len !== 0 && len === autoFillLastLenRef.current) {
+    // 列表为空时等父组件加载首页，避免挂载时与 loadList 重复拉第一页
+    if (len === 0) return
+    // 长度没增长，说明上一页没成功，停止
+    if (len === autoFillLastLenRef.current) {
       autoFillStoppedRef.current = true
       return
     }
