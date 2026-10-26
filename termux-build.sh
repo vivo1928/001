@@ -319,8 +319,9 @@ mkdir -p "${OUT_DIR}"
 
 # 构建序号：存放在 $HOME，不被 git clean 清除，每次构建 +1
 COUNT_FILE="${HOME}/.lx-build-count"
-BUILD_NO=$(cat "${COUNT_FILE}" 2>/dev/null || echo 0)
-BUILD_NO=$((BUILD_NO + 1))
+BUILD_NO=$(cat "${COUNT_FILE}" 2>/dev/null | tr -dc '0-9')
+# 10# 强制十进制：避免 0008 这类带前导零的值被当成非法八进制
+BUILD_NO=$(( 10#${BUILD_NO:-0} + 1 ))
 BUILD_NO=$(printf '%04d' "${BUILD_NO}")
 echo "${BUILD_NO}" > "${COUNT_FILE}"
 echo "本次构建序号: ${BUILD_NO}"
