@@ -23,7 +23,13 @@ export default forwardRef<MusicListType, {}>((props, ref) => {
         const page = 1
         searchInfoRef.current.text = text
         searchInfoRef.current.source = source
-        return search(text, page, source).then((list) => {
+        return search(text, page, source, (partialList) => {
+          if (isUnmountedRef.current) return
+          if (searchInfoRef.current.text != text || searchInfoRef.current.source != source) return
+          requestAnimationFrame(() => {
+            listRef.current?.setList(partialList, false, source == 'all')
+          })
+        }).then((list) => {
           if (isUnmountedRef.current) return
           requestAnimationFrame(() => {
             listRef.current?.setList(list, false, source == 'all')
@@ -48,7 +54,12 @@ export default forwardRef<MusicListType, {}>((props, ref) => {
   const handleRefresh: OnlineListProps['onRefresh'] = () => {
     const page = 1
     listRef.current?.setStatus('refreshing')
-    search(searchInfoRef.current.text, page, searchInfoRef.current.source).then((list) => {
+    search(searchInfoRef.current.text, page, searchInfoRef.current.source, (partialList) => {
+      if (isUnmountedRef.current) return
+      requestAnimationFrame(() => {
+        listRef.current?.setList(partialList, false, searchInfoRef.current.source == 'all')
+      })
+    }).then((list) => {
       if (isUnmountedRef.current) return
       listRef.current?.setList(list, false, searchInfoRef.current.source == 'all')
       listRef.current?.setStatus(searchMusicState.listInfos[searchInfoRef.current.source]!.maxPage <= page ? 'end' : 'idle')

@@ -31,6 +31,22 @@ const handleSortList = (list: LX.Music.MusicInfoOnline[], keyword: string) => {
 }
 
 
+/**
+ * 合并部分搜索结果为展示列表（流式分片用，不写状态）。
+ * 仅用于 page 1 的增量显示：每个源返回就并入并按相似度排序去重，
+ * 最终与 setLists 的结果一致（setLists 仍负责写持久状态）。
+ */
+export const mergeResults = (results: SearchResult[], page: number, text: string): LX.Music.MusicInfoOnline[] => {
+  let list = [] as LX.Music.MusicInfoOnline[]
+  for (const source of results) {
+    if (source.allPage < page) continue
+    arrPush(list, source.list)
+  }
+  list = handleSortList(list.map(s => toNewMusicInfo(s) as LX.Music.MusicInfoOnline), text)
+  return deduplicationList(list)
+}
+
+
 const setLists = (results: SearchResult[], page: number, text: string): LX.Music.MusicInfoOnline[] => {
   let pages = []
   let totals = []

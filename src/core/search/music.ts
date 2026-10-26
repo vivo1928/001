@@ -1,5 +1,5 @@
 import searchMusicState, { type Source } from '@/store/search/music/state'
-import searchMusicActions, { type SearchResult } from '@/store/search/music/action'
+import searchMusicActions, { type SearchResult, mergeResults } from '@/store/search/music/action'
 import musicSdk from '@/utils/musicSdk'
 
 export const setSource: typeof searchMusicActions['setSource'] = (source) => {
@@ -17,16 +17,17 @@ export const clearListInfo: typeof searchMusicActions.clearListInfo = (source) =
 }
 
 
-export const search = async(text: string, page: number, sourceId: Source): Promise<LX.Music.MusicInfoOnline[]> => {
+export const search = async(text: string, page: number, sourceId: Source, onPartial?: (list: LX.Music.MusicInfoOnline[]) => void): Promise<LX.Music.MusicInfoOnline[]> => {
   const listInfo = searchMusicState.listInfos[sourceId]!
   if (!text) return []
   const key = `${page}__${text}`
   if (sourceId == 'all') {
     listInfo.key = key
     let task = []
+    const accumulated: SearchResult[] = []
     for (const source of searchMusicState.sources) {
       if (source == 'all') continue
-      task.push(((musicSdk[source]?.musicSearch.search(text, page, searchMusicState.listInfos.all.limit) as Promise<SearchResult>) ?? Promise.reject(new Error('source not found: ' + source))).catch((error: any) => {
+      const p = ((musicSdk[source]?.musicSearch.search(text, page, searchMusicState.listInfos.all.limit) as Promise<SearchResult>) ?? Promise.reject(new Error('source not found: ' + source))).catch((error: any) => {
         console.log(error)
         return {
           allPage: 1,
@@ -35,7 +36,17 @@ export const search = async(text: string, page: number, sourceId: Source): Promi
           source,
           total: 0,
         }
-      }))
+      })
+      if (onPartial) {
+        // 流式：每个源一返回就并入并推送分片，不等最慢的源
+        task.push(p.then((result) => {
+          accumulated.push(result)
+          if (key == listInfo.key) onPartial(mergeResults([...accumulated], page, text))
+          return result
+        }))
+      } else {
+        task.push(p)
+      }
     }
     return Promise.all(task).then((results: SearchResult[]) => {
       if (key != listInfo.key) return []
