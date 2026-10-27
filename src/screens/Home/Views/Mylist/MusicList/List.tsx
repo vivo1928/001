@@ -245,7 +245,7 @@ const List = forwardRef<ListType, ListProps>(({ onShowMenu, onMuiltSelectMode, o
       listFirstScrollRef.current = false
       return
     }
-    void saveListPosition(listState.activeListId, nativeEvent.contentOffset.y)
+    void saveListPosition(listState.activeListId, nativeEvent.contentOffset?.y ?? 0)
   }
 
 

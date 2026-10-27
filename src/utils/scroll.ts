@@ -36,10 +36,12 @@ const handleScrollY = (element: ScrollElement<FlatList<any>>, info: NativeSynthe
   }
 
 
-  let start = info.contentOffset.y
+  let start = info.contentOffset?.y ?? 0
   if (to > start) {
-    let maxScrollTop = info.contentSize.height - info.layoutMeasurement.height
-    if (to > maxScrollTop) to = maxScrollTop
+    if (info.contentSize?.height != null && info.layoutMeasurement?.height != null) {
+      let maxScrollTop = info.contentSize.height - info.layoutMeasurement.height
+      if (to > maxScrollTop) to = maxScrollTop
+    }
   } else if (to < start) {
     if (to < 0) to = 0
   } else {
@@ -100,8 +102,8 @@ const handleScrollY = (element: ScrollElement<FlatList<any>>, info: NativeSynthe
     } else {
       if (element.lx_scrollNextParams) {
         const [_element, info, _to, duration, fn] = element.lx_scrollNextParams
-        if (to > _to && info.contentOffset.y < val) info.contentOffset.y = val
-        info.contentOffset.y = val
+        if (to > _to && info.contentOffset?.y != null && info.contentOffset.y < val) info.contentOffset.y = val
+        if (info.contentOffset) info.contentOffset.y = val
         clean()
         handleScrollY(_element, info, _to, duration, fn)
       } else {

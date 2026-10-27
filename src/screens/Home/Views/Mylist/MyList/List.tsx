@@ -92,7 +92,7 @@ export default ({ onShowMenu }: {
 
 
   const handleScroll = ({ nativeEvent }: NativeSyntheticEvent<NativeScrollEvent>) => {
-    void saveListPosition(LIST_SCROLL_POSITION_KEY, nativeEvent.contentOffset.y)
+    void saveListPosition(LIST_SCROLL_POSITION_KEY, nativeEvent.contentOffset?.y ?? 0)
   }
 
   const showMenu = (listInfo: LX.List.MyListInfo, index: number, position: Position) => {

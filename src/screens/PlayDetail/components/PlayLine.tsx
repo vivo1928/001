@@ -69,7 +69,7 @@ export default forwardRef<PlayLineType, PlayLineProps>(({ onPlayLine }, ref) => 
     onPlayLine(time / 1000)
   }
 
-  if (!scrollInfo || !visible) return null
+  if (!scrollInfo || !visible || !scrollInfo.contentOffset || !scrollInfo.layoutMeasurement) return null
   const offset = scrollInfo.contentOffset.y + scrollInfo.layoutMeasurement.height * 0.4
   let lineOffset = listLayoutInfo.spaceHeight
   let targetLineNum = -1
