@@ -369,9 +369,13 @@ const List = forwardRef<ListType, ListProps>(({
 
   // 记录滚动位置
   const handleScroll = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>) => {
-    scrollOffsetRef.current = e.nativeEvent.contentOffset.y
-    const { contentSize, layoutMeasurement } = e.nativeEvent
-    smartLoadMoreIfNeeded(contentSize.height - (e.nativeEvent.contentOffset.y + layoutMeasurement.height))
+    const ne = e.nativeEvent
+    const offset = ne.contentOffset?.y
+    if (offset == null) return
+    scrollOffsetRef.current = offset
+    const { contentSize, layoutMeasurement } = ne
+    if (contentSize?.height == null || layoutMeasurement?.height == null) return
+    smartLoadMoreIfNeeded(contentSize.height - (offset + layoutMeasurement.height))
   }, [smartLoadMoreIfNeeded])
   // RecyclerListView 的 onScroll 签名不同：onScroll(rawEvent, offsetX, offsetY)
   const handleRecyclerScroll = useCallback((rawEvent: any, _offsetX: number, offsetY: number) => {
