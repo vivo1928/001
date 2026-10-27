@@ -44,7 +44,8 @@ const setLists = (results: SearchResult[], page: number, text: string): SearchLi
   list = handleSortList(list, text)
   listInfo.list = page > 1 ? [...listInfo.list, ...list] : list
   state.source = 'all'
-  return listInfo.list
+  // 返回本页新增项（list 已排序），由调用方追加；listInfo.list 仍累积全量用于缓存命中
+  return list
 }
 
 const setList = (datas: SearchResult, page: number, text: string): SearchListInfo['list'] => {
@@ -56,7 +57,8 @@ const setList = (datas: SearchResult, page: number, text: string): SearchListInf
   listInfo.limit = datas.limit
   state.maxPages[datas.source] = datas.allPage
   state.source = datas.source
-  return listInfo.list
+  // 返回本页新增项，由调用方追加；listInfo.list 仍累积全量用于缓存命中
+  return datas.list
 }
 
 export default {
