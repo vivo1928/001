@@ -45,6 +45,12 @@ const desktopSearch = (str, page, limit) => {
   }).promise
 }
 
+// QQ 音乐歌手搜索（search_type=1）对频率敏感，DoSearchForQQMusicDesktop 高频请求会返回 code=2001。
+// 立即重试仍会被限，需退避后重试（间隔随重试次数递增，与 kw/kg/mg 的 delayRetry 模式一致）
+const delayRetry = (str, page, limit, retryNum) => {
+  return new Promise(resolve => setTimeout(resolve, 500 * retryNum)).then(() => search(str, page, limit, retryNum))
+}
+
 const search = async (str, page = 1, limit = 20, retryNum = 0) => {
   if (retryNum > 2) return { list: [], allPage: 0, limit, total: 0, source: 'tx' }
 
@@ -53,7 +59,7 @@ const search = async (str, page = 1, limit = 20, retryNum = 0) => {
     const body = res.body
 
     if (!body || body.code !== 0 || !body.req_1 || body.req_1.code !== 0) {
-      return search(str, page, limit, retryNum + 1)
+      return delayRetry(str, page, limit, retryNum + 1)
     }
 
     const data = body.req_1.data
@@ -67,7 +73,7 @@ const search = async (str, page = 1, limit = 20, retryNum = 0) => {
 
     return { list, allPage, limit, total, source: 'tx' }
   } catch (err) {
-    return search(str, page, limit, retryNum + 1)
+    return delayRetry(str, page, limit, retryNum + 1)
   }
 }
 
