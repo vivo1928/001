@@ -96,6 +96,19 @@ export const setEnabled = async(enabled: boolean): Promise<void> => {
   await EqualizerModule.setEnabled(enabled)
 }
 
+/**
+ * 启用/禁用硬件音频直通（offload）。
+ * Atmos / 多声道曲目需要打开，让压缩码流交给设备硬解渲染。
+ * 未打补丁的 track-player 上调用无副作用。
+ */
+export const setAudioOffloadEnabled = async(enabled: boolean): Promise<void> => {
+  try {
+    await EqualizerModule.setAudioOffloadEnabled(enabled)
+  } catch {
+    // 老包或打补丁缺失时忽略
+  }
+}
+
 export const getEnabled = async(): Promise<boolean> => {
   return await EqualizerModule.getEnabled()
 }

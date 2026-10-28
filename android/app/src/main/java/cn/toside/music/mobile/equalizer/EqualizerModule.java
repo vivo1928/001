@@ -126,6 +126,31 @@ public class EqualizerModule extends ReactContextBaseJavaModule {
     }
 
     /**
+     * 启用/禁用硬件音频直通（offload）。
+     * 播 Atmos / 多声道曲目时需要打开：offload 让压缩码流直接交给设备硬解，
+     * 既能让支持的设备渲染真·全景声，又能绕开"多声道 PCM 塞 AudioTrack 失败"的崩溃。
+     * 通过反射调用 track-player 补丁注入的 MusicManager.setAudioOffloadEnabled，
+     * 未打补丁时静默失败，不影响普通播放。
+     */
+    @ReactMethod
+    public void setAudioOffloadEnabled(boolean enabled, Promise promise) {
+        try {
+            // 打开硬件 offload 后 media3 会绕过 AudioProcessor 链，均衡器处理器天然不参与，
+            // 等效"关闭均衡器"，从而让压缩码流直通设备硬解渲染多声道 / 全景声。
+            Class<?> clazz = Class.forName("com.guichaguri.trackplayer.service.MusicManager");
+            java.lang.reflect.Method method = clazz.getMethod("setAudioOffloadEnabled", boolean.class);
+            method.invoke(null, enabled);
+            promise.resolve(null);
+        } catch (ClassNotFoundException e) {
+            // track-player 未打补丁，忽略
+            promise.resolve(null);
+        } catch (Exception e) {
+            Log.e(TAG, "setAudioOffloadEnabled error", e);
+            promise.reject("ERROR", e.getMessage());
+        }
+    }
+
+    /**
      * 获取频段数量
      */
     @ReactMethod

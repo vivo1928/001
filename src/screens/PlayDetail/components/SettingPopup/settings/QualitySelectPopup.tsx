@@ -8,6 +8,7 @@ import { createStyle, toast } from '@/utils/tools'
 import { getMusicUrl } from '@/core/music/online'
 import { setResource, setPause, setPlay } from '@/plugins/player'
 import { setTempPlayQuality, getTempPlayQuality } from '@/core/music/utils'
+import { applyAudioModeForQuality } from '@/core/music/audioMode'
 import playerState from '@/store/player/state'
 import settingState from '@/store/setting/state'
 
@@ -136,6 +137,8 @@ export default forwardRef<QualitySelectPopupType, { onCloseSettingPopup?: (callb
         void setPlay()
         return
       }
+      // 手动切换音质时同步切换 EQ/offload 输出模式（Atmos 直通，其他音质走 PCM + 均衡器）
+      await applyAudioModeForQuality(q)
       setResource(musicInfo, url, position)
     } catch (err: any) {
       setTempPlayQuality(null)

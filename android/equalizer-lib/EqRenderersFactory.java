@@ -25,6 +25,15 @@ public class EqRenderersFactory extends DefaultRenderersFactory {
 
     public EqRenderersFactory(Context context) {
         super(context);
+        // 通过反射打开 RenderersFactory 的 offload 能力（不同 media3 小版本方法名可能不同，
+        // 反射失败就静默跳过，不影响编译与普通播放）。
+        // 仅打开"能力"，是否真正走 offload 由运行时 AudioOffloadPreferences 控制（默认关闭）。
+        try {
+            java.lang.reflect.Method m = DefaultRenderersFactory.class
+                    .getMethod("setEnableAudioOffload", boolean.class);
+            m.invoke(this, true);
+        } catch (Throwable ignore) {
+        }
     }
 
     @Override
@@ -39,10 +48,21 @@ public class EqRenderersFactory extends DefaultRenderersFactory {
             getEqualizerAudioProcessor()
         };
 
-        return new DefaultAudioSink.Builder(context)
+        DefaultAudioSink.Builder builder = new DefaultAudioSink.Builder(context)
                 .setAudioProcessors(processors)
                 .setEnableFloatOutput(enableFloatOutput)
-                .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams)
+                .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams);
+
+        // 给自定义 sink 打开 offload 能力（仅能力，运行时由 AudioOffloadPreferences 决定是否使用）。
+        // 不同 media3 小版本方法名可能不同，反射失败静默跳过，不影响编译与普通播放。
+        try {
+            java.lang.reflect.Method m = DefaultAudioSink.Builder.class
+                    .getMethod("setEnableAudioOffload", boolean.class);
+            m.invoke(builder, true);
+        } catch (Throwable ignore) {
+        }
+
+        return builder
                 .setAudioTrackBufferSizeProvider(
                     (minBufferSizeInBytes,
                      encoding,

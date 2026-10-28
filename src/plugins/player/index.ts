@@ -16,7 +16,7 @@ import { updateOptions, setVolume, setPlaybackRate, migratePlayerCache } from '.
 //   })
 // }
 
-const initial = async({ volume, playRate, cacheSize, isHandleAudioFocus, isEnableAudioOffload }: {
+const initial = async({ volume, playRate, cacheSize, isHandleAudioFocus, isEnableAudioOffload: _isEnableAudioOffload }: {
   volume: number
   playRate: number
   cacheSize: number
@@ -42,7 +42,10 @@ const initial = async({ volume, playRate, cacheSize, isHandleAudioFocus, isEnabl
     // waitForBuffer 仅 iOS 生效，Android 会忽略，保留以兼容 iOS。
     waitForBuffer: true,
     handleAudioFocus: isHandleAudioFocus,
-    audioOffload: isEnableAudioOffload,
+    // offload 默认关闭，仅在播放 Atmos / 全景声等需要码流直通的音质时由
+    // applyAudioModeForQuality 运行时开启。offload 模式下 media3 自动绕过
+    // AudioProcessor 链，均衡器天然不参与；普通音质始终走 PCM + 均衡器，不牺牲音效。
+    audioOffload: false,
     autoUpdateMetadata: false,
   })
   global.lx.playerStatus.isInitialized = true

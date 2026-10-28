@@ -14,6 +14,7 @@ import {
   handleGetOnlinePicUrl,
   getCachedLyricInfo,
 } from './utils'
+import { applyAudioModeForQuality } from './audioMode'
 
 /* export const setMusicUrl = ({ musicInfo, type, url }: {
   musicInfo: LX.Music.MusicInfo
@@ -79,13 +80,13 @@ const getMusicUrlConcurrent = async({ musicInfo, candidates, isRefresh, allowTog
   isRefresh: boolean
   allowToggleSource: boolean
   onToggleSource: (musicInfo?: LX.Music.MusicInfoOnline) => void
-}): Promise<string> => {
+}): Promise<{ url: string, quality: LX.Quality }> => {
   // 缓存预检：有缓存直接命中（最快），无需等待网络请求
   const cacheHit = await Promise.all(candidates.map(async(q) => {
     const url = await getStoreMusicUrl(musicInfo, q)
     return { q, url }
   })).then(list => list.find(item => item.url))
-  if (cacheHit?.url) return cacheHit.url
+  if (cacheHit?.url) return { url: cacheHit.url, quality: cacheHit.q }
 
   const requests = candidates.map(async(quality) => {
     const { url, quality: resultQuality, musicInfo: targetMusicInfo, isFromCache } = await handleGetOnlineMusicUrl({ musicInfo, quality, onToggleSource, isRefresh, allowToggleSource })
@@ -97,7 +98,7 @@ const getMusicUrlConcurrent = async({ musicInfo, candidates, isRefresh, allowTog
     }
   })
 
-  return new Promise<string>((resolve, reject) => {
+  return new Promise<{ url: string, quality: LX.Quality }>((resolve, reject) => {
     let fulfilled = false
     let remaining = requests.length
     for (const p of requests) {
@@ -106,7 +107,7 @@ const getMusicUrlConcurrent = async({ musicInfo, candidates, isRefresh, allowTog
         fulfilled = true
         if (result.musicInfo.id != musicInfo.id && !result.isFromCache) void saveMusicUrl(result.musicInfo, result.quality, result.url)
         void saveMusicUrl(musicInfo, result.quality, result.url)
-        resolve(result.url)
+        resolve({ url: result.url, quality: result.quality })
       }).catch(() => {
         remaining--
         if (!fulfilled && remaining == 0) reject(new Error('all candidates failed'))
@@ -116,33 +117,43 @@ const getMusicUrlConcurrent = async({ musicInfo, candidates, isRefresh, allowTog
 }
 
 
-export const getMusicUrl = async({ musicInfo, quality, isRefresh, allowToggleSource = true, onToggleSource = () => {} }: {
+export const getMusicUrl = async({ musicInfo, quality, isRefresh, allowToggleSource = true, onToggleSource = () => {}, forPlayback = false }: {
   musicInfo: LX.Music.MusicInfoOnline
   quality?: LX.Quality
   isRefresh: boolean
   allowToggleSource?: boolean
   onToggleSource?: (musicInfo?: LX.Music.MusicInfoOnline) => void
+  /** 是否用于真正播放（决定是否按音质切换 EQ/offload 输出模式）；预取/下载传 false */
+  forPlayback?: boolean
 }): Promise<string> => {
   const targetQuality = quality ?? getPlayQuality(settingState.setting['player.playQuality'], musicInfo)
   const cachedUrl = await getStoreMusicUrl(musicInfo, targetQuality)
-  if (cachedUrl && !isRefresh) return cachedUrl
+  if (cachedUrl && !isRefresh) {
+    if (forPlayback) await applyAudioModeForQuality(targetQuality)
+    return cachedUrl
+  }
 
   // 播放场景（未显式指定音质）：并发请求候选音质，谁先拿到有效链接用谁
   if (!quality) {
     const candidates = buildCandidateQualities(targetQuality, musicInfo)
     if (candidates.length > 1) {
       try {
-        const url = await getMusicUrlConcurrent({ musicInfo, candidates, isRefresh, allowToggleSource, onToggleSource })
-        if (url) return url
+        const result = await getMusicUrlConcurrent({ musicInfo, candidates, isRefresh, allowToggleSource, onToggleSource })
+        if (result.url) {
+          // 用实际解析成功的音质判定模式（并发降级时可能是 flac 而非 atmos）
+          if (forPlayback) await applyAudioModeForQuality(result.quality)
+          return result.url
+        }
       } catch {
         // 并发全部失败，回退到单音质请求（保留切源逻辑）
       }
     }
   }
 
-  return handleGetOnlineMusicUrl({ musicInfo, quality, onToggleSource, isRefresh, allowToggleSource }).then(({ url, quality: targetQuality, musicInfo: targetMusicInfo, isFromCache }) => {
-    if (targetMusicInfo.id != musicInfo.id && !isFromCache) void saveMusicUrl(targetMusicInfo, targetQuality, url)
-    void saveMusicUrl(musicInfo, targetQuality, url)
+  return handleGetOnlineMusicUrl({ musicInfo, quality, onToggleSource, isRefresh, allowToggleSource }).then(async({ url, quality: resultQuality, musicInfo: targetMusicInfo, isFromCache }) => {
+    if (targetMusicInfo.id != musicInfo.id && !isFromCache) void saveMusicUrl(targetMusicInfo, resultQuality, url)
+    void saveMusicUrl(musicInfo, resultQuality, url)
+    if (forPlayback) await applyAudioModeForQuality(resultQuality)
     return url
   })
 }

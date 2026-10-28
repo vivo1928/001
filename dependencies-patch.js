@@ -87,11 +87,11 @@ const rootPath = path.join(__dirname, './')
   const patchs = [
     [
       'boolean shouldEnableAudioOffload = options.getBoolean("audioOffload", true);',
-      '// 均衡器软件处理器常驻音频链（EqualizerAudioProcessor.isActive 恒 true），\n        // 必须禁用硬件 offload（offload 会绕过 AudioProcessor 链导致均衡器失效），\n        // 且运行时切换 offload 会重建解码/输出管线产生卡顿与变调，故始终禁用\n        boolean shouldEnableAudioOffload = false;',
+      '// offload 默认沿用 JS 传入值。运行时由 MusicManager.setAudioOffloadEnabled 按音质\n        // 通过 AudioOffloadPreferences 开关；offload 模式下 media3 会绕过 AudioProcessor 链，\n        // 均衡器天然不参与，等效"关闭均衡器"。\n        boolean shouldEnableAudioOffload = options.getBoolean("audioOffload", true);',
     ],
     [
       'import androidx.media3.exoplayer.DefaultRenderersFactory;',
-      'import androidx.media3.exoplayer.DefaultRenderersFactory;\nimport cn.toside.music.mobile.equalizer.EqRenderersFactory;',
+      'import androidx.media3.exoplayer.DefaultRenderersFactory;\nimport androidx.media3.exoplayer.TrackSelectionParameters;\nimport cn.toside.music.mobile.equalizer.EqRenderersFactory;',
     ],
     [
       'DefaultRenderersFactory renderersFactory = new DefaultRenderersFactory(service);',
@@ -101,24 +101,35 @@ const rootPath = path.join(__dirname, './')
       '    private ExoPlayback playback;',
       `    private ExoPlayback playback;
     static ExoPlayer currentPlayer = null;
-    private static boolean originalOffloadEnabled = true;
+    // 期望的 offload 状态，跨曲目持久化：首次播放时 currentPlayer 可能尚未创建，
+    // 先记下期望值，等播放器创建后再套用，避免 Atmos 首次播放开不起来。
+    private static boolean offloadEnabled = false;
 
     public static void setAudioOffloadEnabled(boolean enabled) {
+        offloadEnabled = enabled;
+        applyOffloadToPlayer(enabled);
+    }
+
+    private static void applyOffloadToPlayer(boolean enabled) {
         if (currentPlayer == null) return;
-        TrackSelectionParameters params = currentPlayer.getTrackSelectionParameters().buildUpon()
-            .setAudioOffloadPreferences(new TrackSelectionParameters.AudioOffloadPreferences.Builder()
-                .setAudioOffloadMode(
-                    enabled
-                        ? TrackSelectionParameters.AudioOffloadPreferences.AUDIO_OFFLOAD_MODE_ENABLED
-                        : TrackSelectionParameters.AudioOffloadPreferences.AUDIO_OFFLOAD_MODE_DISABLED)
-                .setIsGaplessSupportRequired(true)
-                .build())
-            .build();
-        currentPlayer.setTrackSelectionParameters(params);
+        try {
+            TrackSelectionParameters params = currentPlayer.getTrackSelectionParameters().buildUpon()
+                .setAudioOffloadPreferences(new TrackSelectionParameters.AudioOffloadPreferences.Builder()
+                    .setAudioOffloadMode(
+                        enabled
+                            ? TrackSelectionParameters.AudioOffloadPreferences.AUDIO_OFFLOAD_MODE_ENABLED
+                            : TrackSelectionParameters.AudioOffloadPreferences.AUDIO_OFFLOAD_MODE_DISABLED)
+                    .setIsGaplessSupportRequired(true)
+                    .build())
+                .build();
+            currentPlayer.setTrackSelectionParameters(params);
+        } catch (Throwable ignore) {
+            // 旧版 media3 不支持 AudioOffloadPreferences 时忽略
+        }
     }
 
     public static void restoreOriginalAudioOffload() {
-        setAudioOffloadEnabled(originalOffloadEnabled);
+        setAudioOffloadEnabled(offloadEnabled);
     }
 
     public static void setCurrentPlaybackSpeed(float speed) {
@@ -129,7 +140,7 @@ const rootPath = path.join(__dirname, './')
     ],
     [
       '        player.setAudioAttributes(new androidx.media3.common.AudioAttributes.Builder()',
-      '        currentPlayer = player;\n        originalOffloadEnabled = shouldEnableAudioOffload;\n        player.setAudioAttributes(new androidx.media3.common.AudioAttributes.Builder()',
+      '        currentPlayer = player;\n        applyOffloadToPlayer(offloadEnabled);\n        player.setAudioAttributes(new androidx.media3.common.AudioAttributes.Builder()',
     ],
   ]
 
