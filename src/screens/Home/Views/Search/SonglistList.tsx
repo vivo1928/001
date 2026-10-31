@@ -23,8 +23,12 @@ export default forwardRef<MusicListType, {}>((props, ref) => {
       // const listDetailInfo = searchSonglistState.listDetailInfo
       listRef.current?.setList([], source == 'all')
       if (searchSonglistState.searchText == text && searchSonglistState.source == source && searchSonglistState.listInfos[searchSonglistState.source]!.list.length) {
+        searchInfoRef.current.text = text
+        searchInfoRef.current.source = source
+        const info = searchSonglistState.listInfos[source]!
         requestAnimationFrame(() => {
-          listRef.current?.setList(searchSonglistState.listInfos[searchSonglistState.source]!.list, source == 'all')
+          listRef.current?.setList(info.list, source == 'all')
+          listRef.current?.setStatus(searchSonglistState.maxPages[source] == info.page ? 'end' : 'idle')
         })
       } else {
         listRef.current?.setStatus('loading')

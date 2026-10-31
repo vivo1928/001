@@ -91,7 +91,7 @@ const rootPath = path.join(__dirname, './')
     ],
     [
       'import androidx.media3.exoplayer.DefaultRenderersFactory;',
-      'import androidx.media3.exoplayer.DefaultRenderersFactory;\nimport androidx.media3.exoplayer.TrackSelectionParameters;\nimport cn.toside.music.mobile.equalizer.EqRenderersFactory;',
+      'import androidx.media3.exoplayer.DefaultRenderersFactory;\nimport cn.toside.music.mobile.equalizer.EqRenderersFactory;',
     ],
     [
       'DefaultRenderersFactory renderersFactory = new DefaultRenderersFactory(service);',
@@ -119,7 +119,9 @@ const rootPath = path.join(__dirname, './')
                         enabled
                             ? TrackSelectionParameters.AudioOffloadPreferences.AUDIO_OFFLOAD_MODE_ENABLED
                             : TrackSelectionParameters.AudioOffloadPreferences.AUDIO_OFFLOAD_MODE_DISABLED)
-                    .setIsGaplessSupportRequired(true)
+                    // 本 App 支持倍速播放：声明需要支持变速，设备 offload 不支持变速时
+                    // media3 会自动回退 PCM，避免开倍速后 offload 异常。与上游 v1.9.2 保持一致。
+                    .setIsSpeedChangeSupportRequired(true)
                     .build())
                 .build();
             currentPlayer.setTrackSelectionParameters(params);

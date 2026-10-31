@@ -93,9 +93,13 @@ export default forwardRef<SingerListType, {}>((props, ref) => {
       if (searchSingerState.source != source) clearListInfo(searchSingerState.source)
     }
     if (searchSingerState.searchText == text && searchSingerState.source == source && searchSingerState.listInfos[searchSingerState.source]!.list.length) {
+      searchInfoRef.current.text = text
+      searchInfoRef.current.source = source
+      const info = searchSingerState.listInfos[source]!
       requestAnimationFrame(() => {
-        const mappedList = searchSingerState.listInfos[searchSingerState.source]!.list.map(mapToSonglistItem)
+        const mappedList = info.list.map(mapToSonglistItem)
         listRef.current?.setList(mappedList, false, false)
+        listRef.current?.setStatus(searchSingerState.maxPages[source] == info.page ? 'end' : 'idle')
       })
     } else {
       listRef.current?.setStatus('loading')

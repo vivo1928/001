@@ -15,8 +15,14 @@ export default forwardRef<MusicListType, {}>((props, ref) => {
     async loadList(text, source) {
       listRef.current?.setList([], false, source == 'all')
       if (searchMusicState.searchText == text && searchMusicState.source == source && searchMusicState.listInfos[searchMusicState.source]!.list.length) {
+        // 缓存恢复：同步 searchInfoRef，否则重挂载后自动续加载会用初值空关键词
+        // 搜索，返回空数组覆盖掉已有结果。
+        searchInfoRef.current.text = text
+        searchInfoRef.current.source = source
+        const info = searchMusicState.listInfos[searchMusicState.source]!
         requestAnimationFrame(() => {
-          listRef.current?.setList(searchMusicState.listInfos[searchMusicState.source]!.list, false, source == 'all')
+          listRef.current?.setList(info.list, false, source == 'all')
+          listRef.current?.setStatus(info.maxPage <= info.page ? 'end' : 'idle')
         })
       } else {
         listRef.current?.setStatus('loading')

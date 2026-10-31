@@ -139,9 +139,13 @@ export default forwardRef<AlbumListType, {}>((props, ref) => {
   const loadList = async (text: string, source: Source) => {
     listRef.current?.setList([], false)
     if (searchAlbumState.searchText == text && searchAlbumState.source == source && searchAlbumState.listInfos[searchAlbumState.source]!.list.length) {
+      searchInfoRef.current.text = text
+      searchInfoRef.current.source = source
+      const info = searchAlbumState.listInfos[source]!
       requestAnimationFrame(() => {
-        const mappedList = searchAlbumState.listInfos[searchAlbumState.source]!.list.map(mapToSonglistItem)
+        const mappedList = info.list.map(mapToSonglistItem)
         listRef.current?.setList(mappedList, false)
+        listRef.current?.setStatus(searchAlbumState.maxPages[source] == info.page ? 'end' : 'idle')
       })
     } else {
       listRef.current?.setStatus('loading')
