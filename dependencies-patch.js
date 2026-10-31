@@ -30,6 +30,32 @@ const rootPath = path.join(__dirname, './')
     }
   }
 
+  // 将 track-player 模块的 media3 版本升到与 app 模块一致（1.10.1）。
+  // track-player 硬编码 1.8.0，而 EqualizerAudioProcessor 用到的
+  // androidx.media3.common.AudioFormat 在 media3 1.9 才引入，不升级会编译失败。
+  const trackPlayerBuildGradlePath = path.join(rootPath, 'node_modules/react-native-track-player/android/build.gradle')
+  try {
+    let file = (await fs.promises.readFile(trackPlayerBuildGradlePath)).toString()
+    const media3Patches = [
+      ["def media3Version = '1.8.0'", "def media3Version = '1.10.1'"],
+      ['implementation "androidx.media3:media3-exoplayer:1.8.0"', 'implementation "androidx.media3:media3-exoplayer:1.10.1"'],
+    ]
+    for (const [fromStr, toStr] of media3Patches) {
+      if (file.includes(fromStr)) {
+        file = file.replace(fromStr, toStr)
+        console.log('Patch track-player build.gradle media3: OK')
+      } else if (file.includes('1.10.1')) {
+        console.log('track-player build.gradle media3 already patched')
+        break
+      } else {
+        console.warn('  WARNING: track-player media3 pattern not found: ' + fromStr)
+      }
+    }
+    await fs.promises.writeFile(trackPlayerBuildGradlePath, file)
+  } catch (err) {
+    console.error('Patch track-player build.gradle failed:', err.message)
+  }
+
   const metadataManagerPath = path.join(rootPath, 'node_modules/react-native-track-player/android/src/main/java/com/guichaguri/trackplayer/service/metadata/MetadataManager.java')
 
   const metadataPatchs = [
