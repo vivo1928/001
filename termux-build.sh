@@ -6,7 +6,6 @@ APP_DIR="${HOME}/lx-music-mobile"
 SDK="${HOME}/android/android-sdk"
 NDK="${HOME}/android/android-ndk-r29"
 OUT_DIR="/sdcard/Download"
-GHFAST="https://ghfast.top/"
 MODE="${1:-release}"
 
 # 无参数时弹出中文菜单（也可直接传参数：release/debug/all/sync）
@@ -92,14 +91,13 @@ send_notify() {
 CUR_BUILD_LOG=""
 trap 'send_notify "LX Music 构建失败" "编译出错，最新日志: ${CUR_BUILD_LOG:-见终端输出}"' ERR
 
-git config --global url."${GHFAST}https://github.com/".insteadOf "https://github.com/"
-git config --global url."${GHFAST}https://github.com/".insteadOf "ssh://git@github.com/"
-git config --global url."${GHFAST}https://github.com/".insteadOf "git@github.com:"
+# 清理历史遗留的 ghfast.top 代理重定向（该代理 SSL 证书已失效），直连 GitHub
+git config --global --remove-section url."https://ghfast.top/https://github.com/" >/dev/null 2>&1 || true
 npm config set registry https://registry.npmmirror.com >/dev/null 2>&1 || true
 
 if [ ! -d "${APP_DIR}/.git" ]; then
   echo "[1/7] 首次运行，克隆仓库..."
-  git clone --depth 1 "${GHFAST}${REPO_URL}" "${APP_DIR}"
+  git clone --depth 1 "${REPO_URL}" "${APP_DIR}"
 fi
 
 cd "${APP_DIR}"
