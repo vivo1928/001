@@ -2,7 +2,6 @@ package cn.toside.music.mobile.equalizer;
 
 import android.util.Log;
 
-import androidx.media3.common.AudioFormat;
 import androidx.media3.common.C;
 import androidx.media3.common.audio.AudioProcessor;
 import androidx.media3.common.util.UnstableApi;
