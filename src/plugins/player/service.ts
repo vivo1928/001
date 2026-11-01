@@ -6,13 +6,18 @@ import { isTempId, isEmpty } from './utils'
 // import { play as lrcPlay, pause as lrcPause } from '@/core/lyric'
 import { exitApp } from '@/core/common'
 import { getCurrentTrackId } from './playList'
-import { pause, play, playNext, playPrev } from '@/core/player/player'
+import { pause, play, playNext, playPrev, setMusicUrl } from '@/core/player/player'
 import { setPlaybackRate } from './utils'
+import playerState from '@/store/player/state'
 
 let isInitialized = false
 
 // 防止快速连续 seek 导致静音（用锁代替延迟，确保立即响应）
 let isJumping = false
+
+// PlaybackError 重试计数：URL 失效（403/签名过期）时强制刷新重新获取，限 1 次防死循环
+let playbackErrorRetryCount = 0
+const MAX_PLAYBACK_ERROR_RETRY = 1
 
 // let retryTrack: LX.Player.Track | null = null
 // let retryGetUrlId: string | null = null
@@ -72,8 +77,19 @@ const registerPlaybackService = async() => {
 
   TrackPlayer.addEventListener(TPEvent.PlaybackError, async(err: any) => {
     console.log('playback-error', err)
+    if (global.lx.isPlayedStop) return
+    if (isTempId()) return
+    // 正在获取新 URL 时忽略旧加载错误（避免与正在进行的 setMusicUrl 冲突）
+    if (global.lx.gettingUrlId) return
+    // URL 可能失效（403/签名过期/CDN 拒绝）：强制刷新重新获取，限 1 次防死循环
+    const musicInfo = playerState.playMusicInfo.musicInfo
+    if (musicInfo && playbackErrorRetryCount < MAX_PLAYBACK_ERROR_RETRY) {
+      playbackErrorRetryCount++
+      setMusicUrl(musicInfo, true)
+      return
+    }
+    playbackErrorRetryCount = 0
     global.app_event.error()
-    global.app_event.playerError(err?.message)
   })
 
   TrackPlayer.addEventListener(TPEvent.RemoteSeek, async({ position }) => {
@@ -134,6 +150,8 @@ const registerPlaybackService = async() => {
         global.app_event.pause()
         break
       case TPState.Playing:
+        // 播放成功，重置 PlaybackError 重试计数
+        playbackErrorRetryCount = 0
         global.app_event.playerPlaying()
         global.app_event.play()
         break
