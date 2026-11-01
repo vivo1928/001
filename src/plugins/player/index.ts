@@ -32,12 +32,12 @@ const initial = async({ volume, playRate, cacheSize, isHandleAudioFocus, isEnabl
     // 缓冲区调优（单位：秒，Android 原生确实读取这四项，见 fork 的 MusicManager.createLocalPlayback）：
     // - playBuffer：攒够多少秒才开始出声。起播不求攒够时长，一有解码数据就出声，故设为 0。
     // - minBuffer：播放过程中持续保持的最小缓冲量。15 秒足够，能少占带宽、加快首段缓冲。
-    // - maxBuffer：最大缓冲量。设 600 秒（10 分钟）覆盖绝大部分歌曲时长，播放时 ExoPlayer 持续
-    //   readAhead 预读前方数据直到 maxBuffer，相当于播放过程中逐步预缓存整首到 SimpleCache，
-    //   这样快进到任意位置都在已缓存范围内，不再缓冲。代价是流量增加（整首下载），音频文件小可接受。
+    // - maxBuffer：最大缓冲量。设 120 秒（2 分钟），播放时 ExoPlayer 持续
+    //   readAhead 预读前方数据直到 maxBuffer，播放过程中逐步预缓存到 SimpleCache，
+    //   快进到已预读范围内不再缓冲。代价是流量增加，音频文件小可接受。
     // - backBuffer：播放头后方保留的缓冲，便于回退重听，10 秒。
     minBuffer: 15,
-    maxBuffer: 600,
+    maxBuffer: 120,
     playBuffer: 0,
     backBuffer: 10,
     // waitForBuffer 仅 iOS 生效，Android 会忽略，保留以兼容 iOS。
