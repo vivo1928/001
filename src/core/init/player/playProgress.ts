@@ -77,47 +77,18 @@ export default () => {
     if (!playerState.musicInfo.id) return
     setNowPlayTime(time)
 
-    const wasPlaying = playerState.isPlay
-
-    // 取消之前的恢复定时器
+    // 取消之前的恢复定时器（防残留）
     if (seekPlayTimer) {
       BackgroundTimer.clearTimeout(seekPlayTimer)
       seekPlayTimer = null
     }
 
-    if (wasPlaying) {
-      // ExoPlayer seek bug 根因分析（完整链路）：
-      //
-      // 1. TrackPlayer.seekTo(time) 在 Playing 状态下被调用
-      // 2. ExoPlayer 重置音频解码器管道（AudioDecoder pipeline）
-      // 3. 解码器在某些情况下进入"输出静音但时间进度继续走"的异常状态
-      // 4. 此时 TrackPlayer.getState() 返回 Playing，但无音频输出
-      // 5. 调用 TrackPlayer.play() 是空操作（已处于 Playing 状态）
-      // 6. 解码器不会被重新初始化，音频持续静音
-      //
-      // 修复策略：先暂停 → 再 seek → 最后恢复播放
-      // 强制 ExoPlayer 经历完整状态转换：Playing → Paused → Playing
-      // 这确保解码器管道在 seek 时处于非活跃状态，seek 完成后被正确重新初始化
-      //
-      // 此模式已在 playList.ts handlePlayMusic() 中验证有效（第175-179行）
-      void TrackPlayer.pause().then(() => {
-        void setCurrentTime(time)
-        if (seekPlayTimer) {
-          BackgroundTimer.clearTimeout(seekPlayTimer)
-        }
-        seekPlayTimer = BackgroundTimer.setTimeout(async () => {
-          seekPlayTimer = null
-          try {
-            await TrackPlayer.play()
-          } catch (e) {
-            // 忽略错误
-          }
-        }, 50)
-      })
-    } else {
-      // 已暂停状态，直接 seek（安全操作）
-      void setCurrentTime(time)
-    }
+    // 参考原版 lyswhut/lx-music-mobile：直接 seekTo，不 pause→play。
+    // fork 之前的 pause→seek→50ms→play 是为修 ExoPlayer seek 静音 bug，
+    // 但 pause 会打断 ExoPlayer 自然 seek 缓冲流程，导致快进到未缓存段时缓冲中
+    // （倒退到已缓存段正常）。直接 seekTo 让 ExoPlayer 在 Playing 状态自动加载
+    // 新位置数据后无缝继续播放。
+    void setCurrentTime(time)
 
     if (maxTime != null) setMaxplayTime(maxTime)
   }
