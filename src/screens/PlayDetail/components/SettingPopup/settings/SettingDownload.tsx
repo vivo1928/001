@@ -30,49 +30,43 @@ export default memo(() => {
       return
     }
 
+    // 添加下载任务
+    const taskId = downloadManager.addToQueue(musicInfo, quality)
+
     // 显示进度弹窗
     downloadProgressRef.current?.show(musicInfo.name, {
       onCancel: () => {
-        downloadManager.cancelAll()
+        // DL7: 仅取消当前任务，不再清空整个下载队列
+        downloadManager.cancelTask(taskId)
         downloadProgressRef.current?.close()
       },
     })
 
-    // 添加下载任务
-    const taskId = downloadManager.addToQueue(musicInfo, quality)
-
-    // 设置进度回调
-    const originalOnProgress = (downloadManager as any).onProgress
-    ;(downloadManager as any).onProgress = (id: string, progress: number) => {
-      if (id === taskId) {
+    // DL2: 按任务订阅进度/完成回调（替代全局回调覆写，避免连续下载时回调丢失）
+    downloadManager.subscribeTask(taskId, {
+      onProgress: (progress: number) => {
         downloadProgressRef.current?.updateProgress(progress)
-      }
-    }
-
-    // 设置完成回调
-    const originalOnComplete = (downloadManager as any).onComplete
-    ;(downloadManager as any).onComplete = (id: string, success: boolean, error?: string) => {
-      if (id !== taskId) return
-      downloadProgressRef.current?.close()
-      if (success) {
-        // 下载成功，关闭弹窗
-      } else if (error === 'cancelled') {
-        // 用户取消了下载
-        toast(t('download_cancelled'))
-      } else {
-        // 下载失败，显示失败弹窗
-        downloadFailedRef.current?.show({
-          message: `${musicInfo.singer} - ${musicInfo.name} ${t('download_failed_title')}`,
-          onRetry: () => {
-            void startSingleDownload(musicInfo, quality)
-          },
-          onCancel: () => {},
-        })
-      }
-      // 恢复回调
-      ;(downloadManager as any).onProgress = originalOnProgress
-      ;(downloadManager as any).onComplete = originalOnComplete
-    }
+      },
+      onComplete: (success: boolean, error?: string) => {
+        downloadManager.unsubscribeTask(taskId)
+        downloadProgressRef.current?.close()
+        if (success) {
+          // 下载成功，关闭弹窗
+        } else if (error === 'cancelled') {
+          // 用户取消了下载
+          toast(t('download_cancelled'))
+        } else {
+          // 下载失败，显示失败弹窗
+          downloadFailedRef.current?.show({
+            message: `${musicInfo.singer} - ${musicInfo.name} ${t('download_failed_title')}`,
+            onRetry: () => {
+              void startSingleDownload(musicInfo, quality)
+            },
+            onCancel: () => {},
+          })
+        }
+      },
+    })
   }, [t])
 
   const handlePress = useCallback(() => {

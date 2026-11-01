@@ -611,6 +611,7 @@
   "download_quality_master": "Master Quality",
   "download_quality_atmos": "Spatial Audio",
   "download_quality_atmos_plus": "Dolby Atmos",
+  "download_quality_degraded": "Quality unavailable, degraded to {quality}",
   "download_quality_high": "High Quality",
   "download_quality_lossless": "Lossless Quality",
   "download_quality_standard": "Standard Quality",

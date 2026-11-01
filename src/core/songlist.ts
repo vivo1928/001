@@ -2,6 +2,7 @@ import songlistState, { type TagInfo, type ListDetailInfo, type ListInfo } from 
 import songlistActions from '@/store/songlist/action'
 import { deduplicationList, toNewMusicInfo } from '@/utils'
 import musicSdk from '@/utils/musicSdk'
+import { trimMapLRU } from '@/utils/lru'
 
 
 interface DetailPageCache { data: ListDetailInfo, sourcePage: number }
@@ -92,6 +93,8 @@ export const getList = async(source: LX.OnlineSource, tabId: string, sortId: str
 
   return musicSdk[source]?.songList.getList(sortId, tabId, page).then((result: ListInfo) => {
     cache.set(pageKey, result)
+    // C4: LRU 上限，防无界增长
+    trimMapLRU(cache, 200)
     return result
     // if (pageKey != listInfo.key) return
     // setList(result, tabId, sortId, page)
@@ -154,6 +157,9 @@ const getListDetailLimit = async(source: LX.OnlineSource, id: string, page: numb
       })
       p++
     } while (result.list.length > 0)
+    // C4: LRU 上限，防嵌套分页缓存与顶层缓存无界增长
+    trimMapLRU(listCache, 100)
+    trimMapLRU(cache, 200)
     return (listCache.get(`sdetail__${source}__${id}__${page}`) as DetailPageCache).data
   }) ?? Promise.reject(new Error('source not found'))
 }

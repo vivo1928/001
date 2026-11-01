@@ -26,6 +26,8 @@ export default () => {
 
   let updateTimeout: number | null = null
   let seekPlayTimer: number | null = null
+  // P4: 递增 seek 序号，快速拖动时丢弃乱序旧 seek
+  let seekSeq = 0
 
   let isScreenOn = true
 
@@ -67,9 +69,11 @@ export default () => {
   const startUpdateTimeout = () => {
     if (!isScreenOn) return
     clearUpdateTimeout()
+    // P6: playbackRate 为 0/负时防 Infinity/负数间隔，下限 100ms
+    const rate = settingState.setting['player.playbackRate']
     updateTimeout = BackgroundTimer.setInterval(() => {
       getCurrentTime()
-    }, 1000 / settingState.setting['player.playbackRate'])
+    }, Math.max(1000 / (rate || 1), 100))
     getCurrentTime()
   }
 
@@ -100,13 +104,18 @@ export default () => {
       // 这确保解码器管道在 seek 时处于非活跃状态，seek 完成后被正确重新初始化
       //
       // 此模式已在 playList.ts handlePlayMusic() 中验证有效（第175-179行）
+      const seq = ++seekSeq
       void TrackPlayer.pause().then(() => {
+        // P4: 有更新的 seek 则丢弃本次（防快速拖动乱序）
+        if (seq !== seekSeq) return
         void setCurrentTime(time)
         if (seekPlayTimer) {
           BackgroundTimer.clearTimeout(seekPlayTimer)
         }
         seekPlayTimer = BackgroundTimer.setTimeout(async () => {
           seekPlayTimer = null
+          // P4: 执行恢复播放前再次校验序号
+          if (seq !== seekSeq) return
           try {
             await TrackPlayer.play()
           } catch (e) {
@@ -116,7 +125,13 @@ export default () => {
       })
     } else {
       // 已暂停状态，直接 seek（安全操作）
-      void setCurrentTime(time)
+      const seq = ++seekSeq
+      void setCurrentTime(time).then(() => {
+        // P4: 丢弃乱序的旧 seek 结果
+        if (seq !== seekSeq) {
+          // 有更新的 seek，本次结果已过期，无需处理
+        }
+      })
     }
 
     if (maxTime != null) setMaxplayTime(maxTime)

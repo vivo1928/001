@@ -11,7 +11,8 @@ import { getCacheSize, clearCache } from '@/plugins/player/utils'
 import { sizeFormate } from '@/utils'
 import { useI18n } from '@/lang'
 import Text from '@/components/common/Text'
-import { clearMusicUrl } from '@/utils/data'
+import { clearMusicUrl, getAllKeys, getDataMultiple } from '@/utils/data'
+import { storageDataPrefix } from '@/config/constant'
 
 export default memo(() => {
   const t = useI18n()
@@ -21,10 +22,28 @@ export default memo(() => {
   // TODO clear list cache
   // const clearCache = useDispatch('list', 'clearCache')
 
+  // E1: 统计 musicUrl 前缀缓存体积（清理时 clearMusicUrl 会清掉这部分）
+  const getMusicUrlCacheSize = async() => {
+    try {
+      const keys = (await getAllKeys()).filter(key => key.startsWith(storageDataPrefix.musicUrl))
+      if (!keys.length) return 0
+      const datas = await getDataMultiple(keys)
+      let total = 0
+      for (const [, v] of datas) if (v) total += JSON.stringify(v).length
+      return total
+    } catch {
+      return 0
+    }
+  }
+
   const handleGetAppCacheSize = () => {
-    void Promise.all([getAppCacheSize(), getCacheSize()]).then(([size, size2]) => {
-      const count = size + size2
+    void Promise.all([getAppCacheSize(), getCacheSize(), getMusicUrlCacheSize()]).then(([size, size2, size3]) => {
+      const count = size + size2 + size3
       setCacheSize(sizeFormate(count))
+    }).catch((e) => {
+      // E2: 获取失败不卡"获取中"，回退显示 0
+      console.warn('getAppCacheSize failed:', e)
+      setCacheSize('0')
     })
   }
 

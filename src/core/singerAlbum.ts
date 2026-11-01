@@ -1,5 +1,6 @@
 import { deduplicationList, toNewMusicInfo } from '@/utils'
 import musicSdk from '@/utils/musicSdk'
+import { trimMapLRU } from '@/utils/lru'
 
 const LIMIT = 20
 const FETCH_TIMEOUT = 8000
@@ -66,6 +67,8 @@ export const search = async(singerId: string, singerName: string, source: LX.Onl
             cache.delete(key)
           }
         }
+        // C4: LRU 上限，防其他歌手缓存无界增长
+        trimMapLRU(cache, 100)
         return data
       }
     } catch (err: any) {
@@ -97,6 +100,8 @@ export const search = async(singerId: string, singerName: string, source: LX.Onl
     total: result.total || 0,
   }
   cache.set(cacheKey, data)
+  // C4: LRU 上限，防其他歌手缓存无界增长
+  trimMapLRU(cache, 100)
   return data
 }
 

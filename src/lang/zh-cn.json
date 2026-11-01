@@ -591,6 +591,7 @@
   "download_quality_master": "臻品母带",
   "download_quality_atmos": "全景声",
   "download_quality_atmos_plus": "杜比全景声",
+  "download_quality_degraded": "该品质不可用，已降级为 {quality}",
   "download_progress_title": "下载进度",
   "download_cancel": "取消下载",
   "download_cancel_confirm": "确定要取消下载吗？",

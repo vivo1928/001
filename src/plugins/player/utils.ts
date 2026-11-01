@@ -1,7 +1,7 @@
 import TrackPlayer, { Capability, Event, RepeatMode, State } from 'react-native-track-player'
 import BackgroundTimer from 'react-native-background-timer'
 import { playMusic as handlePlayMusic } from './playList'
-import { existsFile, moveFile, privateStorageDirectoryPath, temporaryDirectoryPath } from '@/utils/fs'
+import { existsFile, moveFile, writeFile, privateStorageDirectoryPath, temporaryDirectoryPath } from '@/utils/fs'
 import { toast } from '@/utils/tools'
 // import { PlayerMusicInfo } from '@/store/modules/player/playInfo'
 
@@ -186,16 +186,29 @@ export const getCacheSize = async() => TrackPlayer.getCacheSize()
 export const clearCache = async() => TrackPlayer.clearCache()
 export const migratePlayerCache = async() => {
   const newCachePath = privateStorageDirectoryPath + '/TrackPlayer'
-  if (await existsFile(newCachePath)) return
+  // D4: 用标记文件判断迁移是否完成（原仅判断目录存在，目录存在但内容不全时不补迁）
+  const migratedFlagPath = newCachePath + '/.migrated'
+  if (await existsFile(migratedFlagPath)) return
   const oldCachePath = temporaryDirectoryPath + '/TrackPlayer'
-  if (!await existsFile(oldCachePath)) return
+  // 旧路径不存在：若目标已存在说明可能已迁移，补写标记；否则无缓存可迁移
+  if (!await existsFile(oldCachePath)) {
+    if (await existsFile(newCachePath)) await writeFile(migratedFlagPath, '1')
+    return
+  }
   let timeout: number | null = BackgroundTimer.setTimeout(() => {
     timeout = null
     toast(global.i18n.t('player_cache_migrating'), 'long')
   }, 2_000)
-  await moveFile(oldCachePath, newCachePath).finally(() => {
+  try {
+    // 目标已存在（上次迁移中断）：跳过移动，避免 moveFile 反复失败；补写标记
+    if (!await existsFile(newCachePath)) await moveFile(oldCachePath, newCachePath)
+    await writeFile(migratedFlagPath, '1')
+  } catch (e) {
+    // D4: 迁移失败保留源目录，下次重试；不抛（上层 D3 已兜底不阻塞初始化）
+    console.warn('migratePlayerCache failed:', e)
+  } finally {
     if (timeout) BackgroundTimer.clearTimeout(timeout)
-  })
+  }
 }
 
 export const destroy = async() => {

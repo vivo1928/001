@@ -116,7 +116,10 @@ const registerPlaybackService = async() => {
   })
 
   TrackPlayer.addEventListener(TPEvent.PlaybackState, async info => {
-    if (global.lx.gettingUrlId || isTempId()) return
+    // P3: 临时音源仍全部丢弃；获取 URL 期间仅丢弃过渡态 None，Playing/Paused/Buffering 仍派发，
+    //     避免切歌网络阶段 JS 播放状态滞后
+    if (isTempId()) return
+    if (global.lx.gettingUrlId && info.state === TPState.None) return
     // let currentIsPlaying = false
 
     switch (info.state) {

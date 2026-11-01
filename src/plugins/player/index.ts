@@ -26,34 +26,42 @@ const initial = async({ volume, playRate, cacheSize, isHandleAudioFocus, isEnabl
   if (global.lx.playerStatus.isIniting || global.lx.playerStatus.isInitialized) return
   global.lx.playerStatus.isIniting = true
   console.log('Cache Size', cacheSize * 1024)
-  await migratePlayerCache()
-  await TrackPlayer.setupPlayer({
-    maxCacheSize: cacheSize * 1024,
-    // 缓冲区调优（单位：秒，Android 原生确实读取这四项，见 fork 的 MusicManager.createLocalPlayback）：
-    // - playBuffer：攒够多少秒才开始出声。默认 2.5 秒，这是"URL 已就绪却仍要等很久才播放"的直接闸门。
-    //   起播不求攒够时长，一有解码数据就出声，稍后再持续缓冲，故设为 0。
-    // - minBuffer：播放过程中持续保持的最小缓冲量。默认 50 秒，音乐文件小，15 秒足够，能少占带宽、加快首段缓冲。
-    // - maxBuffer：最大缓冲量。原值 1000（秒）明显异常，收敛到 60 秒。
-    // - backBuffer：播放头后方保留的缓冲，便于回退重听，10 秒。
-    minBuffer: 15,
-    maxBuffer: 60,
-    playBuffer: 0,
-    backBuffer: 10,
-    // waitForBuffer 仅 iOS 生效，Android 会忽略，保留以兼容 iOS。
-    waitForBuffer: true,
-    handleAudioFocus: isHandleAudioFocus,
-    // offload 默认关闭，仅在播放 Atmos / 全景声等需要码流直通的音质时由
-    // applyAudioModeForQuality 运行时开启。offload 模式下 media3 自动绕过
-    // AudioProcessor 链，均衡器天然不参与；普通音质始终走 PCM + 均衡器，不牺牲音效。
-    audioOffload: false,
-    autoUpdateMetadata: false,
-  })
-  global.lx.playerStatus.isInitialized = true
-  global.lx.playerStatus.isIniting = false
-  await updateOptions()
-  await setVolume(volume)
-  await setPlaybackRate(playRate)
-  // listenEvent()
+  try {
+    try {
+      await migratePlayerCache()
+    } catch (e) {
+      // D3: 迁移失败不阻塞播放器初始化，仅告警，避免 isIniting 卡死
+      console.warn('migratePlayerCache failed:', e)
+    }
+    await TrackPlayer.setupPlayer({
+      maxCacheSize: cacheSize * 1024,
+      // 缓冲区调优（单位：秒，Android 原生确实读取这四项，见 fork 的 MusicManager.createLocalPlayback）：
+      // - playBuffer：攒够多少秒才开始出声。默认 2.5 秒，这是"URL 已就绪却仍要等很久才播放"的直接闸门。
+      //   起播不求攒够时长，一有解码数据就出声，稍后再持续缓冲，故设为 0。
+      // - minBuffer：播放过程中持续保持的最小缓冲量。默认 50 秒，音乐文件小，15 秒足够，能少占带宽、加快首段缓冲。
+      // - maxBuffer：最大缓冲量。原值 1000（秒）明显异常，收敛到 60 秒。
+      // - backBuffer：播放头后方保留的缓冲，便于回退重听，10 秒。
+      minBuffer: 15,
+      maxBuffer: 60,
+      playBuffer: 0,
+      backBuffer: 10,
+      // waitForBuffer 仅 iOS 生效，Android 会忽略，保留以兼容 iOS。
+      waitForBuffer: true,
+      handleAudioFocus: isHandleAudioFocus,
+      // offload 默认关闭，仅在播放 Atmos / 全景声等需要码流直通的音质时由
+      // applyAudioModeForQuality 运行时开启。offload 模式下 media3 自动绕过
+      // AudioProcessor 链，均衡器天然不参与；普通音质始终走 PCM + 均衡器，不牺牲音效。
+      audioOffload: false,
+      autoUpdateMetadata: false,
+    })
+    global.lx.playerStatus.isInitialized = true
+    await updateOptions()
+    await setVolume(volume)
+    await setPlaybackRate(playRate)
+  } finally {
+    // D3: 无论成功失败都复位，避免播放器永久卡在初始化中
+    global.lx.playerStatus.isIniting = false
+  }
 }
 
 

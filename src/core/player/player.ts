@@ -65,6 +65,7 @@ const createGettingUrlId = (musicInfo: LX.Music.MusicInfo | LX.Download.ListItem
 }
 /**
  * 检查音乐信息是否已更改
+ * 返回值语义：true=与当前状态不同（应继续加载）；false=同曲请求进行中且未播放（应跳过）
  */
 const diffCurrentMusicInfo = (curMusicInfo: LX.Music.MusicInfo | LX.Download.ListItem): boolean => {
   // return curMusicInfo !== playerState.playMusicInfo.musicInfo || playerState.isPlay
@@ -139,6 +140,8 @@ export const setMusicUrl = (musicInfo: LX.Music.MusicInfo | LX.Download.ListItem
   if (!diffCurrentMusicInfo(musicInfo)) return
   if (cancelDelayRetry) cancelDelayRetry()
   global.lx.gettingUrlId = createGettingUrlId(musicInfo)
+  // P2: 闭包捕获本次请求 id，finally 中仅当仍是最新请求时清理，避免残留
+  const urlId = global.lx.gettingUrlId
   void getMusicPlayUrl(musicInfo, isRefresh).then((url) => {
     if (!url) return
     setResource(musicInfo, url, playerState.progress.nowPlayTime)
@@ -148,7 +151,8 @@ export const setMusicUrl = (musicInfo: LX.Music.MusicInfo | LX.Download.ListItem
     global.app_event.error()
     addDelayNextTimeout()
   }).finally(() => {
-    if (musicInfo === playerState.playMusicInfo.musicInfo) {
+    // P2: 无条件清理（仅限本次请求仍是最新），避免残留导致刷新失效/意外切歌
+    if (global.lx.gettingUrlId === urlId) {
       global.lx.gettingUrlId = ''
       clearLoadTimeout()
     }
@@ -232,10 +236,12 @@ const handlePlay = async() => {
   if (!isInitialized()) {
     await checkNotificationPermission()
     void checkIgnoringBatteryOptimization()
+    // D1: parseInt 对非数字返回 NaN，兜底为 0（关闭缓存），避免向原生传 NaN
+    const cacheSizeNum = parseInt(settingState.setting['player.cacheSize'])
     await playerInitial({
       volume: settingState.setting['player.volume'],
       playRate: settingState.setting['player.playbackRate'],
-      cacheSize: settingState.setting['player.cacheSize'] ? parseInt(settingState.setting['player.cacheSize']) : 0,
+      cacheSize: Number.isNaN(cacheSizeNum) ? 0 : cacheSizeNum,
       isHandleAudioFocus: settingState.setting['player.isHandleAudioFocus'],
       isEnableAudioOffload: settingState.setting['player.isEnableAudioOffload'],
     })
@@ -473,6 +479,8 @@ export const playNext = async(isAutoToggle = false): Promise<void> => {
   let nextIndex = playerIndex
 
   let togglePlayMethod = settingState.setting['player.togglePlayMethod']
+  // P8: 手动切歌时 list/singleLoop/none 统一转 listLoop，确保手动切歌生效（none 的 switch default 分支会 return 不切歌）；
+  //     仅修改本次局部变量，不影响全局设置；自动切歌（isAutoToggle）保持原模式
   if (!isAutoToggle) {
     switch (togglePlayMethod) {
       case 'list':
@@ -560,6 +568,7 @@ export const playPrev = async(isAutoToggle = false): Promise<void> => {
   let nextIndex = playerIndex
   if (!playMusicInfo.isTempPlay) {
     let togglePlayMethod = settingState.setting['player.togglePlayMethod']
+    // P8: 同 playNext，手动切歌转 listLoop 确保生效，仅局部修改
     if (!isAutoToggle) {
       switch (togglePlayMethod) {
         case 'list':

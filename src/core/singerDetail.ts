@@ -3,6 +3,7 @@ import singerDetailActions from '@/store/singerDetail/action'
 import { type ListDetailInfo } from '@/store/singerDetail/state'
 import { deduplicationList, toNewMusicInfo } from '@/utils'
 import musicSdk from '@/utils/musicSdk'
+import { trimMapLRU } from '@/utils/lru'
 
 const LIMIT = 30
 const FETCH_TIMEOUT = 10000
@@ -233,6 +234,9 @@ const getListLimit = async(source: LX.OnlineSource, singerId: string, page: numb
     data,
     sourcePage: page,
   })
+  // C4: LRU 上限，防分页缓存与顶层缓存无界增长
+  trimMapLRU(listCache, 100)
+  trimMapLRU(cache, 200)
   return data
 }
 
@@ -254,6 +258,8 @@ export const getListDetail = async(id: string, page: number, isRefresh = false):
   let listCache = cache.get(listKey)
   if (!listCache || isRefresh) {
     cache.set(listKey, listCache = new Map())
+    // C4: LRU 上限，防顶层缓存无界增长
+    trimMapLRU(cache, 200)
   }
 
   const pageCache = listCache.get(pageKey) as PageCache

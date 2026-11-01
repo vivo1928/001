@@ -6,10 +6,13 @@ import {
   stopDownload,
   mkdir,
   existsFile,
+  stat,
+  unlink,
   externalStorageDirectoryPath,
 } from '@/utils/fs'
 import { requestStoragePermission } from '@/utils/permissions'
 import { formatMusicName, toast } from '@/utils/tools'
+import { getDownloadHeaders } from '@/utils/downloadHeaders'
 import settingState from '@/store/setting/state'
 
 /**
@@ -63,6 +66,9 @@ const DOWNLOAD_TIMEOUT = 60000
 const CONNECTION_TIMEOUT = 15000
 // 重试延迟基数（毫秒）
 const RETRY_BASE_DELAY = 1000
+// DL11: 存储权限检查缓存（毫秒），批量下载时避免每个任务重复请求
+const STORAGE_PERMISSION_CACHE_TTL = 5 * 60 * 1000
+let storagePermissionCheckedTs = 0
 
 // ---------------------------------------------------------------------------
 // 公开类型
@@ -92,6 +98,12 @@ export type DownloadCompleteCallback = (taskId: string, success: boolean, error?
 // 下载管理器
 // ---------------------------------------------------------------------------
 
+/** 下载任务级回调（DL2：按任务关联，避免全局覆写丢失连续下载回调） */
+export interface DownloadTaskCallbacks {
+  onProgress?: (progress: number) => void
+  onComplete?: (success: boolean, error?: string) => void
+}
+
 class DownloadManager {
   private readonly queue: DownloadTask[] = []
   private isProcessing = false
@@ -100,7 +112,8 @@ class DownloadManager {
   private currentJobId: number | null = null
   private currentTaskId: string | null = null
   private readonly downloadDir: string
-  private readonly abortController: AbortController | null = null
+  // DL2: 任务级回调映射
+  private readonly taskCallbacks = new Map<string, DownloadTaskCallbacks>()
 
   constructor(
     onProgress: DownloadProgressCallback = () => {},
@@ -110,6 +123,27 @@ class DownloadManager {
     this.onProgress = onProgress
     this.onComplete = onComplete
     this.downloadDir = downloadDir ?? BASE_DOWNLOAD_DIR
+  }
+
+  // DL2: 订阅指定任务的进度/完成回调，返回取消订阅函数
+  subscribeTask(taskId: string, callbacks: DownloadTaskCallbacks): () => void {
+    this.taskCallbacks.set(taskId, callbacks)
+    return () => { this.taskCallbacks.delete(taskId) }
+  }
+  // DL2: 取消订阅
+  unsubscribeTask(taskId: string): void {
+    this.taskCallbacks.delete(taskId)
+  }
+
+  // DL2: 统一进度分发（全局 + 任务级）
+  private dispatchProgress(taskId: string, progress: number) {
+    this.onProgress(taskId, progress)
+    this.taskCallbacks.get(taskId)?.onProgress?.(progress)
+  }
+  // DL2: 统一完成分发（全局 + 任务级）
+  private dispatchComplete(taskId: string, success: boolean, error?: string) {
+    this.onComplete(taskId, success, error)
+    this.taskCallbacks.get(taskId)?.onComplete?.(success, error)
   }
 
   // -----------------------------------------------------------------------
@@ -191,7 +225,7 @@ class DownloadManager {
 
     // 从队列中移除
     this.queue.splice(index, 1)
-    this.onComplete(taskId, false, 'cancelled')
+    this.dispatchComplete(taskId, false, 'cancelled')
 
     // 不在此处手动修改 isProcessing/currentTaskId 或调用 processQueue：
     // 正在运行的 processQueue 会在 downloadSingleTask 被中断后于 finally 中
@@ -208,7 +242,7 @@ class DownloadManager {
       if (currentTask) {
         currentTask.status = 'failed'
         currentTask.error = 'cancelled'
-        this.onComplete(currentTask.id, false, 'cancelled')
+        this.dispatchComplete(currentTask.id, false, 'cancelled')
       }
       stopDownload(this.currentJobId)
       this.currentJobId = null
@@ -221,7 +255,7 @@ class DownloadManager {
     for (const task of remainingTasks) {
       task.status = 'failed'
       task.error = 'cancelled'
-      this.onComplete(task.id, false, 'cancelled')
+      this.dispatchComplete(task.id, false, 'cancelled')
     }
 
     this.queue.length = 0
@@ -331,7 +365,7 @@ class DownloadManager {
       }
 
       nextTask.status = 'failed'
-      this.onComplete(nextTask.id, false, nextTask.error)
+      this.dispatchComplete(nextTask.id, false, nextTask.error)
     } finally {
       // 仅当本次调用仍在处理该任务时才清理状态并续推队列，
       // 避免与取消操作或其他 processQueue 调用产生竞态（并发下载）
@@ -362,13 +396,25 @@ class DownloadManager {
       const urlResult = await handleGetOnlineMusicUrl({
         musicInfo: task.musicInfo,
         quality,
-        onToggleSource: () => {},
+        // DL5: 换源时提示（复用播放模块文案）
+        onToggleSource: () => {
+          toast(global.i18n.t('toggle_source_try'))
+        },
         isRefresh,
         allowToggleSource: true,
       })
       const actualQuality = urlResult.quality || quality
+      const actualMusicInfo = urlResult.musicInfo ?? task.musicInfo
+      if (actualMusicInfo.id != task.musicInfo.id) {
+        // DL5: 换源成功，更新任务源/元数据，保证下载文件与元数据一致
+        task.musicInfo = actualMusicInfo
+        const path = this.getDownloadPath(actualMusicInfo, actualQuality, task.subDir)
+        task.filePath = path.filePath
+        task.fileName = path.fileName
+      }
       if (actualQuality !== task.quality) {
-        toast(`该品质不可用，已降级为 ${actualQuality}`)
+        // DL6: 提示走 i18n，非中文环境不显示硬编码中文
+        toast(global.i18n.t('download_quality_degraded', { quality: actualQuality }))
         task.quality = actualQuality
         const path = this.getDownloadPath(task.musicInfo, actualQuality, task.subDir)
         task.filePath = path.filePath
@@ -407,9 +453,14 @@ class DownloadManager {
    */
   private async downloadSingleTask(task: DownloadTask): Promise<void> {
     // 0. 申请存储权限（写入公共目录需要）
-    const granted = await requestStoragePermission()
-    if (!granted) {
-      throw new Error('未获得存储权限，无法下载歌曲，请在系统设置中允许存储访问')
+    // DL11: 权限检查缓存（5 分钟），批量下载时避免每个任务重复请求
+    const now = Date.now()
+    if (now - storagePermissionCheckedTs > STORAGE_PERMISSION_CACHE_TTL) {
+      const granted = await requestStoragePermission()
+      if (!granted) {
+        throw new Error('未获得存储权限，无法下载歌曲，请在系统设置中允许存储访问')
+      }
+      storagePermissionCheckedTs = now
     }
 
     // 1. 确保下载目录存在（含子目录）
@@ -430,22 +481,32 @@ class DownloadManager {
       throw new Error('获取下载链接失败：链接为空')
     }
 
-    // 3. 检查文件是否已存在，如果存在则跳过
+    // 3. 检查文件是否已存在，如果存在则跳过（DL8: 校验大小 > 0，避免 0 字节残留误判为已下载）
     const fileExists = await existsFile(task.filePath).catch(() => false)
     if (fileExists) {
-      console.log(`[DownloadManager] file already exists, skipping: ${task.filePath}`)
-      task.status = 'completed'
-      task.progress = 100
-      this.onProgress(task.id, 100)
-      this.onComplete(task.id, true)
-      return
+      const fileStat = await stat(task.filePath).catch(() => null)
+      if (fileStat && fileStat.size > 0) {
+        console.log(`[DownloadManager] file already exists, skipping: ${task.filePath}`)
+        task.status = 'completed'
+        task.progress = 100
+        this.dispatchProgress(task.id, 100)
+        this.dispatchComplete(task.id, true)
+        return
+      }
+      // 0 字节或损坏残留：移除后重新下载
+      try {
+        await unlink(task.filePath)
+      } catch { /* 忽略删除失败 */ }
     }
 
     // 4. 发起下载（带超时控制）
+    // DL1: 下载请求携带平台 Referer（按 URL 域名/歌曲源推断），避免 Referer 校验 CDN 下载 403
+    const refererHeaders = getDownloadHeaders(url, task.musicInfo.source)
     const result = downloadFile(url, task.filePath, {
       headers: {
         'User-Agent':
           'Mozilla/5.0 (Linux; Android 10; Pixel 3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/79.0.3945.79 Mobile Safari/537.36',
+        ...(refererHeaders ?? {}),
       },
       connectionTimeout: CONNECTION_TIMEOUT,
       readTimeout: DOWNLOAD_TIMEOUT,
@@ -458,9 +519,10 @@ class DownloadManager {
             ? Math.round((res.bytesWritten / res.contentLength) * 100)
             : 0
         task.progress = Math.min(progress, 100)
-        this.onProgress(task.id, task.progress)
+        this.dispatchProgress(task.id, task.progress)
       },
-      progressDivider: 1,
+      // DL3: progressDivider 每 1MB 回调一次（原 1 每字节），降低进度回调频率
+      progressDivider: 1024 * 1024,
     })
 
     this.currentJobId = result.jobId
@@ -486,14 +548,18 @@ class DownloadManager {
       }
       task.status = 'completed'
       task.progress = 100
-      this.onProgress(task.id, 100)
-      this.onComplete(task.id, true)
+      this.dispatchProgress(task.id, 100)
+      this.dispatchComplete(task.id, true)
     } else if (downloadResult.statusCode === 304) {
-      // 文件未修改，视为已存在（缓存命中）
+      // DL4: 304 缓存命中但需校验文件实际存在（避免"假完成"——文件未落盘却显示完成）
+      const fileStat = await existsFile(task.filePath).catch(() => false)
+      if (!fileStat) {
+        throw new Error('304 缓存命中但文件不存在')
+      }
       task.status = 'completed'
       task.progress = 100
-      this.onProgress(task.id, 100)
-      this.onComplete(task.id, true)
+      this.dispatchProgress(task.id, 100)
+      this.dispatchComplete(task.id, true)
     } else {
       throw new Error(`下载失败，服务器返回状态码: ${downloadResult.statusCode}`)
     }

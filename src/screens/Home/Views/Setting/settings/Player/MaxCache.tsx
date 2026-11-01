@@ -7,7 +7,8 @@ import { useSettingValue } from '@/store/setting/hook'
 import { useI18n } from '@/lang'
 import { updateSetting } from '@/core/common'
 
-const MAX_SIZE = 1024 * 1024 * 1024
+// D2: cacheSize 单位是 MiB，上限按 MiB 计（原 1024*1024*1024 被当字节，形同虚设）
+const MAX_SIZE = 1024
 export default memo(() => {
   const t = useI18n()
   const cacheSize = useSettingValue('player.cacheSize')

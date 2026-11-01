@@ -23,14 +23,14 @@ export const clearTempPlayQuality = () => { tempPlayQuality = null }
 
 const getOtherSourcePromises = new Map()
 export const existTimeExp = /\[\d{1,2}:.*\d{1,4}\]/
-const otherSourceCache = new Map<LX.Music.MusicInfo | LX.Download.ListItem, LX.Music.MusicInfoOnline[]>()
+// C1: 缓存 key 改为稳定字符串（原以对象为 key 导致内存泄漏），并尊重 isRefresh
+const otherSourceCache = new Map<string, LX.Music.MusicInfoOnline[]>()
 
 export const getOtherSource = async(musicInfo: LX.Music.MusicInfo | LX.Download.ListItem, isRefresh = false): Promise<LX.Music.MusicInfoOnline[]> => {
   // if (!isRefresh) {
   //   const cachedInfo = await getOtherSourceFromStore(musicInfo.id)
   //   if (cachedInfo.length) return cachedInfo
   // }
-  if (otherSourceCache.has(musicInfo)) return otherSourceCache.get(musicInfo)!
   let key: string
   let searchMusicInfo: {
     name: string
@@ -58,6 +58,8 @@ export const getOtherSource = async(musicInfo: LX.Music.MusicInfo | LX.Download.
       interval: musicInfo.interval ?? '',
     }
   }
+  // C1: 用稳定字符串 key 查缓存；isRefresh 时绕过
+  if (!isRefresh && otherSourceCache.has(key)) return otherSourceCache.get(key)!
   if (getOtherSourcePromises.has(key)) return getOtherSourcePromises.get(key)
 
   const promise = new Promise<LX.Music.MusicInfoOnline[]>((resolve, reject) => {
@@ -68,9 +70,13 @@ export const getOtherSource = async(musicInfo: LX.Music.MusicInfo | LX.Download.
       reject(new Error('find music timeout'))
     }, 5_000)
     findMusic(searchMusicInfo).then((otherSource) => {
-      if (otherSourceCache.size > 10) otherSourceCache.clear()
+      // C1/C2: LRU 淘汰，超限删除最旧一项（原整体 clear 抖动）；上限调大至 50
+      if (otherSourceCache.size >= 50) {
+        const firstKey = otherSourceCache.keys().next().value
+        if (firstKey != null) otherSourceCache.delete(firstKey)
+      }
       const source = otherSource.map(toNewMusicInfo) as LX.Music.MusicInfoOnline[]
-      otherSourceCache.set(musicInfo, source)
+      otherSourceCache.set(key, source)
       resolve(source)
     }).catch(reject).finally(() => {
       if (timeout) BackgroundTimer.clearTimeout(timeout)

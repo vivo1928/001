@@ -137,6 +137,8 @@ export const setPlayMusicInfo = (listId: string | null, musicInfo: LX.Download.L
 }
 
 export const getList = (listId: string | null): LX.Music.MusicInfo[] | LX.Download.ListItem[] => {
+  // P1: 下载播放尚未接入（下载页为占位组件，且无 downloadList 数据源），返回 []；
+  //     未来接入下载播放时需恢复返回下载列表
   // return listId == LIST_ID_DOWNLOAD ? downloadList : getListMusicSync(listId)
   return listId == LIST_IDS.DOWNLOAD ? [] : getListMusicSync(listId)
 }

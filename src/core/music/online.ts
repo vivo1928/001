@@ -81,12 +81,11 @@ const getMusicUrlConcurrent = async({ musicInfo, candidates, isRefresh, allowTog
   allowToggleSource: boolean
   onToggleSource: (musicInfo?: LX.Music.MusicInfoOnline) => void
 }): Promise<{ url: string, quality: LX.Quality }> => {
-  // 缓存预检：有缓存直接命中（最快），无需等待网络请求
-  const cacheHit = await Promise.all(candidates.map(async(q) => {
-    const url = await getStoreMusicUrl(musicInfo, q)
-    return { q, url }
-  })).then(list => list.find(item => item.url))
-  if (cacheHit?.url) return { url: cacheHit.url, quality: cacheHit.q }
+  // B2: 缓存预检只检查首选（目标）音质——目标音质命中即用；未命中则发起网络请求，
+  //     避免"目标音质无缓存但低音质有缓存"时静默降级（不再用低音质缓存跳过目标音质请求）
+  const targetQuality = candidates[0]
+  const targetCacheUrl = await getStoreMusicUrl(musicInfo, targetQuality)
+  if (targetCacheUrl) return { url: targetCacheUrl, quality: targetQuality }
 
   const requests = candidates.map(async(quality) => {
     const { url, quality: resultQuality, musicInfo: targetMusicInfo, isFromCache } = await handleGetOnlineMusicUrl({ musicInfo, quality, onToggleSource, isRefresh, allowToggleSource })
@@ -105,8 +104,9 @@ const getMusicUrlConcurrent = async({ musicInfo, candidates, isRefresh, allowTog
       p.then((result) => {
         if (fulfilled) return
         fulfilled = true
+        // B3: 换源时只保存到换源曲 key，未换源才保存到原曲 key，避免污染原曲缓存
         if (result.musicInfo.id != musicInfo.id && !result.isFromCache) void saveMusicUrl(result.musicInfo, result.quality, result.url)
-        void saveMusicUrl(musicInfo, result.quality, result.url)
+        else void saveMusicUrl(musicInfo, result.quality, result.url)
         resolve({ url: result.url, quality: result.quality })
       }).catch(() => {
         remaining--
@@ -151,8 +151,9 @@ export const getMusicUrl = async({ musicInfo, quality, isRefresh, allowToggleSou
   }
 
   return handleGetOnlineMusicUrl({ musicInfo, quality, onToggleSource, isRefresh, allowToggleSource }).then(async({ url, quality: resultQuality, musicInfo: targetMusicInfo, isFromCache }) => {
+    // B3: 换源时只保存到换源曲 key，未换源才保存到原曲 key
     if (targetMusicInfo.id != musicInfo.id && !isFromCache) void saveMusicUrl(targetMusicInfo, resultQuality, url)
-    void saveMusicUrl(musicInfo, resultQuality, url)
+    else void saveMusicUrl(musicInfo, resultQuality, url)
     if (forPlayback) await applyAudioModeForQuality(resultQuality)
     return url
   })

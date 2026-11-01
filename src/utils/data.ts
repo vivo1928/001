@@ -1,6 +1,7 @@
 import { getData, saveData, getAllKeys, removeDataMultiple, saveDataMultiple, removeData, getDataMultiple } from '@/plugins/storage'
 import { DEFAULT_SETTING, LIST_IDS, storageDataPrefix, type NAV_ID_Type } from '@/config/constant'
 import { throttle } from './common'
+import { log } from '@/utils/log'
 // import { gzip, ungzip } from '@/utils/nativeModules/gzip'
 // import { readFile, writeFile, temporaryDirectoryPath, unlink } from '@/utils/fs'
 // import { isNotificationsEnabled, openNotificationPermissionActivity, shareText } from '@/utils/nativeModules/utils'
@@ -340,8 +341,45 @@ export const removeListMusics = async(ids: string[]): Promise<void> => {
 }
 
 
-export const getMusicUrl = async(musicInfo: LX.Music.MusicInfo, type: LX.Quality) => getData<string>(`${storageDataPrefix.musicUrl}${musicInfo.id}_${type}`).then((url) => url ?? '')
-export const saveMusicUrl = async(musicInfo: LX.Music.MusicInfo, type: LX.Quality, url: string) => saveData(`${storageDataPrefix.musicUrl}${musicInfo.id}_${type}`, url)
+// B1: URL 缓存 TTL（与常见 CDN 签名有效期对齐，30 分钟）
+const musicUrlTTL = 30 * 60 * 1000
+// B4: URL 缓存上限，超过后按最旧 ts 淘汰
+const musicUrlCacheMax = 500
+let urlCacheLimitCheckTs = 0
+const ensureUrlCacheLimit = async() => {
+  try {
+    // 节流：5 分钟内只检查一次
+    if (Date.now() - urlCacheLimitCheckTs < 5 * 60 * 1000) return
+    urlCacheLimitCheckTs = Date.now()
+    const keys = (await getAllKeys()).filter(key => key.startsWith(storageDataPrefix.musicUrl))
+    if (keys.length <= musicUrlCacheMax) return
+    const datas = await getDataMultiple(keys)
+    const withTs = datas.map(([key, value]) => {
+      let ts = 0
+      if (value && typeof value !== 'string') ts = (value as { ts?: number }).ts ?? 0
+      return { key, ts }
+    }).sort((a, b) => a.ts - b.ts)
+    const toRemove = withTs.slice(0, withTs.length - musicUrlCacheMax).map(item => item.key)
+    await removeDataMultiple(toRemove)
+  } catch (e) {
+    // 淘汰失败不影响 URL 保存
+    log.error('ensureUrlCacheLimit error:', e)
+  }
+}
+
+export const getMusicUrl = async(musicInfo: LX.Music.MusicInfo, type: LX.Quality) => {
+  // B1: URL 缓存带 TTL（新格式 { url, ts }），旧格式字符串视为有效（兼容旧数据）
+  const data = await getData<{ url: string, ts: number } | string>(`${storageDataPrefix.musicUrl}${musicInfo.id}_${type}`)
+  if (!data) return ''
+  if (typeof data === 'string') return data
+  if (Date.now() - data.ts > musicUrlTTL) return ''
+  return data.url
+}
+export const saveMusicUrl = async(musicInfo: LX.Music.MusicInfo, type: LX.Quality, url: string) => {
+  await saveData(`${storageDataPrefix.musicUrl}${musicInfo.id}_${type}`, { url, ts: Date.now() })
+  // B4: 控制 URL 缓存总量，避免无界增长
+  await ensureUrlCacheLimit()
+}
 export const clearMusicUrl = async(keys?: string[]) => {
   if (!keys) keys = (await getAllKeys()).filter(key => key.startsWith(storageDataPrefix.musicUrl))
   await removeDataMultiple(keys)
@@ -350,7 +388,13 @@ export const clearMusicUrl = async(keys?: string[]) => {
 export const qualitys = ['128k', '320k', 'flac', 'flac24bit']
 export const hasMusicUrlByMusic = async(musicInfo: LX.Music.MusicInfo) => {
   return getDataMultiple(qualitys.map(q => `${storageDataPrefix.musicUrl}${musicInfo.id}_${q}`)).then((urls) => {
-    return urls.some(([, url]) => !!url)
+    return urls.some(([, data]) => {
+      if (!data) return false
+      // B1: 新格式检查 TTL，旧格式字符串视为有效
+      if (typeof data === 'string') return true
+      const item = data as { url: string, ts: number }
+      return !!item.url && Date.now() - (item.ts ?? 0) <= musicUrlTTL
+    })
   })
 }
 export const clearMusicUrlByMusic = async(musicInfo: LX.Music.MusicInfo) => {
@@ -360,8 +404,9 @@ export const clearMusicUrlByMusic = async(musicInfo: LX.Music.MusicInfo) => {
 export const getLyric = async(musicInfo: LX.Music.MusicInfo) => getData<LX.Music.LyricInfo>(`${storageDataPrefix.lyric}${musicInfo.id}`).then(lrcInfo => lrcInfo ?? { lyric: '' })
 export const saveLyric = async(musicInfo: LX.Music.MusicInfo, lyricInfo: LX.Music.LyricInfo) => saveData(`${storageDataPrefix.lyric}${musicInfo.id}`, lyricInfo)
 export const clearLyric = async(keys?: string[]) => {
-  if (!keys) keys = (await getAllKeys()).filter(key => key.startsWith(storageDataPrefix.lyric))
-  await removeDataMultiple(keys)
+  // B5: 排除用户手动编辑的歌词（_edited），避免误删
+  const targetKeys = (keys ?? (await getAllKeys()).filter(key => key.startsWith(storageDataPrefix.lyric))).filter(key => !key.endsWith('_edited'))
+  if (targetKeys.length) await removeDataMultiple(targetKeys)
 }
 export const saveEditedLyric = async(musicInfo: LX.Music.MusicInfo, lyricInfo: LX.Music.LyricInfo) => saveData(`${storageDataPrefix.lyric}${musicInfo.id}_edited`, lyricInfo)
 export const clearEditedLyric = async() => {

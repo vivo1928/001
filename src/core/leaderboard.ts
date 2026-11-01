@@ -2,6 +2,7 @@ import leaderboardState, { type Board, type ListDetailInfo } from '@/store/leade
 import leaderboardActions from '@/store/leaderboard/action'
 import { deduplicationList, toNewMusicInfo } from '@/utils'
 import musicSdk from '@/utils/musicSdk'
+import { trimMapLRU } from '@/utils/lru'
 
 /**
  * 获取排行榜内单页歌曲
@@ -108,6 +109,9 @@ const getListLimit = async(source: LX.OnlineSource, bangId: string, page: number
       })
       p++
     } while (result.list.length > 0)
+    // C4: LRU 上限，防嵌套分页缓存与顶层缓存无界增长
+    trimMapLRU(listCache, 100)
+    trimMapLRU(cache, 200)
     return (listCache.get(`${source}__${bangId}__${page}`) as PageCache).data
   }) ?? Promise.reject(new Error('source not found'))
 }
@@ -127,6 +131,8 @@ export const getListDetail = async(id: string, page: number, isRefresh = false):
   let listCache = cache.get(listKey)
   if (!listCache || isRefresh) {
     cache.set(listKey, listCache = new Map<string, PageCache | LX.Music.MusicInfoOnline[]>())
+    // C4: LRU 上限，防顶层缓存无界增长
+    trimMapLRU(cache, 200)
   }
 
   let pageCache = listCache.get(pageKey) as PageCache

@@ -1,4 +1,4 @@
-import TrackPlayer, { State } from 'react-native-track-player'
+import TrackPlayer from 'react-native-track-player'
 import BackgroundTimer from 'react-native-background-timer'
 import { defaultUrl } from '@/config'
 // import { action as playerAction } from '@/store/modules/player'
@@ -101,7 +101,8 @@ const buildTracks = (musicInfo: LX.Player.PlayMusic, url?: LX.Player.Track['url'
   const playHeaders = getPlayHeaders(musicInfo, typeof url == 'string' ? url : '')
   if (url) {
     track.push({
-      id: `${mInfo.id}__//${Math.random()}__//${url}`,
+      // P7: id 不拼入完整签名 URL（防超长与 `__//` 分隔符冲突），URL 单独存 url 字段；固定标记 `1` 区分真实曲，末尾非 default 故 isTempTrack 不误判
+      id: `${mInfo.id}__//${Math.random()}__//1`,
       url,
       title: mInfo.name || 'Unknow',
       artist: mInfo.singer || 'Unknow',
@@ -264,7 +265,8 @@ const updateMetaInfo = async(mInfo: LX.Player.MusicInfo) => {
   //   duration = global.playInfo.duration || 0
   // }
   // console.log('+++++updateMetaInfo+++++', mInfo.name)
-  state.isPlaying = await TrackPlayer.getState() == State.Playing
+  // P9: 用事件驱动的 playerState.isPlay，避免异步 getState() 读到过期状态导致通知栏元数据竞态
+  state.isPlaying = playerState.isPlay
   let artwork = isShowNotificationImage ? mInfo.pic ?? prevArtwork : undefined
   if (mInfo.pic) prevArtwork = mInfo.pic
   let title: string

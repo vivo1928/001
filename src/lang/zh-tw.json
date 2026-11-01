@@ -611,6 +611,7 @@
   "download_quality_master": "臻品母帶",
   "download_quality_atmos": "全景聲",
   "download_quality_atmos_plus": "杜比全景聲",
+  "download_quality_degraded": "該品質不可用，已降級為 {quality}",
   "download_quality_high": "高品音質",
   "download_quality_lossless": "無損音質",
   "download_quality_standard": "標準音質",
