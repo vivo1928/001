@@ -343,6 +343,11 @@ export const removeListMusics = async(ids: string[]): Promise<void> => {
 
 // B1: URL 缓存 TTL（与常见 CDN 签名有效期对齐，30 分钟）
 const musicUrlTTL = 30 * 60 * 1000
+// B1: 自定义音源（user_api_）返回的播放链接为短时签名 URL（酷狗/咪咕/QQ 等依赖自定义源），
+//     5 分钟内命中才可信，过期即重新获取，避免命中已失效签名导致"缓冲中"
+const musicUrlTTLUserApi = 5 * 60 * 1000
+const getMusicUrlTTL = (musicInfo: LX.Music.MusicInfo) =>
+  musicInfo.source.startsWith('user_api_') ? musicUrlTTLUserApi : musicUrlTTL
 // B4: URL 缓存上限，超过后按最旧 ts 淘汰
 const musicUrlCacheMax = 500
 let urlCacheLimitCheckTs = 0
@@ -372,7 +377,7 @@ export const getMusicUrl = async(musicInfo: LX.Music.MusicInfo, type: LX.Quality
   const data = await getData<{ url: string, ts: number } | string>(`${storageDataPrefix.musicUrl}${musicInfo.id}_${type}`)
   if (!data) return ''
   if (typeof data === 'string') return data
-  if (Date.now() - data.ts > musicUrlTTL) return ''
+  if (Date.now() - data.ts > getMusicUrlTTL(musicInfo)) return ''
   return data.url
 }
 export const saveMusicUrl = async(musicInfo: LX.Music.MusicInfo, type: LX.Quality, url: string) => {
@@ -393,7 +398,7 @@ export const hasMusicUrlByMusic = async(musicInfo: LX.Music.MusicInfo) => {
       // B1: 新格式检查 TTL，旧格式字符串视为有效
       if (typeof data === 'string') return true
       const item = data as { url: string, ts: number }
-      return !!item.url && Date.now() - (item.ts ?? 0) <= musicUrlTTL
+      return !!item.url && Date.now() - (item.ts ?? 0) <= getMusicUrlTTL(musicInfo)
     })
   })
 }
