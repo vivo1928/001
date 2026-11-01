@@ -340,8 +340,24 @@ export const removeListMusics = async(ids: string[]): Promise<void> => {
 }
 
 
-export const getMusicUrl = async(musicInfo: LX.Music.MusicInfo, type: LX.Quality) => getData<string>(`${storageDataPrefix.musicUrl}${musicInfo.id}_${type}`).then((url) => url ?? '')
-export const saveMusicUrl = async(musicInfo: LX.Music.MusicInfo, type: LX.Quality, url: string) => saveData(`${storageDataPrefix.musicUrl}${musicInfo.id}_${type}`, url)
+// URL 缓存 TTL：播放链接是短时签名 URL，过期后 CDN 返回 403 导致缓冲中
+const musicUrlTTL = 30 * 60 * 1000
+// 自定义音源（user_api_）返回的链接签名更短（酷狗/咪咕/QQ 等依赖自定义源），5 分钟内才可信
+const musicUrlTTLUserApi = 5 * 60 * 1000
+const getMusicUrlTTL = (musicInfo: LX.Music.MusicInfo) =>
+  musicInfo.source.startsWith('user_api_') ? musicUrlTTLUserApi : musicUrlTTL
+
+export const getMusicUrl = async(musicInfo: LX.Music.MusicInfo, type: LX.Quality) => {
+  // 缓存带 TTL（{ url, ts }），过期返回空串触发重新获取；旧格式字符串无 ts 视为过期
+  const data = await getData<{ url: string, ts: number } | string>(`${storageDataPrefix.musicUrl}${musicInfo.id}_${type}`)
+  if (!data) return ''
+  if (typeof data === 'string') return ''
+  if (Date.now() - data.ts > getMusicUrlTTL(musicInfo)) return ''
+  return data.url
+}
+export const saveMusicUrl = async(musicInfo: LX.Music.MusicInfo, type: LX.Quality, url: string) => {
+  await saveData(`${storageDataPrefix.musicUrl}${musicInfo.id}_${type}`, { url, ts: Date.now() })
+}
 export const clearMusicUrl = async(keys?: string[]) => {
   if (!keys) keys = (await getAllKeys()).filter(key => key.startsWith(storageDataPrefix.musicUrl))
   await removeDataMultiple(keys)
@@ -350,7 +366,12 @@ export const clearMusicUrl = async(keys?: string[]) => {
 export const qualitys = ['128k', '320k', 'flac', 'flac24bit']
 export const hasMusicUrlByMusic = async(musicInfo: LX.Music.MusicInfo) => {
   return getDataMultiple(qualitys.map(q => `${storageDataPrefix.musicUrl}${musicInfo.id}_${q}`)).then((urls) => {
-    return urls.some(([, url]) => !!url)
+    return urls.some(([, data]) => {
+      if (!data) return false
+      if (typeof data === 'string') return false
+      const item = data as { url: string, ts: number }
+      return !!item.url && Date.now() - (item.ts ?? 0) <= getMusicUrlTTL(musicInfo)
+    })
   })
 }
 export const clearMusicUrlByMusic = async(musicInfo: LX.Music.MusicInfo) => {
