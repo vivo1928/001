@@ -116,10 +116,11 @@ const registerPlaybackService = async() => {
   })
 
   TrackPlayer.addEventListener(TPEvent.PlaybackState, async info => {
-    // P3: 临时音源仍全部丢弃；获取 URL 期间仅丢弃过渡态 None，Playing/Paused/Buffering 仍派发，
-    //     避免切歌网络阶段 JS 播放状态滞后
-    if (isTempId()) return
-    if (global.lx.gettingUrlId && info.state === TPState.None) return
+    // P3(回退): 获取 URL 期间或播放临时音源时丢弃全部 PlaybackState，
+    //     切歌网络阶段 native 的 None/Ready/Buffering/Paused 均为旧曲残留或加载过渡态，
+    //     若派发会误触发 pause()/playerWaiting() 中断新曲加载（实测导致切歌后一直缓冲）。
+    //     仅当 URL 就绪（gettingUrlId 清空）后 native 状态才可信、才驱动 JS 播放状态。
+    if (global.lx.gettingUrlId || isTempId()) return
     // let currentIsPlaying = false
 
     switch (info.state) {
