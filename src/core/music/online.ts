@@ -7,6 +7,7 @@ import {
 import { updateListMusics } from '@/core/list'
 import settingState from '@/store/setting/state'
 import { isOfflineError } from '@/utils/message'
+import TrackPlayer from 'react-native-track-player'
 
 import {
   buildLyricInfo,
@@ -130,10 +131,21 @@ export const getMusicUrl = async({ musicInfo, quality, isRefresh, allowToggleSou
 }): Promise<string> => {
   const targetQuality = quality ?? getPlayQuality(settingState.setting['player.playQuality'], musicInfo)
   const cacheMeta = await getMusicUrlMeta(musicInfo, targetQuality)
+
   // 新鲜链接直接命中（命中磁盘缓存，秒播省流量）
   if (cacheMeta.url && !cacheMeta.expired && !isRefresh) {
     if (forPlayback) await applyAudioModeForQuality(targetQuality)
     return cacheMeta.url
+  }
+
+  // 过期链接但整段数据已落在磁盘缓存：直接用旧链接（key 一致命中缓存）。
+  // 避免刷新拿新 URL（新 key）导致播放器重新联网下载、恢复播放时卡顿。
+  if (cacheMeta.url && !isRefresh) {
+    const inCache = await TrackPlayer.isCached(cacheMeta.url).catch(() => false)
+    if (inCache) {
+      if (forPlayback) await applyAudioModeForQuality(targetQuality)
+      return cacheMeta.url
+    }
   }
 
   // 收集可兜底的旧链接：目标音质优先，其次其他音质。断网时用它命中原磁盘缓存离线播放。
