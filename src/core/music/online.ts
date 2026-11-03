@@ -2,9 +2,11 @@ import {
   saveLyric,
   saveMusicUrl,
   getMusicUrl as getStoreMusicUrl,
+  getMusicUrlMeta,
 } from '@/utils/data'
 import { updateListMusics } from '@/core/list'
 import settingState from '@/store/setting/state'
+import { isOfflineError } from '@/utils/message'
 
 import {
   buildLyricInfo,
@@ -127,35 +129,62 @@ export const getMusicUrl = async({ musicInfo, quality, isRefresh, allowToggleSou
   forPlayback?: boolean
 }): Promise<string> => {
   const targetQuality = quality ?? getPlayQuality(settingState.setting['player.playQuality'], musicInfo)
-  const cachedUrl = await getStoreMusicUrl(musicInfo, targetQuality)
-  if (cachedUrl && !isRefresh) {
+  const cacheMeta = await getMusicUrlMeta(musicInfo, targetQuality)
+  // 新鲜链接直接命中（命中磁盘缓存，秒播省流量）
+  if (cacheMeta.url && !cacheMeta.expired && !isRefresh) {
     if (forPlayback) await applyAudioModeForQuality(targetQuality)
-    return cachedUrl
+    return cacheMeta.url
   }
 
-  // 播放场景（未显式指定音质）：并发请求候选音质，谁先拿到有效链接用谁
-  if (!quality) {
-    const candidates = buildCandidateQualities(targetQuality, musicInfo)
-    if (candidates.length > 1) {
-      try {
-        const result = await getMusicUrlConcurrent({ musicInfo, candidates, isRefresh, allowToggleSource, onToggleSource })
-        if (result.url) {
-          // 用实际解析成功的音质判定模式（并发降级时可能是 flac 而非 atmos）
-          if (forPlayback) await applyAudioModeForQuality(result.quality)
-          return result.url
+  // 收集可兜底的旧链接：目标音质优先，其次其他音质。断网时用它命中原磁盘缓存离线播放。
+  const findStaleUrl = async(): Promise<string> => {
+    if (isRefresh) return ''
+    if (cacheMeta.url) return cacheMeta.url
+    const others = (global.lx.qualityList as Partial<Record<string, string[]>> | undefined)?.[musicInfo.source] ?? []
+    for (const q of others) {
+      if (q === targetQuality) continue
+      const meta = await getMusicUrlMeta(musicInfo, q as LX.Quality)
+      if (meta.url) return meta.url
+    }
+    return ''
+  }
+
+  try {
+    // 播放场景（未显式指定音质）：并发请求候选音质，谁先拿到有效链接用谁
+    if (!quality) {
+      const candidates = buildCandidateQualities(targetQuality, musicInfo)
+      if (candidates.length > 1) {
+        try {
+          const result = await getMusicUrlConcurrent({ musicInfo, candidates, isRefresh, allowToggleSource, onToggleSource })
+          if (result.url) {
+            // 用实际解析成功的音质判定模式（并发降级时可能是 flac 而非 atmos）
+            if (forPlayback) await applyAudioModeForQuality(result.quality)
+            return result.url
+          }
+        } catch {
+          // 并发全部失败，回退到单音质请求（保留切源逻辑）
         }
-      } catch {
-        // 并发全部失败，回退到单音质请求（保留切源逻辑）
       }
     }
-  }
 
-  return handleGetOnlineMusicUrl({ musicInfo, quality, onToggleSource, isRefresh, allowToggleSource }).then(async({ url, quality: resultQuality, musicInfo: targetMusicInfo, isFromCache }) => {
-    if (targetMusicInfo.id != musicInfo.id && !isFromCache) void saveMusicUrl(targetMusicInfo, resultQuality, url)
-    void saveMusicUrl(musicInfo, resultQuality, url)
-    if (forPlayback) await applyAudioModeForQuality(resultQuality)
-    return url
-  })
+    return await handleGetOnlineMusicUrl({ musicInfo, quality, onToggleSource, isRefresh, allowToggleSource }).then(async({ url, quality: resultQuality, musicInfo: targetMusicInfo, isFromCache }) => {
+      if (targetMusicInfo.id != musicInfo.id && !isFromCache) void saveMusicUrl(targetMusicInfo, resultQuality, url)
+      void saveMusicUrl(musicInfo, resultQuality, url)
+      if (forPlayback) await applyAudioModeForQuality(resultQuality)
+      return url
+    })
+  } catch (err) {
+    // 断网/超时：不抛出，改用旧链接让播放器命中磁盘缓存继续离线播放
+    if (isOfflineError(err)) {
+      const staleUrl = await findStaleUrl()
+      if (staleUrl) {
+        console.log('[getMusicUrl] offline, fallback to stale url:', musicInfo.name)
+        if (forPlayback) await applyAudioModeForQuality(targetQuality)
+        return staleUrl
+      }
+    }
+    throw err
+  }
 }
 
 export const getPicUrl = async({ musicInfo, listId, isRefresh, allowToggleSource = true, onToggleSource = () => {} }: {

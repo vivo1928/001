@@ -7,3 +7,16 @@ export const requestMsg = {
   cancelRequest: '取消http请求',
   tooManyRequests: '服务器繁忙',
 } as const
+
+/**
+ * 判断错误是否属于"网络不可用"（断网/连接失败/超时）。
+ * 用于在线刷新链接失败时回退到旧链接、命中磁盘缓存离线播放。
+ */
+export const isOfflineError = (err: unknown): boolean => {
+  const message = err instanceof Error ? err.message : (typeof err === 'string' ? err : '')
+  if (!message) return false
+  return message === requestMsg.notConnectNetwork ||
+    message === requestMsg.timeout ||
+    /network request failed|network error|failed to fetch|enotfound|econnrefused|etimedout|offline/i.test(message)
+}
+

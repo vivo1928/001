@@ -347,13 +347,23 @@ const musicUrlTTLUserApi = 5 * 60 * 1000
 const getMusicUrlTTL = (musicInfo: LX.Music.MusicInfo) =>
   musicInfo.source.startsWith('user_api_') ? musicUrlTTLUserApi : musicUrlTTL
 
-export const getMusicUrl = async(musicInfo: LX.Music.MusicInfo, type: LX.Quality) => {
-  // 缓存带 TTL（{ url, ts }），过期返回空串触发重新获取；旧格式字符串无 ts 视为过期
+/**
+ * 读取缓存的播放链接及其元信息（不做过期过滤）。
+ * 过期链接不删除而是保留：离线时可用旧链接去命中 ExoPlayer 磁盘缓存继续播放。
+ * 旧格式纯字符串没有 ts，视为已过期但保留 url 供离线兜底。
+ */
+export const getMusicUrlMeta = async(musicInfo: LX.Music.MusicInfo, type: LX.Quality): Promise<{ url: string, ts: number, expired: boolean }> => {
   const data = await getData<{ url: string, ts: number } | string>(`${storageDataPrefix.musicUrl}${musicInfo.id}_${type}`)
-  if (!data) return ''
-  if (typeof data === 'string') return ''
-  if (Date.now() - data.ts > getMusicUrlTTL(musicInfo)) return ''
-  return data.url
+  if (!data) return { url: '', ts: 0, expired: true }
+  if (typeof data === 'string') return { url: data, ts: 0, expired: true }
+  const ts = data.ts ?? 0
+  return { url: data.url || '', ts, expired: !data.url || Date.now() - ts > getMusicUrlTTL(musicInfo) }
+}
+
+export const getMusicUrl = async(musicInfo: LX.Music.MusicInfo, type: LX.Quality) => {
+  // 只返回新鲜链接；过期/旧格式返回空串，触发上层重新获取
+  const meta = await getMusicUrlMeta(musicInfo, type)
+  return meta.expired ? '' : meta.url
 }
 export const saveMusicUrl = async(musicInfo: LX.Music.MusicInfo, type: LX.Quality, url: string) => {
   await saveData(`${storageDataPrefix.musicUrl}${musicInfo.id}_${type}`, { url, ts: Date.now() })
@@ -368,9 +378,10 @@ export const hasMusicUrlByMusic = async(musicInfo: LX.Music.MusicInfo) => {
   return getDataMultiple(qualitys.map(q => `${storageDataPrefix.musicUrl}${musicInfo.id}_${q}`)).then((urls) => {
     return urls.some(([, data]) => {
       if (!data) return false
-      if (typeof data === 'string') return false
+      // 过期链接仍可用于离线命中缓存，也算"有缓存"
+      if (typeof data === 'string') return !!data
       const item = data as { url: string, ts: number }
-      return !!item.url && Date.now() - (item.ts ?? 0) <= getMusicUrlTTL(musicInfo)
+      return !!item.url
     })
   })
 }
