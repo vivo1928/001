@@ -2,6 +2,7 @@ import { getMusicUrl } from '@/core/music'
 import { getNextPlayMusicInfo, resetRandomNextMusicInfo } from '@/core/player/player'
 import { checkUrl } from '@/utils/request'
 import { isCached } from '@/plugins/player/utils'
+import { getPlayCacheKeyByMusicInfo } from '@/utils/data'
 
 
 // 距歌曲结束多少秒开始预加载下一首。
@@ -34,9 +35,11 @@ const preloadNextMusicUrl = async() => {
 
     const url = await getMusicUrl({ musicInfo: info.musicInfo }).catch(() => '')
     if (!url) return
-    // 已进入播放器缓存则无需再校验；否则发一个轻量 HEAD 预热 CDN 连接并确认链接可用。
+    // 磁盘缓存按"音源+歌曲+音质"固定 key 索引，isCached 须用稳定 key 判断；
+    // 已进入磁盘缓存则无需再校验；否则发一个轻量 HEAD 预热 CDN 连接并确认链接可用。
+    const cacheKey = getPlayCacheKeyByMusicInfo(info.musicInfo)
     const [cached, available] = await Promise.all([
-      isCached(url),
+      cacheKey ? isCached(cacheKey) : Promise.resolve(false),
       checkUrl(url).then(() => true).catch(() => false),
     ])
     // 链接既不在缓存又不可用，说明临时链接已失效，刷新一次拿到新链接

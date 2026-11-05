@@ -3,6 +3,9 @@ import {
   saveMusicUrl,
   getMusicUrl as getStoreMusicUrl,
   getMusicUrlMeta,
+  savePlayCacheKey,
+  getPlayCacheKey,
+  getPlayCacheKeyByMusicInfo,
 } from '@/utils/data'
 import { updateListMusics } from '@/core/list'
 import settingState from '@/store/setting/state'
@@ -134,6 +137,7 @@ export const getMusicUrl = async({ musicInfo, quality, isRefresh, allowToggleSou
 
   // 新鲜链接直接命中（命中磁盘缓存，秒播省流量）
   if (cacheMeta.url && !cacheMeta.expired && !isRefresh) {
+    savePlayCacheKey(musicInfo, targetQuality, cacheMeta.url)
     if (forPlayback) await applyAudioModeForQuality(targetQuality)
     return cacheMeta.url
   }
@@ -141,24 +145,32 @@ export const getMusicUrl = async({ musicInfo, quality, isRefresh, allowToggleSou
   // 过期链接但整段数据已落在磁盘缓存：直接用旧链接（key 一致命中缓存）。
   // 避免刷新拿新 URL（新 key）导致播放器重新联网下载、恢复播放时卡顿。
   if (cacheMeta.url && !isRefresh) {
-    const inCache = await TrackPlayer.isCached(cacheMeta.url).catch(() => false)
+    const inCache = await TrackPlayer.isCached(getPlayCacheKeyByMusicInfo(musicInfo) || getPlayCacheKey(musicInfo, targetQuality)).catch(() => false)
     if (inCache) {
+      savePlayCacheKey(musicInfo, targetQuality, cacheMeta.url)
       if (forPlayback) await applyAudioModeForQuality(targetQuality)
       return cacheMeta.url
     }
   }
 
   // 收集可兜底的旧链接：目标音质优先，其次其他音质。断网时用它命中原磁盘缓存离线播放。
-  const findStaleUrl = async(): Promise<string> => {
-    if (isRefresh) return ''
-    if (cacheMeta.url) return cacheMeta.url
+  // 优先选"磁盘缓存里实际有数据"的音质，并返回对应音质，保证稳定 cacheKey 命中。
+  const findStale = async(): Promise<{ url: string, quality: LX.Quality } | null> => {
+    if (isRefresh) return null
+    const candidates: LX.Quality[] = [targetQuality]
     const others = (global.lx.qualityList as Partial<Record<string, string[]>> | undefined)?.[musicInfo.source] ?? []
     for (const q of others) {
       if (q === targetQuality) continue
-      const meta = await getMusicUrlMeta(musicInfo, q as LX.Quality)
-      if (meta.url) return meta.url
+      candidates.push(q as LX.Quality)
     }
-    return ''
+    for (const q of candidates) {
+      const meta = await getMusicUrlMeta(musicInfo, q)
+      if (!meta.url) continue
+      if (!forPlayback) return { url: meta.url, quality: q }
+      const inCache = await TrackPlayer.isCached(getPlayCacheKey(musicInfo, q)).catch(() => false)
+      if (inCache) return { url: meta.url, quality: q }
+    }
+    return null
   }
 
   try {
@@ -170,6 +182,7 @@ export const getMusicUrl = async({ musicInfo, quality, isRefresh, allowToggleSou
           const result = await getMusicUrlConcurrent({ musicInfo, candidates, isRefresh, allowToggleSource, onToggleSource })
           if (result.url) {
             // 用实际解析成功的音质判定模式（并发降级时可能是 flac 而非 atmos）
+            savePlayCacheKey(musicInfo, result.quality, result.url)
             if (forPlayback) await applyAudioModeForQuality(result.quality)
             return result.url
           }
@@ -182,17 +195,19 @@ export const getMusicUrl = async({ musicInfo, quality, isRefresh, allowToggleSou
     return await handleGetOnlineMusicUrl({ musicInfo, quality, onToggleSource, isRefresh, allowToggleSource }).then(async({ url, quality: resultQuality, musicInfo: targetMusicInfo, isFromCache }) => {
       if (targetMusicInfo.id != musicInfo.id && !isFromCache) void saveMusicUrl(targetMusicInfo, resultQuality, url)
       void saveMusicUrl(musicInfo, resultQuality, url)
+      savePlayCacheKey(musicInfo, resultQuality, url)
       if (forPlayback) await applyAudioModeForQuality(resultQuality)
       return url
     })
   } catch (err) {
-    // 断网/超时：不抛出，改用旧链接让播放器命中磁盘缓存继续离线播放
+    // 断网/超时：不抛出，改用磁盘缓存里实际有数据的旧链接继续离线播放
     if (isOfflineError(err)) {
-      const staleUrl = await findStaleUrl()
-      if (staleUrl) {
+      const stale = await findStale()
+      if (stale?.url) {
         console.log('[getMusicUrl] offline, fallback to stale url:', musicInfo.name)
-        if (forPlayback) await applyAudioModeForQuality(targetQuality)
-        return staleUrl
+        savePlayCacheKey(musicInfo, stale.quality, stale.url)
+        if (forPlayback) await applyAudioModeForQuality(stale.quality)
+        return stale.url
       }
     }
     throw err

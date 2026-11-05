@@ -4,6 +4,7 @@ import { defaultUrl } from '@/config'
 // import { action as playerAction } from '@/store/modules/player'
 import settingState from '@/store/setting/state'
 import playerState from '@/store/player/state'
+import { getPlayCacheKeyByMusicInfo } from '@/utils/data'
 
 
 const list: LX.Player.Track[] = []
@@ -91,6 +92,13 @@ const getCurrentFullLyric = (targetId: string | null) => {
     : undefined
 }
 
+// 提取在线音乐信息（下载列表项需要从 metadata 取）
+const getPlayCacheMusicInfo = (musicInfo: LX.Player.PlayMusic): LX.Music.MusicInfo | null => {
+  if ('metadata' in musicInfo && musicInfo.metadata?.musicInfo) return musicInfo.metadata.musicInfo
+  if ('source' in musicInfo && musicInfo.source && musicInfo.id != null) return musicInfo as LX.Music.MusicInfo
+  return null
+}
+
 const buildTracks = (musicInfo: LX.Player.PlayMusic, url?: LX.Player.Track['url'], duration?: LX.Player.Track['duration']): LX.Player.Track[] => {
   const mInfo = formatMusicInfo(musicInfo)
   const track = [] as LX.Player.Track[]
@@ -99,6 +107,9 @@ const buildTracks = (musicInfo: LX.Player.PlayMusic, url?: LX.Player.Track['url'
   const artwork = isShowNotificationImage && mInfo.pic && httpRxp.test(mInfo.pic) ? mInfo.pic : undefined
   const lyric = getCurrentFullLyric(mInfo.id)
   const playHeaders = getPlayHeaders(musicInfo, typeof url == 'string' ? url : '')
+  // 稳定磁盘缓存 key：同首歌同音质约定同一 key，让 ExoPlayer 命中之前边播边缓存的数据，
+  // 无需等待重新解析 URL（在线歌曲点击即播、断网也能播已缓存歌曲）。
+  const cacheKey = getPlayCacheMusicInfo(musicInfo) ? getPlayCacheKeyByMusicInfo(getPlayCacheMusicInfo(musicInfo) as LX.Music.MusicInfo) : undefined
   if (url) {
     track.push({
       id: `${mInfo.id}__//${Math.random()}__//${url}`,
@@ -112,6 +123,7 @@ const buildTracks = (musicInfo: LX.Player.PlayMusic, url?: LX.Player.Track['url'
       musicId: mInfo.id,
       lyric,
       // original: { ...musicInfo },
+      ...(cacheKey ? { cacheKey } : null),
       duration,
     })
   }

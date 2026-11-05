@@ -235,5 +235,93 @@ const rootPath = path.join(__dirname, './')
     console.error('Patch MusicEvents failed:', err.message)
   }
 
+  // ===== 稳定缓存 key（边存边播）=====
+  // ExoPlayer 默认的磁盘缓存 key 由完整 URL 派生，每次刷新拿到新签名 URL 就等于新的
+  // 缓存 key，之前边播边缓存的数据再也命中不了，导致重复下载、无法离线播。
+  // 这里给 track 增加可选 cacheKey 字段：JS 侧对"歌曲+音质"算出固定哈希，
+  // 原生 CacheDataSource 用该固定 key 读写磁盘缓存，实现边存边播 + 下次直接命中。
+  const trackPath = path.join(rootPath, 'node_modules/react-native-track-player/android/src/main/java/com/guichaguri/trackplayer/service/models/Track.java')
+
+  const trackPatches = [
+    [
+      '    public String contentType;\n    public String userAgent;',
+      '    public String contentType;\n    public String userAgent;\n\n    public String cacheKey;',
+    ],
+    [
+      '        contentType = bundle.getString("contentType");\n        userAgent = bundle.getString("userAgent");',
+      '        contentType = bundle.getString("contentType");\n        userAgent = bundle.getString("userAgent");\n        cacheKey = bundle.getString("cacheKey");',
+    ],
+    [
+      '            ds = playback.enableCaching(factory);',
+      '            ds = playback.enableCaching(factory, cacheKey);',
+    ],
+  ]
+
+  try {
+    let file = (await fs.promises.readFile(trackPath)).toString()
+    if (file.includes('public String cacheKey;')) {
+      console.log('  Track.java cacheKey already patched')
+    } else {
+      for (const [fromStr, toStr] of trackPatches) {
+        if (!file.includes(fromStr)) {
+          console.warn('  WARNING: Track.java pattern not found: ' + fromStr.substring(0, 50))
+          continue
+        }
+        file = file.replace(fromStr, toStr)
+        console.log('  Patch Track.java: OK')
+      }
+      await fs.promises.writeFile(trackPath, file)
+      console.log('Track.java cacheKey patch: OK')
+    }
+  } catch (err) {
+    console.error('Patch Track.java failed:', err.message)
+  }
+
+  const localPlaybackPath = path.join(rootPath, 'node_modules/react-native-track-player/android/src/main/java/com/guichaguri/trackplayer/service/player/LocalPlayback.java')
+
+  const enableCachingOld = `    public DataSource.Factory enableCaching(DataSource.Factory ds) {
+        if(cache == null || cacheMaxSize <= 0) return ds;
+
+        return new CacheDataSource.Factory()
+                                .setCache(cache)
+                                .setUpstreamDataSourceFactory(ds)
+                                .setFlags(CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR);
+    }`
+  const enableCachingNew = `    public DataSource.Factory enableCaching(DataSource.Factory ds) {
+        return enableCaching(ds, null);
+    }
+
+    public DataSource.Factory enableCaching(DataSource.Factory ds, String cacheKey) {
+        if(cache == null || cacheMaxSize <= 0) return ds;
+
+        CacheDataSource.Factory factory = new CacheDataSource.Factory()
+                                .setCache(cache)
+                                .setUpstreamDataSourceFactory(ds)
+                                .setFlags(CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR);
+
+        if(cacheKey != null && !cacheKey.isEmpty()) {
+            // 固定缓存 key：同一首歌同一音质永远命中同一块磁盘缓存，
+            // 即便签名 URL 已被刷新也不影响命中（标准实现）。
+            factory.setCacheKeyFactory(dataSpec -> cacheKey);
+        }
+
+        return factory;
+    }`
+
+  try {
+    let file = (await fs.promises.readFile(localPlaybackPath)).toString()
+    if (file.includes('enableCaching(DataSource.Factory ds, String cacheKey)')) {
+      console.log('  LocalPlayback.java cacheKey already patched')
+    } else if (file.includes(enableCachingOld)) {
+      file = file.replace(enableCachingOld, enableCachingNew)
+      await fs.promises.writeFile(localPlaybackPath, file)
+      console.log('LocalPlayback.java cacheKey patch: OK')
+    } else {
+      console.warn('  WARNING: LocalPlayback.java enableCaching pattern not found')
+    }
+  } catch (err) {
+    console.error('Patch LocalPlayback.java failed:', err.message)
+  }
+
   console.log('\nDependencies patch finished.\n')
 })()

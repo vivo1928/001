@@ -77,6 +77,8 @@ declare global {
 
       interface Track extends RNTrack {
         musicId: string
+        /** 稳定磁盘缓存 key（音源+歌曲id+音质），ExoPlayer 据此命中固定缓存 */
+        cacheKey?: string
         // original: PlayMusic
         // quality: LX.Quality
       }

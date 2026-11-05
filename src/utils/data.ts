@@ -340,6 +340,29 @@ export const removeListMusics = async(ids: string[]): Promise<void> => {
 }
 
 
+// 稳定磁盘缓存 key：ExoPlayer 默认用完整 URL 派生缓存 key，URL 刷新后就命中不了旧缓存。
+// 这里按"音源+歌曲id+音质"生成固定 key，配合原生 Track.cacheKey 实现边存边播：
+// 同一首歌同一音质永远命中同一块磁盘缓存，无论签名 URL 怎么刷新。
+export const getPlayCacheKey = (musicInfo: LX.Music.MusicInfo, quality: LX.Quality) =>
+`lx:${musicInfo.source}:${quality}:${musicInfo.id}`.replace(/[:/\\?&=#% ]/g, '_')
+
+/**
+ * 最近一次为播放解析成功的 URL 对应的稳定缓存 key。
+ * 恢复播放 / buildTracks 时读它生成 track.cacheKey，让 ExoPlayer 命中同一块磁盘缓存。
+ * 键用"音源+歌曲id"，避免不同音源同 id 互相污染。
+ */
+let playCacheKeyMap = {} as Record<string, string>
+const playCacheKeyMapId = (music: LX.Music.MusicInfo) => `${music.source}_${music.id}`
+export const savePlayCacheKey = (musicInfo: LX.Music.MusicInfo, quality: LX.Quality, url: string) => {
+  if (!url) return
+  playCacheKeyMap[playCacheKeyMapId(musicInfo)] = getPlayCacheKey(musicInfo, quality)
+}
+export const getPlayCacheKeyByMusicInfo = (musicInfo: LX.Music.MusicInfo) =>
+  playCacheKeyMap[playCacheKeyMapId(musicInfo)] ?? ''
+export const clearPlayCacheKeys = () => {
+  playCacheKeyMap = {}
+}
+
 // URL 缓存 TTL：播放链接是短时签名 URL，过期后 CDN 返回 403 导致缓冲中
 const musicUrlTTL = 30 * 60 * 1000
 // 自定义音源（user_api_）返回的链接签名更短（酷狗/咪咕/QQ 等依赖自定义源），5 分钟内才可信
