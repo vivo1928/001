@@ -323,5 +323,60 @@ const rootPath = path.join(__dirname, './')
     console.error('Patch LocalPlayback.java failed:', err.message)
   }
 
+  // ===== 完整缓存判定（修正 isCached 只判断"有任意缓存"的问题）=====
+  // 原生 isCached 用 cache.getCachedSpans(key) 判空，只要有任意一段缓存就返回 true。
+  // 边存边播时刚播了几秒就有缓存，于是被误判为"整首已缓存"，断网/过期链接兜底时
+  // 播到中途才发现数据缺失。这里改为"整段是否全部落盘"：
+  // - exo_len（内容总长度）由 CacheDataSource 在拿到 Content-Length 或读到 EOF 时写入元数据；
+  // - cache.isCached(key, 0, contentLength) 判定 [0, contentLength) 区间连续无空洞；
+  // - 仅当 contentLength 已知且区间完整覆盖时才算"整首已缓存"。
+  // 保守策略：总长度未知（还没读到 EOF）时一律返回 false，避免误判。
+  const isCachedOld = `    public void isCached(String url, Promise promise) {
+        if (cache == null) {
+          promise.resolve(false);
+          return;
+        }
+        NavigableSet<CacheSpan> cachedSpans = cache.getCachedSpans(url);
+        promise.resolve(!cachedSpans.isEmpty());
+    }`
+  const isCachedNew = `    public void isCached(String url, Promise promise) {
+        if (cache == null) {
+          promise.resolve(false);
+          return;
+        }
+        // 完整缓存判定：内容总长度已知（exo_len）且 [0, contentLength) 区间连续无空洞才算命中。
+        // Cache.isCached 语义正是"区间完整覆盖"，避免"只缓存了开头几秒"被误判为整首可离线播放。
+        long contentLength = ContentMetadata.getContentLength(cache.getContentMetadata(url));
+        if (contentLength == C.LENGTH_UNSET) {
+          promise.resolve(false);
+          return;
+        }
+        promise.resolve(cache.isCached(url, 0, contentLength));
+    }`
+  const contentMetadataImportOld = 'import androidx.media3.datasource.cache.CacheSpan;'
+  const contentMetadataImportNew = 'import androidx.media3.datasource.cache.CacheSpan;\nimport androidx.media3.datasource.cache.ContentMetadata;'
+
+  try {
+    let file = (await fs.promises.readFile(localPlaybackPath)).toString()
+    if (file.includes('cache.isCached(url, 0, contentLength)')) {
+      console.log('  LocalPlayback.java isCached(full) already patched')
+    } else if (file.includes(isCachedOld)) {
+      if (!file.includes('import androidx.media3.datasource.cache.ContentMetadata;')) {
+        if (file.includes(contentMetadataImportOld)) {
+          file = file.replace(contentMetadataImportOld, contentMetadataImportNew)
+        } else {
+          console.warn('  WARNING: LocalPlayback.java ContentMetadata import anchor not found')
+        }
+      }
+      file = file.replace(isCachedOld, isCachedNew)
+      await fs.promises.writeFile(localPlaybackPath, file)
+      console.log('LocalPlayback.java isCached(full) patch: OK')
+    } else {
+      console.warn('  WARNING: LocalPlayback.java isCached pattern not found')
+    }
+  } catch (err) {
+    console.error('Patch LocalPlayback.java isCached failed:', err.message)
+  }
+
   console.log('\nDependencies patch finished.\n')
 })()

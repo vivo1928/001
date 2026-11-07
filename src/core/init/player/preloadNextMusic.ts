@@ -36,7 +36,8 @@ const preloadNextMusicUrl = async() => {
     const url = await getMusicUrl({ musicInfo: info.musicInfo }).catch(() => '')
     if (!url) return
     // 磁盘缓存按"音源+歌曲+音质"固定 key 索引，isCached 须用稳定 key 判断；
-    // 已进入磁盘缓存则无需再校验；否则发一个轻量 HEAD 预热 CDN 连接并确认链接可用。
+    // isCached 返回 true 表示整首数据已完整落盘（原生按 exo_len 全量校验），
+    // 已完整缓存则无需再校验；否则发一个轻量 HEAD 预热 CDN 连接并确认链接可用。
     const cacheKey = getPlayCacheKeyByMusicInfo(info.musicInfo)
     const [cached, available] = await Promise.all([
       cacheKey ? isCached(cacheKey) : Promise.resolve(false),

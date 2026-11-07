@@ -155,7 +155,8 @@ export const getMusicUrl = async({ musicInfo, quality, isRefresh, allowToggleSou
   }
 
   // 收集可兜底的旧链接：目标音质优先，其次其他音质。断网时用它命中原磁盘缓存离线播放。
-  // 优先选"磁盘缓存里实际有数据"的音质，并返回对应音质，保证稳定 cacheKey 命中。
+  // 只选"整首已完整缓存"（isCached 按 exo_len 全量校验）的音质，避免播放到一半缺数据卡死，
+  // 并返回对应音质，保证稳定 cacheKey 命中。
   const findStale = async(): Promise<{ url: string, quality: LX.Quality } | null> => {
     if (isRefresh) return null
     const candidates: LX.Quality[] = [targetQuality]
