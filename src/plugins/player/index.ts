@@ -25,10 +25,11 @@ const initial = async({ volume, playRate, cacheSize, isHandleAudioFocus, isEnabl
 }) => {
   if (global.lx.playerStatus.isIniting || global.lx.playerStatus.isInitialized) return
   global.lx.playerStatus.isIniting = true
-  console.log('Cache Size', cacheSize * 1024)
+  console.log('Cache Size (KiB)', cacheSize * 1000 * 1000 / 1024)
   await migratePlayerCache()
   await TrackPlayer.setupPlayer({
-    maxCacheSize: cacheSize * 1024,
+    // 设置值单位为十进制 MB（与 sizeFormate 的 MB 显示口径一致）；桥接层 maxCacheSize 单位是 KiB（原生再 x1024 得字节）
+    maxCacheSize: cacheSize * 1000 * 1000 / 1024,
     // 缓冲区调优（单位：秒，Android 原生确实读取这四项，见 fork 的 MusicManager.createLocalPlayback）：
     // - playBuffer：攒够多少秒才开始出声。起播不求攒够时长，一有解码数据就出声，故设为 0。
     // - minBuffer：播放过程中持续保持的最小缓冲量。15 秒足够，能少占带宽、加快首段缓冲。
