@@ -3,7 +3,7 @@ import {
   saveMusicUrl,
   getMusicUrl as getStoreMusicUrl,
   getMusicUrlMeta,
-  savePlayCacheKey,
+  getMusicUrlMetas,
   getPlayCacheKey,
 } from '@/utils/data'
 import { updateListMusics } from '@/core/list'
@@ -130,47 +130,40 @@ export const getMusicUrl = async({ musicInfo, quality, isRefresh, allowToggleSou
   onToggleSource?: (musicInfo?: LX.Music.MusicInfoOnline) => void
   /** 是否用于真正播放（决定是否按音质切换 EQ/offload 输出模式）；预取/下载传 false */
   forPlayback?: boolean
-}): Promise<string> => {
+}): Promise<{ url: string, cacheKey: string }> => {
   const targetQuality = quality ?? getPlayQuality(settingState.setting['player.playQuality'], musicInfo)
   const cacheMeta = await getMusicUrlMeta(musicInfo, targetQuality)
 
   // 新鲜链接直接命中（命中磁盘缓存，秒播省流量）
   if (cacheMeta.url && !cacheMeta.expired && !isRefresh) {
-    savePlayCacheKey(musicInfo, targetQuality, cacheMeta.url)
     if (forPlayback) await applyAudioModeForQuality(targetQuality)
-    return cacheMeta.url
+    return { url: cacheMeta.url, cacheKey: getPlayCacheKey(musicInfo, targetQuality) }
   }
 
   // 过期链接但整段数据已落在磁盘缓存：直接用旧链接（key 一致命中缓存）。
   // 避免刷新拿新 URL（新 key）导致播放器重新联网下载、恢复播放时卡顿。
   // 必须用 targetQuality 对应的稳定 key 判断：cacheMeta.url 是按 targetQuality 存的旧链接，
-  // 若用 Map 里「上次成功音质」的 key 判断，音质不一致时会误判命中并返回过期链接（403）。
+  // 若用其他音质的 key 判断，音质不一致时会误判命中并返回过期链接（403）。
   if (cacheMeta.url && !isRefresh) {
     const inCache = await TrackPlayer.isCached(getPlayCacheKey(musicInfo, targetQuality)).catch(() => false)
     if (inCache) {
-      savePlayCacheKey(musicInfo, targetQuality, cacheMeta.url)
       if (forPlayback) await applyAudioModeForQuality(targetQuality)
-      return cacheMeta.url
+      return { url: cacheMeta.url, cacheKey: getPlayCacheKey(musicInfo, targetQuality) }
     }
   }
 
   // 收集可兜底的旧链接：目标音质优先，其次其他音质。断网时用它命中原磁盘缓存离线播放。
-  // 只选"整首已完整缓存"（isCached 按 exo_len 全量校验）的音质，避免播放到一半缺数据卡死，
-  // 并返回对应音质，保证稳定 cacheKey 命中。
+  // 直接枚举存储里该歌曲全部已记录链接（含换源/其他音质解析留下的记录），
+  // 不局限于当前音源声明的 qualityList；只选"整首已完整缓存"（isCached 按 exo_len 全量校验）
+  // 的音质，避免播放到一半缺数据卡死，并返回对应音质，保证稳定 cacheKey 命中。
   const findStale = async(): Promise<{ url: string, quality: LX.Quality } | null> => {
     if (isRefresh) return null
-    const candidates: LX.Quality[] = [targetQuality]
-    const others = (global.lx.qualityList as Partial<Record<string, string[]>> | undefined)?.[musicInfo.source] ?? []
-    for (const q of others) {
-      if (q === targetQuality) continue
-      candidates.push(q as LX.Quality)
-    }
-    for (const q of candidates) {
-      const meta = await getMusicUrlMeta(musicInfo, q)
-      if (!meta.url) continue
-      if (!forPlayback) return { url: meta.url, quality: q }
-      const inCache = await TrackPlayer.isCached(getPlayCacheKey(musicInfo, q)).catch(() => false)
-      if (inCache) return { url: meta.url, quality: q }
+    const metas = await getMusicUrlMetas(musicInfo)
+    metas.sort((a, b) => (a.quality == targetQuality ? -1 : b.quality == targetQuality ? 1 : 0))
+    for (const meta of metas) {
+      if (!forPlayback) return { url: meta.url, quality: meta.quality }
+      const inCache = await TrackPlayer.isCached(getPlayCacheKey(musicInfo, meta.quality)).catch(() => false)
+      if (inCache) return { url: meta.url, quality: meta.quality }
     }
     return null
   }
@@ -183,10 +176,10 @@ export const getMusicUrl = async({ musicInfo, quality, isRefresh, allowToggleSou
         try {
           const result = await getMusicUrlConcurrent({ musicInfo, candidates, isRefresh, allowToggleSource, onToggleSource })
           if (result.url) {
-            // 用实际解析成功的音质判定模式（并发降级时可能是 flac 而非 atmos）
-            savePlayCacheKey(musicInfo, result.quality, result.url)
+            // 用实际解析成功的音质判定模式（并发降级时返回的可能是降级音质，如 flac 代替 atmos），
+            // 并返回它对应的稳定 cacheKey，保证播放 track 命中同一块磁盘缓存
             if (forPlayback) await applyAudioModeForQuality(result.quality)
-            return result.url
+            return { url: result.url, cacheKey: getPlayCacheKey(musicInfo, result.quality) }
           }
         } catch {
           // 并发全部失败，回退到单音质请求（保留切源逻辑）
@@ -197,9 +190,8 @@ export const getMusicUrl = async({ musicInfo, quality, isRefresh, allowToggleSou
     return await handleGetOnlineMusicUrl({ musicInfo, quality, onToggleSource, isRefresh, allowToggleSource }).then(async({ url, quality: resultQuality, musicInfo: targetMusicInfo, isFromCache }) => {
       if (targetMusicInfo.id != musicInfo.id && !isFromCache) void saveMusicUrl(targetMusicInfo, resultQuality, url)
       void saveMusicUrl(musicInfo, resultQuality, url)
-      savePlayCacheKey(musicInfo, resultQuality, url)
       if (forPlayback) await applyAudioModeForQuality(resultQuality)
-      return url
+      return { url, cacheKey: getPlayCacheKey(musicInfo, resultQuality) }
     })
   } catch (err) {
     // 断网/超时：不抛出，改用磁盘缓存里实际有数据的旧链接继续离线播放
@@ -207,9 +199,8 @@ export const getMusicUrl = async({ musicInfo, quality, isRefresh, allowToggleSou
       const stale = await findStale()
       if (stale?.url) {
         console.log('[getMusicUrl] offline, fallback to stale url:', musicInfo.name)
-        savePlayCacheKey(musicInfo, stale.quality, stale.url)
         if (forPlayback) await applyAudioModeForQuality(stale.quality)
-        return stale.url
+        return { url: stale.url, cacheKey: getPlayCacheKey(musicInfo, stale.quality) }
       }
     }
     throw err

@@ -34,13 +34,13 @@ export const getMusicUrl = async({
   onToggleSource?: (musicInfo?: LX.Music.MusicInfoOnline) => void
   allowToggleSource?: boolean
   forPlayback?: boolean
-}): Promise<string> => {
+}): Promise<LX.Player.MusicUrlResult> => {
   if ('progress' in musicInfo) {
     if (forPlayback) await applyAudioModeForQuality(null)
     return getDownloadMusicUrl({ musicInfo, isRefresh, onToggleSource, allowToggleSource })
   } else if (musicInfo.source == 'local') {
     if (forPlayback) await applyAudioModeForQuality(null)
-    return getLocalMusicUrl({ musicInfo, isRefresh, onToggleSource, allowToggleSource })
+    return getLocalMusicUrl({ musicInfo, isRefresh, onToggleSource, allowToggleSource }).then(url => ({ url }))
   } else {
     return getOnlineMusicUrl({ musicInfo, isRefresh, quality, onToggleSource, allowToggleSource, forPlayback })
   }

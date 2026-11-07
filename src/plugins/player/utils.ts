@@ -106,16 +106,18 @@ export const isTempId = (trackId = global.lx.playerTrackId) => !trackId || tempI
 //   },
 // }
 
-const playMusic = ((fn: (musicInfo: LX.Player.PlayMusic, url: string, time: number) => void, delay = 800) => {
+const playMusic = ((fn: (musicInfo: LX.Player.PlayMusic, url: string, cacheKey: string | undefined, time: number) => void, delay = 800) => {
   let delayTimer: number | null = null
   let isDelayRun = false
   let timer: number | null = null
   let _musicInfo: LX.Player.PlayMusic | null = null
   let _url = ''
+  let _cacheKey: string | undefined
   let _time = 0
-  return (musicInfo: LX.Player.PlayMusic, url: string, time: number) => {
+  return (musicInfo: LX.Player.PlayMusic, url: string, cacheKey: string | undefined, time: number) => {
     _musicInfo = musicInfo
     _url = url
+    _cacheKey = cacheKey
     _time = time
     if (timer) {
       BackgroundTimer.clearTimeout(timer)
@@ -130,28 +132,32 @@ const playMusic = ((fn: (musicInfo: LX.Player.PlayMusic, url: string, time: numb
         timer = null
         let musicInfo = _musicInfo
         let url = _url
+        let cacheKey = _cacheKey
         let time = _time
         _musicInfo = null
         _url = ''
+        _cacheKey = undefined
         _time = 0
         isDelayRun = false
-        fn(musicInfo!, url, time)
+        fn(musicInfo!, url, cacheKey, time)
       }, delay)
     } else {
       isDelayRun = true
-      fn(musicInfo, url, time)
+      fn(musicInfo, url, cacheKey, time)
       delayTimer = BackgroundTimer.setTimeout(() => {
         delayTimer = null
         isDelayRun = false
       }, 500)
     }
   }
-})((musicInfo, url, time) => {
-  handlePlayMusic(musicInfo, url, time)
+})((musicInfo, url, cacheKey, time) => {
+  handlePlayMusic(musicInfo, url, cacheKey, time)
 })
 
-export const setResource = (musicInfo: LX.Player.PlayMusic, url: string, duration?: number) => {
-  playMusic(musicInfo, url, duration ?? 0)
+// cacheKey 为该 url 对应数据的稳定磁盘缓存 key，随播放链路显式传递，
+// 避免经全局缓存表取用时被防抖窗口内的其他解析结果覆盖
+export const setResource = (musicInfo: LX.Player.PlayMusic, url: string, cacheKey: string | undefined, duration?: number) => {
+  playMusic(musicInfo, url, cacheKey, duration ?? 0)
 }
 
 export const setPlay = async() => TrackPlayer.play()

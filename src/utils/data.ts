@@ -347,26 +347,9 @@ export const removeListMusics = async(ids: string[]): Promise<void> => {
 export const getPlayCacheKey = (musicInfo: LX.Music.MusicInfo, quality: LX.Quality) =>
 ['lx', encodeURIComponent(musicInfo.source), encodeURIComponent(quality), encodeURIComponent(musicInfo.id)].join(':')
 
-/**
- * 最近一次为播放解析成功的 URL 对应的稳定缓存 key。
- * 恢复播放 / buildTracks 时读它生成 track.cacheKey，让 ExoPlayer 命中同一块磁盘缓存。
- * 键用"音源+歌曲id"，避免不同音源同 id 互相污染。用 Map + \u0000 分隔，
- * 避免 user_api_ 等含下划线的 source 与 id 拼接后发生键碰撞。
- */
-const playCacheKeyMap = new Map<string, string>()
-const playCacheKeyMapId = (music: LX.Music.MusicInfo) => `${music.source}\u0000${music.id}`
-export const savePlayCacheKey = (musicInfo: LX.Music.MusicInfo, quality: LX.Quality, url: string) => {
-  if (!url) return
-  playCacheKeyMap.set(playCacheKeyMapId(musicInfo), getPlayCacheKey(musicInfo, quality))
-}
-export const getPlayCacheKeyByMusicInfo = (musicInfo: LX.Music.MusicInfo) =>
-  playCacheKeyMap.get(playCacheKeyMapId(musicInfo)) ?? ''
-export const deletePlayCacheKeyByMusicInfo = (musicInfo: LX.Music.MusicInfo) => {
-  playCacheKeyMap.delete(playCacheKeyMapId(musicInfo))
-}
-export const clearPlayCacheKeys = () => {
-  playCacheKeyMap.clear()
-}
+// cacheKey 由 getMusicUrl 随解析结果显式返回并沿播放链路（setResource → playMusic →
+// handlePlayMusic → buildTracks）传递，不再经内存 Map 侧信道取用：
+// 侧信道会被防抖窗口内的其他解析（预加载/切音质）覆盖，导致 track.cacheKey 与实际链接错配。
 
 // URL 缓存 TTL：播放链接是短时签名 URL，过期后 CDN 返回 403 导致缓冲中
 const musicUrlTTL = 30 * 60 * 1000
@@ -399,6 +382,28 @@ export const saveMusicUrl = async(musicInfo: LX.Music.MusicInfo, type: LX.Qualit
 export const clearMusicUrl = async(keys?: string[]) => {
   if (!keys) keys = (await getAllKeys()).filter(key => key.startsWith(storageDataPrefix.musicUrl))
   await removeDataMultiple(keys)
+}
+
+// LX.Quality 全部合法音质名（与 types/common.d.ts 的 Quality 联合类型一致）。
+// URL 记录 key 为 `${id}_${音质}`，歌曲 id 本身含 `_` 时会与其他歌的 key 前缀重叠，
+// 枚举时按合法音质名过滤，排除误匹配到其他歌曲的记录。
+const qualityNameSet = new Set<string>(['128k', '320k', 'flac', 'flac24bit', '192k', 'ape', 'wav', '64k', '32k', 'hires', 'master', 'atmos', 'atmos_plus'])
+
+/**
+ * 枚举该歌曲已记录的全部播放链接（含过期、换源/其他音质留下的记录）。
+ * 供离线兜底遍历所有可能命中磁盘缓存的音质，不局限于当前音源声明的 qualityList。
+ */
+export const getMusicUrlMetas = async(musicInfo: LX.Music.MusicInfo): Promise<Array<{ quality: LX.Quality, url: string, ts: number, expired: boolean }>> => {
+  const prefix = `${storageDataPrefix.musicUrl}${musicInfo.id}_`
+  const keys = (await getAllKeys()).filter(key => key.startsWith(prefix))
+  const metas: Array<{ quality: LX.Quality, url: string, ts: number, expired: boolean }> = []
+  for (const key of keys) {
+    const quality = key.slice(prefix.length) as LX.Quality
+    if (!quality || !qualityNameSet.has(quality)) continue
+    const meta = await getMusicUrlMeta(musicInfo, quality)
+    if (meta.url) metas.push({ quality, ...meta })
+  }
+  return metas
 }
 
 export const qualitys = ['128k', '320k', 'flac', 'flac24bit']

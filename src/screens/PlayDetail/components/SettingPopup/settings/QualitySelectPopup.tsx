@@ -114,24 +114,24 @@ export default forwardRef<QualitySelectPopupType, { onCloseSettingPopup?: (callb
     setTempPlayQuality(q)
 
     try {
-      let url: string | null = null
+      let result: LX.Player.MusicUrlResult | null = null
       // 缓存优先：store 有该音质 URL 缓存则秒回，避免每次重新向 SDK 请求
       try {
-        url = await getMusicUrl({ musicInfo, quality: q, isRefresh: false, allowToggleSource: false, onToggleSource: () => {} })
+        result = await getMusicUrl({ musicInfo, quality: q, isRefresh: false, allowToggleSource: false, onToggleSource: () => {} })
       } catch {}
       // 缓存未命中或获取失败，强制刷新一次
-      if (!url) {
+      if (!result?.url) {
         try {
-          url = await getMusicUrl({ musicInfo, quality: q, isRefresh: true, allowToggleSource: false, onToggleSource: () => {} })
+          result = await getMusicUrl({ musicInfo, quality: q, isRefresh: true, allowToggleSource: false, onToggleSource: () => {} })
         } catch {}
       }
       // 仍失败则允许切换音源兜底
-      if (!url) {
+      if (!result?.url) {
         try {
-          url = await getMusicUrl({ musicInfo, quality: q, isRefresh: true, allowToggleSource: true, onToggleSource: () => {} })
+          result = await getMusicUrl({ musicInfo, quality: q, isRefresh: true, allowToggleSource: true, onToggleSource: () => {} })
         } catch {}
       }
-      if (!url) {
+      if (!result?.url) {
         setTempPlayQuality(null)
         toast(t('切换音质失败：未获取到有效链接'))
         void setPlay()
@@ -139,7 +139,7 @@ export default forwardRef<QualitySelectPopupType, { onCloseSettingPopup?: (callb
       }
       // 手动切换音质时同步切换 EQ/offload 输出模式（Atmos 直通，其他音质走 PCM + 均衡器）
       await applyAudioModeForQuality(q)
-      setResource(musicInfo, url, position)
+      setResource(musicInfo, result.url, result.cacheKey, position)
     } catch (err: any) {
       setTempPlayQuality(null)
       toast(t('切换音质失败：') + (err?.message ?? t('未知错误')))

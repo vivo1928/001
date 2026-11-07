@@ -11,7 +11,7 @@ import { getCacheSize, clearCache } from '@/plugins/player/utils'
 import { sizeFormate } from '@/utils'
 import { useI18n } from '@/lang'
 import Text from '@/components/common/Text'
-import { clearMusicUrl, clearPlayCacheKeys } from '@/utils/data'
+import { clearMusicUrl } from '@/utils/data'
 
 export default memo(() => {
   const t = useI18n()
@@ -39,7 +39,7 @@ export default memo(() => {
       void Promise.all([
         clearAppCache(),
         clearCache(),
-        clearMusicUrl().then(() => { clearPlayCacheKeys() }),
+        clearMusicUrl(),
         resetNotificationPermissionCheck(),
         resetIgnoringBatteryOptimizationCheck(),
       ]).then(() => {

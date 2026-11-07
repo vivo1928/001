@@ -23,6 +23,12 @@ declare global {
 
       type PlayMusic = LX.Music.MusicInfo | LX.Download.ListItem
 
+      /**
+       * getMusicUrl 解析结果：播放链接 + 该链接对应数据的稳定磁盘缓存 key。
+       * cacheKey 沿播放链路显式传递给 Track.cacheKey；本地/下载文件无磁盘缓存，cacheKey 为空。
+       */
+      type MusicUrlResult = { url: string, cacheKey?: string }
+
       type PlayMusicInfo = Readonly<{
         /**
          * 当前播放歌曲的列表 id

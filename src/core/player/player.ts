@@ -72,9 +72,9 @@ const diffCurrentMusicInfo = (curMusicInfo: LX.Music.MusicInfo | LX.Download.Lis
 }
 
 let cancelDelayRetry: (() => void) | null = null
-const delayRetry = async(musicInfo: LX.Music.MusicInfo | LX.Download.ListItem, isRefresh = false): Promise<string | null> => {
+const delayRetry = async(musicInfo: LX.Music.MusicInfo | LX.Download.ListItem, isRefresh = false): Promise<LX.Player.MusicUrlResult | null> => {
   // if (cancelDelayRetry) cancelDelayRetry()
-  return new Promise<string | null>((resolve, reject) => {
+  return new Promise<LX.Player.MusicUrlResult | null>((resolve, reject) => {
     const time = getRandom(2, 6)
     setStatusText(global.i18n.t('player__getting_url_delay_retry', { time }))
     const tiemout = setTimeout(() => {
@@ -93,7 +93,7 @@ const delayRetry = async(musicInfo: LX.Music.MusicInfo | LX.Download.ListItem, i
     }
   })
 }
-const getMusicPlayUrl = async(musicInfo: LX.Music.MusicInfo | LX.Download.ListItem, isRefresh = false, isRetryed = false): Promise<string | null> => {
+const getMusicPlayUrl = async(musicInfo: LX.Music.MusicInfo | LX.Download.ListItem, isRefresh = false, isRetryed = false): Promise<LX.Player.MusicUrlResult | null> => {
   // this.musicInfo.url = await getMusicPlayUrl(targetSong, type)
   setStatusText(global.i18n.t('player__getting_url'))
   addLoadTimeout()
@@ -116,10 +116,10 @@ const getMusicPlayUrl = async(musicInfo: LX.Music.MusicInfo | LX.Download.ListIt
         setStatusText(global.i18n.t('toggle_source_try'))
       },
     })
-  }).then(url => {
+  }).then(result => {
     if (global.lx.isPlayedStop || diffCurrentMusicInfo(musicInfo)) return null
 
-    return url
+    return result
   }).catch(async err => {
     // console.log('err', err.message)
     if (global.lx.isPlayedStop ||
@@ -139,9 +139,9 @@ export const setMusicUrl = (musicInfo: LX.Music.MusicInfo | LX.Download.ListItem
   if (!diffCurrentMusicInfo(musicInfo)) return
   if (cancelDelayRetry) cancelDelayRetry()
   global.lx.gettingUrlId = createGettingUrlId(musicInfo)
-  void getMusicPlayUrl(musicInfo, isRefresh).then((url) => {
-    if (!url) return
-    setResource(musicInfo, url, playerState.progress.nowPlayTime)
+  void getMusicPlayUrl(musicInfo, isRefresh).then((result) => {
+    if (!result?.url) return
+    setResource(musicInfo, result.url, result.cacheKey, playerState.progress.nowPlayTime)
   }).catch((err: any) => {
     console.log(err)
     setStatusText(err.message as string)

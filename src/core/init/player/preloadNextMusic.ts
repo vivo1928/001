@@ -2,7 +2,6 @@ import { getMusicUrl } from '@/core/music'
 import { getNextPlayMusicInfo, resetRandomNextMusicInfo } from '@/core/player/player'
 import { checkUrl } from '@/utils/request'
 import { isCached } from '@/plugins/player/utils'
-import { getPlayCacheKeyByMusicInfo } from '@/utils/data'
 
 
 // 距歌曲结束多少秒开始预加载下一首。
@@ -33,19 +32,19 @@ const preloadNextMusicUrl = async() => {
     if (!info) return
     preloadMusicInfo.info = info
 
-    const url = await getMusicUrl({ musicInfo: info.musicInfo }).catch(() => '')
-    if (!url) return
-    // 磁盘缓存按"音源+歌曲+音质"固定 key 索引，isCached 须用稳定 key 判断；
+    const result = await getMusicUrl({ musicInfo: info.musicInfo }).catch(() => null)
+    if (!result?.url) return
+    // 磁盘缓存按"音源+歌曲+音质"固定 key 索引，isCached 须用该链接解析结果自带的 cacheKey 判断
+    // （与后续实播 track 用的 key 同源同值）；
     // isCached 返回 true 表示整首数据已完整落盘（原生按 exo_len 全量校验），
     // 已完整缓存则无需再校验；否则发一个轻量 HEAD 预热 CDN 连接并确认链接可用。
-    const cacheKey = getPlayCacheKeyByMusicInfo(info.musicInfo)
     const [cached, available] = await Promise.all([
-      cacheKey ? isCached(cacheKey) : Promise.resolve(false),
-      checkUrl(url).then(() => true).catch(() => false),
+      result.cacheKey ? isCached(result.cacheKey) : Promise.resolve(false),
+      checkUrl(result.url).then(() => true).catch(() => false),
     ])
     // 链接既不在缓存又不可用，说明临时链接已失效，刷新一次拿到新链接
     if (!cached && !available) {
-      await getMusicUrl({ musicInfo: info.musicInfo, isRefresh: true }).catch(() => '')
+      await getMusicUrl({ musicInfo: info.musicInfo, isRefresh: true }).catch(() => null)
     }
   } finally {
     preloadMusicInfo.isLoading = false
