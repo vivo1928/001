@@ -343,24 +343,29 @@ export const removeListMusics = async(ids: string[]): Promise<void> => {
 // 稳定磁盘缓存 key：ExoPlayer 默认用完整 URL 派生缓存 key，URL 刷新后就命中不了旧缓存。
 // 这里按"音源+歌曲id+音质"生成固定 key，配合原生 Track.cacheKey 实现边存边播：
 // 同一首歌同一音质永远命中同一块磁盘缓存，无论签名 URL 怎么刷新。
+// 各分段用 encodeURIComponent 转义后再用 `:` 拼接，保证分段边界无歧义、不同歌曲不会拼出相同 key。
 export const getPlayCacheKey = (musicInfo: LX.Music.MusicInfo, quality: LX.Quality) =>
-`lx:${musicInfo.source}:${quality}:${musicInfo.id}`.replace(/[:/\\?&=#% ]/g, '_')
+['lx', encodeURIComponent(musicInfo.source), encodeURIComponent(quality), encodeURIComponent(musicInfo.id)].join(':')
 
 /**
  * 最近一次为播放解析成功的 URL 对应的稳定缓存 key。
  * 恢复播放 / buildTracks 时读它生成 track.cacheKey，让 ExoPlayer 命中同一块磁盘缓存。
- * 键用"音源+歌曲id"，避免不同音源同 id 互相污染。
+ * 键用"音源+歌曲id"，避免不同音源同 id 互相污染。用 Map + \u0000 分隔，
+ * 避免 user_api_ 等含下划线的 source 与 id 拼接后发生键碰撞。
  */
-let playCacheKeyMap = {} as Record<string, string>
-const playCacheKeyMapId = (music: LX.Music.MusicInfo) => `${music.source}_${music.id}`
+const playCacheKeyMap = new Map<string, string>()
+const playCacheKeyMapId = (music: LX.Music.MusicInfo) => `${music.source}\u0000${music.id}`
 export const savePlayCacheKey = (musicInfo: LX.Music.MusicInfo, quality: LX.Quality, url: string) => {
   if (!url) return
-  playCacheKeyMap[playCacheKeyMapId(musicInfo)] = getPlayCacheKey(musicInfo, quality)
+  playCacheKeyMap.set(playCacheKeyMapId(musicInfo), getPlayCacheKey(musicInfo, quality))
 }
 export const getPlayCacheKeyByMusicInfo = (musicInfo: LX.Music.MusicInfo) =>
-  playCacheKeyMap[playCacheKeyMapId(musicInfo)] ?? ''
+  playCacheKeyMap.get(playCacheKeyMapId(musicInfo)) ?? ''
+export const deletePlayCacheKeyByMusicInfo = (musicInfo: LX.Music.MusicInfo) => {
+  playCacheKeyMap.delete(playCacheKeyMapId(musicInfo))
+}
 export const clearPlayCacheKeys = () => {
-  playCacheKeyMap = {}
+  playCacheKeyMap.clear()
 }
 
 // URL 缓存 TTL：播放链接是短时签名 URL，过期后 CDN 返回 403 导致缓冲中

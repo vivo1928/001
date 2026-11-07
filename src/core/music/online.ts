@@ -5,7 +5,6 @@ import {
   getMusicUrlMeta,
   savePlayCacheKey,
   getPlayCacheKey,
-  getPlayCacheKeyByMusicInfo,
 } from '@/utils/data'
 import { updateListMusics } from '@/core/list'
 import settingState from '@/store/setting/state'
@@ -144,8 +143,10 @@ export const getMusicUrl = async({ musicInfo, quality, isRefresh, allowToggleSou
 
   // 过期链接但整段数据已落在磁盘缓存：直接用旧链接（key 一致命中缓存）。
   // 避免刷新拿新 URL（新 key）导致播放器重新联网下载、恢复播放时卡顿。
+  // 必须用 targetQuality 对应的稳定 key 判断：cacheMeta.url 是按 targetQuality 存的旧链接，
+  // 若用 Map 里「上次成功音质」的 key 判断，音质不一致时会误判命中并返回过期链接（403）。
   if (cacheMeta.url && !isRefresh) {
-    const inCache = await TrackPlayer.isCached(getPlayCacheKeyByMusicInfo(musicInfo) || getPlayCacheKey(musicInfo, targetQuality)).catch(() => false)
+    const inCache = await TrackPlayer.isCached(getPlayCacheKey(musicInfo, targetQuality)).catch(() => false)
     if (inCache) {
       savePlayCacheKey(musicInfo, targetQuality, cacheMeta.url)
       if (forPlayback) await applyAudioModeForQuality(targetQuality)
