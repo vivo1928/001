@@ -8,7 +8,7 @@ type Hook = (time: number, isPlayedStop: boolean) => void
 
 const timeoutTools = {
   bgTimeout: null as number | null,
-  timeout: null as ReturnType<typeof setInterval> | null,
+  timeout: null as number | null,
   startTime: 0,
   time: -1,
   timeHooks: [] as Hook[],
@@ -32,7 +32,7 @@ const timeoutTools = {
   clearTimeout() {
     if (!this.bgTimeout) return
     BackgroundTimer.clearTimeout(this.bgTimeout)
-    clearInterval(this.timeout!)
+    BackgroundTimer.clearInterval(this.timeout!)
     this.bgTimeout = null
     this.timeout = null
     this.time = -1
@@ -46,7 +46,8 @@ const timeoutTools = {
       this.clearTimeout()
       this.exit()
     }, time * 1000)
-    this.timeout = setInterval(() => {
+    // 用 BackgroundTimer 的 interval：全局 setInterval 后台会被冻结，倒计时不再走秒
+    this.timeout = BackgroundTimer.setInterval(() => {
       this.callHooks()
     }, 1000)
   },
@@ -55,7 +56,9 @@ const timeoutTools = {
     hook(this.getTime(), global.lx.isPlayedStop)
   },
   removeTimeHook(hook: Hook) {
-    this.timeHooks.splice(this.timeHooks.indexOf(hook), 1)
+    const index = this.timeHooks.indexOf(hook)
+    if (index < 0) return
+    this.timeHooks.splice(index, 1)
   },
 }
 

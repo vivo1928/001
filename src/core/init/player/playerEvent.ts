@@ -64,7 +64,13 @@ export default () => {
         }
       } else {
         prevTimeoutId = playerState.musicInfo.id
-        if (musicInfo && retryNum < getMaxRetryNum()) refreshUrl(musicInfo)
+        if (musicInfo && retryNum < getMaxRetryNum()) {
+          refreshUrl(musicInfo)
+        } else if (musicInfo) {
+          // 重试耗尽仍加载不出：与"再次超时"分支一致直接切歌，避免卡死在加载态
+          prevTimeoutId = null
+          void playNext(true)
+        }
       }
     }, 15000)
   }
@@ -134,8 +140,13 @@ export default () => {
       bufferingTimer = BackgroundTimer.setTimeout(() => {
         bufferingTimer = null
         const musicInfo = playerState.playMusicInfo.musicInfo
-        if (musicInfo && retryNum < getMaxRetryNum()) {
+        if (!musicInfo) return
+        if (retryNum < getMaxRetryNum()) {
           refreshUrl(musicInfo)
+        } else {
+          // 重试耗尽仍卡在缓冲：链接只是慢而不上报 error 时不会再有其他兜底，
+          // 与 handleError 超限行为一致，直接切歌避免永远停在缓冲态
+          void playNext(true)
         }
       }, 8000)
     }

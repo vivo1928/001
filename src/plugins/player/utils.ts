@@ -155,9 +155,10 @@ const playMusic = ((fn: (musicInfo: LX.Player.PlayMusic, url: string, cacheKey: 
 })
 
 // cacheKey 为该 url 对应数据的稳定磁盘缓存 key，随播放链路显式传递，
-// 避免经全局缓存表取用时被防抖窗口内的其他解析结果覆盖
-export const setResource = (musicInfo: LX.Player.PlayMusic, url: string, cacheKey: string | undefined, duration?: number) => {
-  playMusic(musicInfo, url, cacheKey, duration ?? 0)
+// 避免经全局缓存表取用时被防抖窗口内的其他解析结果覆盖。
+// time 为恢复播放的起播位置（秒），传给 handlePlayMusic 做 seekTo
+export const setResource = (musicInfo: LX.Player.PlayMusic, url: string, cacheKey: string | undefined, time?: number) => {
+  playMusic(musicInfo, url, cacheKey, time ?? 0)
 }
 
 export const setPlay = async() => TrackPlayer.play()

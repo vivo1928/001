@@ -13,10 +13,13 @@ import { AppState } from 'react-native'
 import TrackPlayer from 'react-native-track-player'
 
 const delaySavePlayInfo = throttleBackgroundTimer(() => {
+  const listId = playerState.playMusicInfo.listId
+  // 无列表归属的播放（搜索/榜单直接播）不存进度：恢复播放依赖列表定位，存了也无法恢复
+  if (!listId) return
   void savePlayInfo({
     time: playerState.progress.nowPlayTime,
     maxTime: playerState.progress.maxPlayTime,
-    listId: playerState.playMusicInfo.listId!,
+    listId,
     index: playerState.playInfo.playIndex,
   })
 }, 2000)
@@ -32,7 +35,8 @@ export default () => {
   const getCurrentTime = () => {
     let id = playerState.musicInfo.id
     void getPosition().then(position => {
-      if (!position || id != playerState.musicInfo.id) return
+      // position == null 才跳过：position 为 0（歌曲开头）也要更新，否则进度不归零
+      if (position == null || id != playerState.musicInfo.id) return
       setNowPlayTime(position)
       if (!playerState.isPlay) return
 
@@ -67,9 +71,11 @@ export default () => {
   const startUpdateTimeout = () => {
     if (!isScreenOn) return
     clearUpdateTimeout()
+    // 防异常倍速值（≤0/非法）把轮询间隔算成 Infinity/NaN
+    const rate = settingState.setting['player.playbackRate'] || 1
     updateTimeout = BackgroundTimer.setInterval(() => {
       getCurrentTime()
-    }, 1000 / settingState.setting['player.playbackRate'])
+    }, 1000 / rate)
     getCurrentTime()
   }
 
@@ -129,11 +135,12 @@ export default () => {
     // void setCurrentTime(playerState.progress.nowPlayTime)
     // setMaxplayTime(playProgress.maxPlayTime)
     handlePause()
-    if (!playerState.playMusicInfo.isTempPlay) {
+    const listId = playerState.playMusicInfo.listId
+    if (!playerState.playMusicInfo.isTempPlay && listId) {
       void savePlayInfo({
         time: playerState.progress.nowPlayTime,
         maxTime: playerState.progress.maxPlayTime,
-        listId: playerState.playMusicInfo.listId!,
+        listId,
         index: playerState.playInfo.playIndex,
       })
     }

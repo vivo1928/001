@@ -233,11 +233,12 @@ export const getPlayQuality = (highQuality: LX.Quality, musicInfo: LX.Music.Musi
   // 单歌临时音质覆盖（播放详情页手动切换）
   const override = getTempPlayQuality()
   if (override) {
-    if (list.includes(override)) return override
-    // 覆盖音质不在 qualityList 中时，从设置档向下遍历取可用
-    const idx = list.indexOf(override)
-    if (idx >= 0) {
-      for (let i = idx; i >= 0; i--) {
+    // 覆盖音质可用即用：源音质列表命中，或歌曲声明支持的扩展音质
+    if (list.includes(override) || musicInfo.meta._qualitys?.[override] != null) return override
+    // 覆盖音质不可用时，以设置档为锚点向下遍历，取歌曲实际可用的音质
+    const overrideIdx = list.indexOf(highQuality)
+    if (overrideIdx >= 0) {
+      for (let i = overrideIdx; i >= 0; i--) {
         if (musicInfo.meta._qualitys[list[i]]) return list[i]
       }
     }

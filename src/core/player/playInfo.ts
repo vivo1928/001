@@ -3,7 +3,6 @@ import playerState from '@/store/player/state'
 
 import { getListMusicSync } from '@/utils/listManage'
 import { setProgress } from '@/core/player/progress'
-import { LIST_IDS } from '@/config/constant'
 
 
 export const setMusicInfo = (musicInfo: Partial<LX.Player.MusicInfo>) => {
@@ -137,6 +136,7 @@ export const setPlayMusicInfo = (listId: string | null, musicInfo: LX.Download.L
 }
 
 export const getList = (listId: string | null): LX.Music.MusicInfo[] | LX.Download.ListItem[] => {
-  // return listId == LIST_ID_DOWNLOAD ? downloadList : getListMusicSync(listId)
-  return listId == LIST_IDS.DOWNLOAD ? [] : getListMusicSync(listId)
+  // 下载列表与普通列表统一走 allMusicList：未来注册 'download' 列表后 playList/playNext 直接可用，
+  // 不再特判返回空数组导致下载列表内取歌 undefined、切歌停播
+  return getListMusicSync(listId)
 }

@@ -324,8 +324,6 @@ export const getNextPlayMusicInfo = async(): Promise<LX.Player.PlayMusicInfo | n
 
   if (playerState.playMusicInfo.musicInfo == null) return null
 
-  if (randomNextMusicInfo.info) return randomNextMusicInfo.info
-
   const playMusicInfo = playerState.playMusicInfo
   const playInfo = playerState.playInfo
   // console.log(playInfo.playerListId)
@@ -333,6 +331,8 @@ export const getNextPlayMusicInfo = async(): Promise<LX.Player.PlayMusicInfo | n
   if (!currentListId) return null
   const currentList = getList(currentListId)
 
+  // 分支优先级须与 playNext 保持一致（tempPlayList → playedList → randomNextMusicInfo → 计算），
+  // 否则随机模式 + 历史回退场景下预加载预测的下一首与实播切歌不同，预热白费
   const playedList = playerState.playedList
   if (playedList.length) { // 移除已播放列表内不存在原列表的歌曲
     let currentId: string
@@ -356,6 +356,8 @@ export const getNextPlayMusicInfo = async(): Promise<LX.Player.PlayMusicInfo | n
 
     if (index < playedList.length) return playedList[index]
   }
+
+  if (randomNextMusicInfo.info) return randomNextMusicInfo.info
   // const isCheckFile = findNum > 2 // 针对下载列表，如果超过两次都碰到无效歌曲，则过滤整个列表内的无效歌曲
   let { filteredList, playerIndex } = await filterList({ // 过滤已播放歌曲
     listId: currentListId,

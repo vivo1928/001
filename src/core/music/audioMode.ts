@@ -22,11 +22,16 @@ const isOffloadAllowed = (): boolean => settingState.setting['player.isEnableAud
  *   均衡器偏好。码流直接交给设备硬解渲染（需设备支持 E-AC3 offload）。
  * - 其他情况：关闭 offload，均衡器处理器恢复进入音频链，用户原设置保持不变。
  *   多声道 PCM（>2 声道）在处理器内自动下混为立体声，避免 AudioTrack 无法打开多声道而崩溃。
+ *
+ * 调用经 Promise 链串行化：手动切音质与 URL 刷新链并发时，先发后至的原生调用
+ * 不会覆盖后发调用的模式，保证最终输出模式与最新音质一致。
  */
-export const applyAudioModeForQuality = async(quality: LX.Quality | null | undefined): Promise<void> => {
+let applyChain: Promise<void> = Promise.resolve()
+export const applyAudioModeForQuality = (quality: LX.Quality | null | undefined): Promise<void> => {
   const shouldOffload = isOffloadAllowed() && quality != null && OFFLOAD_QUALITYS.has(quality)
   currentOffloadMode = shouldOffload
-  await setAudioOffloadEnabled(shouldOffload)
+  applyChain = applyChain.then(() => setAudioOffloadEnabled(shouldOffload)).catch(() => {})
+  return applyChain
 }
 
 /**
