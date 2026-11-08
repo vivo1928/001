@@ -45,7 +45,7 @@ export const toNewMusicInfo = (oldMusicInfo: any): LX.Music.MusicInfo => {
     meta.ext = oldMusicInfo.ext ?? /\.(\w+)$/.exec(meta.filePath as string)?.[1] ?? ''
   } else {
     meta.qualitys = oldMusicInfo.types
-    meta._qualitys = oldMusicInfo._types
+    meta._qualitys = oldMusicInfo._types ?? {}
     meta.albumId = oldMusicInfo.albumId
     if (meta._qualitys.flac32bit && !meta._qualitys.flac24bit) {
       meta._qualitys.flac24bit = meta._qualitys.flac32bit
@@ -129,6 +129,7 @@ export const toOldMusicInfo = (minfo: LX.Music.MusicInfo): any => {
  */
 export const fixNewMusicInfoQuality = (musicInfo: LX.Music.MusicInfo) => {
   if (musicInfo.source == 'local') return musicInfo
+  if (!musicInfo.meta._qualitys) return musicInfo
 
   // @ts-expect-error
   if (musicInfo.meta._qualitys.flac32bit && !musicInfo.meta._qualitys.flac24bit) {

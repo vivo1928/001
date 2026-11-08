@@ -68,7 +68,7 @@ export default forwardRef<DownloadQualityModalType>((_props, ref) => {
 
   const getAvailableQualities = (): LX.Quality[] => {
     if (!musicInfo) return []
-    const _qualitys = musicInfo.meta._qualitys
+    const _qualitys = musicInfo.meta._qualitys ?? {}
     const sourceQualities = global.lx.qualityList[musicInfo.source] ?? []
     const allQualities = new Set<LX.Quality>()
     // API 实际返回的音质

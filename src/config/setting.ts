@@ -5,6 +5,7 @@ import migrateSetting from './migrateSetting'
 import settingState from '@/store/setting/state'
 import { migrateMetaData, migrateListData } from './migrate'
 import { exitApp, tipDialog } from '@/utils/tools'
+import { compareVer } from '@/utils'
 
 // 业务相关工具方法
 
@@ -104,6 +105,10 @@ export const initSetting = async() => {
   }
 
   // console.log(setting)
+  // migrateSetting 原先只在旧存储导入时调用，2.0→2.1 等版本内迁移对新存储的既有用户不可达
+  if (setting && typeof setting.version == 'string' && compareVer(setting.version, defaultSetting.version) < 0) {
+    setting = migrateSetting(setting)
+  }
   const updatedSetting = updateSetting(setting, true)
   void saveData(storageDataPrefix.setting, updatedSetting.setting)
 
