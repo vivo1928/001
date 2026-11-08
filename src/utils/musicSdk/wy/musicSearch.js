@@ -39,7 +39,8 @@ export default {
     // console.log(rawList)
     if (!rawList) return []
     return rawList.map(item => {
-      item = item.baseInfo.simpleSongData
+      item = item.baseInfo?.simpleSongData
+      if (!item) return null
 
       const privilege = item.privilege
       // 无版权/权限数据时跳过该歌曲
@@ -82,14 +83,14 @@ export default {
 
       return {
         id: 'wy_' + item.id,
-        singer: this.getSinger(item.ar),
+        singer: this.getSinger(item.ar ?? []),
         name: item.name,
-        albumName: item.al.name,
-        albumId: item.al.id,
+        albumName: item.al?.name ?? '',
+        albumId: item.al?.id ?? '',
         source: 'wy',
         interval: formatPlayTime(item.dt / 1000),
         songmid: item.id,
-        img: item.al.picUrl,
+        img: item.al?.picUrl,
         lrc: null,
         types,
         _types,
@@ -106,19 +107,20 @@ export default {
     }).then(result => {
       // console.log(result)
       if (!result || result.code !== 200) return this.delayRetry(str, page, limit, retryNum)
-      let list = this.handleResult(result.data.resources || [])
+      const list = this.handleResult(result.data?.resources ?? [])
       // console.log(list)
 
       if (list == null) return this.delayRetry(str, page, limit, retryNum)
 
-      this.total = result.data.totalCount || 0
+      this.total = result.data?.totalCount || 0
       this.page = page
-      this.allPage = Math.ceil(this.total / this.limit)
+      // 用调用方传入的 limit 计算分页（this.limit 仅作默认值），避免请求量与返回值不一致导致翻页错位
+      this.allPage = Math.ceil(this.total / limit)
 
       return {
         list,
         allPage: this.allPage,
-        limit: this.limit,
+        limit,
         total: this.total,
         source: 'wy',
       }

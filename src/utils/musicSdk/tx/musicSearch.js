@@ -129,15 +129,13 @@ export default {
     return list
   },
   search(str, page = 1, limit, retryNum = 0) {
+    if (retryNum > 5) return Promise.reject(new Error('try max num'))
     if (limit == null) limit = this.limit
     // http://newlyric.kuwo.cn/newlyric.lrc?62355680
-    return this.musicSearch(str, page, limit).catch(() => {
-      // 网络错误（超时/连接失败等），通过延迟重试机制重试
-      return this.delayRetry(str, page, limit, retryNum)
-    }).then(({ body, meta }) => {
-      let list = this.handleResult(body.song.list)
+    return this.musicSearch(str, page, limit).then(({ body, meta }) => {
+      const list = this.handleResult(body?.song?.list ?? [])
 
-      this.total = meta.sum
+      this.total = meta?.sum ?? 0
       this.page = page
       this.allPage = Math.ceil(this.total / limit)
 
@@ -148,6 +146,10 @@ export default {
         total: this.total,
         source: 'tx',
       })
+    }).catch(() => {
+      // 网络错误（超时/连接失败等），通过延迟重试机制重试
+      // catch 置于 then 之后：重试链返回的已是格式化结果，不再二次解构原始响应
+      return this.delayRetry(str, page, limit, retryNum)
     })
   },
 

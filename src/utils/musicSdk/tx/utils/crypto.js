@@ -4,8 +4,10 @@ const PART_1_INDEXES = [23, 14, 6, 36, 16, 40, 7, 19]
 const PART_2_INDEXES = [16, 1, 32, 12, 19, 27, 8, 5]
 const SCRAMBLE_VALUES = [89, 39, 179, 150, 218, 82, 58, 252, 177, 52, 186, 123, 120, 64, 242, 133, 143, 161, 121, 179]
 
+// 下标表为 1-based（服务端实测校验）：hash[idx-1] 取字符，
+// 按 0-based 取会命中 hash[40]（SHA1 hex 仅 0-39）拼出 "undefined" 导致签名被拒
 function pickHashByIdx(hash, indexes) {
-  return indexes.map((idx) => hash[idx]).join('')
+  return indexes.map((idx) => hash[idx - 1]).join('')
 }
 
 function base64Encode(data) {

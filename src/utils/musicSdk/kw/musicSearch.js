@@ -30,6 +30,7 @@ export default {
     // console.log(rawData)
     for (let i = 0; i < rawData.length; i++) {
       const info = rawData[i]
+      if (!info?.MUSICRID) continue
       let songId = info.MUSICRID.replace('MUSIC_', '')
       // const format = (info.FORMATS || info.formats).split('|')
 
@@ -118,32 +119,34 @@ export default {
     // console.log(result)
     return result
   },
-  search(str, page = 1, limit, retryNum = 0) {
-    if (retryNum > 2) return Promise.reject(new Error('try max num'))
+  async search(str, page = 1, limit, retryNum = 0) {
+    if (++retryNum > 3) return Promise.reject(new Error('try max num'))
     if (limit == null) limit = this.limit
     // http://newlyric.kuwo.cn/newlyric.lrc?62355680
-    return this.musicSearch(str, page, limit).catch(() => {
+    let res
+    try {
+      res = await this.musicSearch(str, page, limit)
+    } catch {
       // 网络错误（超时/连接失败等），通过延迟重试机制重试
       return this.delayRetry(str, page, limit, retryNum)
-    }).then(({ body: result }) => {
-      // console.log(result)
-      if (!result || (result.TOTAL !== '0' && result.SHOW === '0')) return this.delayRetry(str, page, limit, retryNum)
-      let list = this.handleResult(result.abslist)
+    }
+    const result = res?.body
+    if (!result || (result.TOTAL !== '0' && result.SHOW === '0')) return this.delayRetry(str, page, limit, retryNum)
+    const list = this.handleResult(result.abslist)
 
-      if (list == null) return this.delayRetry(str, page, limit, retryNum)
+    if (list == null) return this.delayRetry(str, page, limit, retryNum)
 
-      this.total = parseInt(result.TOTAL)
-      this.page = page
-      this.allPage = Math.ceil(this.total / limit)
+    this.total = parseInt(result.TOTAL)
+    this.page = page
+    this.allPage = Math.ceil(this.total / limit)
 
-      return Promise.resolve({
-        list,
-        allPage: this.allPage,
-        total: this.total,
-        limit,
-        source: 'kw',
-      })
-    })
+    return {
+      list,
+      allPage: this.allPage,
+      total: this.total,
+      limit,
+      source: 'kw',
+    }
   },
 
   /** 带延迟的重试，避免立即重试仍失败 */

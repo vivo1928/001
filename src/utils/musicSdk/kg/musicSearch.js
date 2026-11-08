@@ -73,8 +73,8 @@ export default {
       if (ids.has(key)) return
       ids.add(key)
       list.push(this.filterData(item))
-      for (const childItem of item.Grp) {
-        const key = item.Audioid + item.FileHash
+      for (const childItem of item.Grp ?? []) {
+        const key = childItem.Audioid + childItem.FileHash
         if (ids.has(key)) continue
         ids.add(key)
         list.push(this.filterData(childItem))
@@ -91,11 +91,11 @@ export default {
       return this.delayRetry(str, page, limit, retryNum)
     }).then(result => {
       if (!result || result.error_code !== 0) return this.delayRetry(str, page, limit, retryNum)
-      let list = this.handleResult(result.data.lists)
+      const list = this.handleResult(result.data?.lists ?? [])
 
       if (list == null) return this.delayRetry(str, page, limit, retryNum)
 
-      this.total = result.data.total
+      this.total = result.data?.total ?? 0
       this.page = page
       this.allPage = Math.ceil(this.total / limit)
 
