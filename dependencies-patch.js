@@ -175,11 +175,13 @@ const rootPath = path.join(__dirname, './')
   try {
     let file = (await fs.promises.readFile(musicManagerPath)).toString()
     for (const [fromStr, toStr] of patchs) {
-      // 检查是否已经修补过（避免 node_modules 缓存导致重复修补）
-      const alreadyPatched = file.includes('static ExoPlayer currentPlayer = null')
-      if (alreadyPatched) {
-        console.log('  MusicManager already patched, skipping all patches')
-        break
+      // 逐条幂等：以补丁目标文本判断是否已应用。
+      // 不能用整文件标记（static ExoPlayer currentPlayer）——该标记由第 4 条补丁插入，
+      // 会让其后的补丁被整体跳过，导致 currentPlayer 赋值永远缺失、
+      // 运行时 offload 开关与变速钩子静默失效
+      if (file.includes(toStr)) {
+        console.log('  MusicManager patch already applied, skipping: ' + fromStr.substring(0, 40) + '...')
+        continue
       }
       console.log('Patching MusicManager: ' + fromStr.substring(0, 60) + '...')
       if (!file.includes(fromStr)) {
