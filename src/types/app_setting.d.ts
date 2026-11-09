@@ -147,6 +147,16 @@ declare global {
       'player.cacheSize': string
 
       /**
+       * 智能预缓存开关：播放稳定后自动缓存整首歌与后续歌曲
+       */
+      'player.isSmartCache': boolean
+
+      /**
+       * 智能预缓存向后缓存歌曲数
+       */
+      'player.cacheAheadCount': number
+
+      /**
        * 定时暂停播放-倒计时时间
        */
       'player.timeoutExit': string

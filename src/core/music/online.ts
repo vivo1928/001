@@ -5,6 +5,7 @@ import {
   getMusicUrlMeta,
   getMusicUrlMetas,
   getPlayCacheKey,
+  allQualityNames,
 } from '@/utils/data'
 import { updateListMusics } from '@/core/list'
 import settingState from '@/store/setting/state'
@@ -152,18 +153,27 @@ export const getMusicUrl = async({ musicInfo, quality, isRefresh, allowToggleSou
     }
   }
 
-  // 收集可兜底的旧链接：目标音质优先，其次其他音质。断网时用它命中原磁盘缓存离线播放。
+  // 收集可兜底的旧链接：目标音质优先，其次其他音质。断网/解析失败时用它命中原磁盘缓存离线播放。
   // 直接枚举存储里该歌曲全部已记录链接（含换源/其他音质解析留下的记录），
-  // 不局限于当前音源声明的 qualityList；只选"整首已完整缓存"（isCached 按 exo_len 全量校验）
+  // 不局限于当前音源声明的 qualityList；播放场景只选"整首已完整缓存"（isCached 校验）
   // 的音质，避免播放到一半缺数据卡死，并返回对应音质，保证稳定 cacheKey 命中。
   const findStale = async(): Promise<{ url: string, quality: LX.Quality } | null> => {
-    if (isRefresh) return null
     const metas = await getMusicUrlMetas(musicInfo)
     metas.sort((a, b) => (a.quality == targetQuality ? -1 : b.quality == targetQuality ? 1 : 0))
     for (const meta of metas) {
       if (!forPlayback) return { url: meta.url, quality: meta.quality }
       const inCache = await TrackPlayer.isCached(getPlayCacheKey(musicInfo, meta.quality)).catch(() => false)
       if (inCache) return { url: meta.url, quality: meta.quality }
+    }
+    // URL 记录丢失但磁盘音频仍在：稳定 cacheKey 可由 音源+id+音质 推导，
+    // 用占位 URL 构造 track 即可（缓存完整命中时 CacheDataSource 不会发起网络请求）。
+    if (forPlayback) {
+      const placeholder = 'https://lx-cache-hit.invalid/' + encodeURIComponent(musicInfo.id)
+      const qualities = [targetQuality, ...allQualityNames.filter(q => q != targetQuality)]
+      for (const quality of qualities) {
+        const inCache = await TrackPlayer.isCached(getPlayCacheKey(musicInfo, quality)).catch(() => false)
+        if (inCache) return { url: placeholder, quality }
+      }
     }
     return null
   }
@@ -194,15 +204,19 @@ export const getMusicUrl = async({ musicInfo, quality, isRefresh, allowToggleSou
       return { url, cacheKey: getPlayCacheKey(musicInfo, resultQuality) }
     })
   } catch (err) {
-    // 断网/超时：不抛出，改用磁盘缓存里实际有数据的旧链接继续离线播放
-    if (isOfflineError(err)) {
+    // 解析失败一律先尝试磁盘缓存兜底：错误文案形状各异（自定义音源脚本返回的
+    // "获取链接失败" 等中文错误无法被 isOfflineError 识别），只认离线错误会漏判，
+    // 表现为"明明有缓存却提示获取链接失败"。播放场景无条件兜底；
+    // 预取/下载等非播放场景仅离线错误才兜底，保持原有失败语义。
+    if (forPlayback || isOfflineError(err)) {
       const stale = await findStale()
       if (stale?.url) {
-        console.log('[getMusicUrl] offline, fallback to stale url:', musicInfo.name)
+        console.log('[getMusicUrl] fallback to stale url:', musicInfo.name)
         if (forPlayback) await applyAudioModeForQuality(stale.quality)
         return { url: stale.url, cacheKey: getPlayCacheKey(musicInfo, stale.quality) }
       }
     }
+    if (forPlayback && isOfflineError(err)) throw new Error(global.i18n.t('player__offline_no_cache'))
     throw err
   }
 }

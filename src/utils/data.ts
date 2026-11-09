@@ -388,6 +388,8 @@ export const clearMusicUrl = async(keys?: string[]) => {
 // URL 记录 key 为 `${id}_${音质}`，歌曲 id 本身含 `_` 时会与其他歌的 key 前缀重叠，
 // 枚举时按合法音质名过滤，排除误匹配到其他歌曲的记录。
 const qualityNameSet = new Set<string>(['128k', '320k', 'flac', 'flac24bit', '192k', 'ape', 'wav', '64k', '32k', 'hires', 'master', 'atmos', 'atmos_plus'])
+// 供离线兜底等场景枚举推导稳定 cacheKey 使用
+export const allQualityNames = [...qualityNameSet] as LX.Quality[]
 
 /**
  * 枚举该歌曲已记录的全部播放链接（含过期、换源/其他音质留下的记录）。

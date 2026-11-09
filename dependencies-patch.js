@@ -284,6 +284,8 @@ const rootPath = path.join(__dirname, './')
   }
 
   const localPlaybackPath = path.join(rootPath, 'node_modules/react-native-track-player/android/src/main/java/com/guichaguri/trackplayer/service/player/LocalPlayback.java')
+  const exoPlaybackPath = path.join(rootPath, 'node_modules/react-native-track-player/android/src/main/java/com/guichaguri/trackplayer/service/player/ExoPlayback.java')
+  const musicModulePath = path.join(rootPath, 'node_modules/react-native-track-player/android/src/main/java/com/guichaguri/trackplayer/module/MusicModule.java')
 
   const enableCachingOld = `    public DataSource.Factory enableCaching(DataSource.Factory ds) {
         if(cache == null || cacheMaxSize <= 0) return ds;
@@ -329,14 +331,13 @@ const rootPath = path.join(__dirname, './')
     console.error('Patch LocalPlayback.java failed:', err.message)
   }
 
-  // ===== 完整缓存判定（修正 isCached 只判断"有任意缓存"的问题）=====
+  // ===== 缓存判定（isCached）=====
   // 原生 isCached 用 cache.getCachedSpans(key) 判空，只要有任意一段缓存就返回 true。
   // 边存边播时刚播了几秒就有缓存，于是被误判为"整首已缓存"，断网/过期链接兜底时
-  // 播到中途才发现数据缺失。这里改为"整段是否全部落盘"：
-  // - exo_len（内容总长度）由 CacheDataSource 在拿到 Content-Length 或读到 EOF 时写入元数据；
-  // - cache.isCached(key, 0, contentLength) 判定 [0, contentLength) 区间连续无空洞；
-  // - 仅当 contentLength 已知且区间完整覆盖时才算"整首已缓存"。
-  // 保守策略：总长度未知（还没读到 EOF）时一律返回 false，避免误判。
+  // 播到中途才发现数据缺失。这里改为：
+  // - exo_len（内容总长度）已知时要求 [0, contentLength) 区间连续无空洞才算命中；
+  // - exo_len 未知（响应无 Content-Length 的分块传输）时只要有缓存数据即可试播——
+  //   否则这类歌永远无法离线播放；播到缺口/结尾由播放器错误处理收尾。
   const isCachedOld = `    public void isCached(String url, Promise promise) {
         if (cache == null) {
           promise.resolve(false);
@@ -345,7 +346,7 @@ const rootPath = path.join(__dirname, './')
         NavigableSet<CacheSpan> cachedSpans = cache.getCachedSpans(url);
         promise.resolve(!cachedSpans.isEmpty());
     }`
-  const isCachedNew = `    public void isCached(String url, Promise promise) {
+  const isCachedPatchedOld = `    public void isCached(String url, Promise promise) {
         if (cache == null) {
           promise.resolve(false);
           return;
@@ -359,30 +360,165 @@ const rootPath = path.join(__dirname, './')
         }
         promise.resolve(cache.isCached(url, 0, contentLength));
     }`
+  const isCachedNew = `    public void isCached(String url, Promise promise) {
+        if (cache == null) {
+          promise.resolve(false);
+          return;
+        }
+        // 缓存命中判定：总长度已知（exo_len）时要求 [0, contentLength) 区间完整覆盖，
+        // 避免"只缓存了开头几秒"被误判为整首可离线播放；
+        // 总长未知（分块传输无 Content-Length）时只要有缓存数据即可试播，
+        // 播到缺口/结尾由播放器错误处理收尾，不再把已有数据的歌判为完全不可离线。
+        long contentLength = ContentMetadata.getContentLength(cache.getContentMetadata(url));
+        if (contentLength == C.LENGTH_UNSET) {
+          promise.resolve(cache.getCachedBytes(url, 0, Long.MAX_VALUE) > 0);
+          return;
+        }
+        promise.resolve(cache.isCached(url, 0, contentLength));
+    }`
   const contentMetadataImportOld = 'import androidx.media3.datasource.cache.CacheSpan;'
   const contentMetadataImportNew = 'import androidx.media3.datasource.cache.CacheSpan;\nimport androidx.media3.datasource.cache.ContentMetadata;'
 
   try {
     let file = (await fs.promises.readFile(localPlaybackPath)).toString()
-    if (file.includes('cache.isCached(url, 0, contentLength)')) {
-      console.log('  LocalPlayback.java isCached(full) already patched')
+    const ensureContentMetadataImport = (text) => {
+      if (text.includes('import androidx.media3.datasource.cache.ContentMetadata;')) return text
+      if (text.includes(contentMetadataImportOld)) return text.replace(contentMetadataImportOld, contentMetadataImportNew)
+      console.warn('  WARNING: LocalPlayback.java ContentMetadata import anchor not found')
+      return text
+    }
+    if (file.includes('cache.getCachedBytes(url, 0, Long.MAX_VALUE) > 0')) {
+      console.log('  LocalPlayback.java isCached already patched (relaxed)')
+    } else if (file.includes(isCachedPatchedOld)) {
+      file = file.replace(isCachedPatchedOld, isCachedNew)
+      await fs.promises.writeFile(localPlaybackPath, file)
+      console.log('LocalPlayback.java isCached relaxed upgrade: OK')
     } else if (file.includes(isCachedOld)) {
-      if (!file.includes('import androidx.media3.datasource.cache.ContentMetadata;')) {
-        if (file.includes(contentMetadataImportOld)) {
-          file = file.replace(contentMetadataImportOld, contentMetadataImportNew)
-        } else {
-          console.warn('  WARNING: LocalPlayback.java ContentMetadata import anchor not found')
-        }
-      }
+      file = ensureContentMetadataImport(file)
       file = file.replace(isCachedOld, isCachedNew)
       await fs.promises.writeFile(localPlaybackPath, file)
-      console.log('LocalPlayback.java isCached(full) patch: OK')
+      console.log('LocalPlayback.java isCached patch: OK')
     } else {
       console.warn('  WARNING: LocalPlayback.java isCached pattern not found')
     }
   } catch (err) {
     console.error('Patch LocalPlayback.java isCached failed:', err.message)
   }
+
+  // ===== 智能预缓存（prefetchToCache / cancelPrefetch）=====
+  // 后台补全歌曲缺失片段写入 SimpleCache：CacheDataSource 读到 EOF 期间，
+  // 已缓存段直接读盘不联网，仅缺口走上游下载，天然"跳过已下载部分"。
+  // 任务串行单线程、最低优先级；cancelPrefetch 关闭数据源中断阻塞读并使队列中任务失效。
+  const prefetchLocalOld = '    public void isCached(String url, Promise promise) {'
+  const prefetchLocalNew = `    // ===== 智能预缓存：后台补全歌曲缺失片段（已缓存段不重复下载） =====
+    private final java.util.concurrent.ExecutorService lxPrefetchExecutor = java.util.concurrent.Executors.newSingleThreadExecutor(r -> {
+        Thread t = new Thread(r, "LxPrefetch");
+        t.setPriority(Thread.MIN_PRIORITY);
+        return t;
+    });
+    private final java.util.concurrent.atomic.AtomicInteger lxPrefetchSeq = new java.util.concurrent.atomic.AtomicInteger();
+    private volatile int lxPrefetchCancelledSeq = -1;
+    private volatile androidx.media3.datasource.DataSource lxPrefetchDataSource;
+
+    public void prefetchToCache(String url, String cacheKey, Promise promise) {
+        if (cache == null || cacheMaxSize <= 0) {
+            promise.resolve(false);
+            return;
+        }
+        final String key = (cacheKey != null && !cacheKey.isEmpty()) ? cacheKey : url;
+        final int token = lxPrefetchSeq.incrementAndGet();
+        lxPrefetchExecutor.execute(() -> {
+            if (token <= lxPrefetchCancelledSeq) {
+                promise.resolve(false);
+                return;
+            }
+            try {
+                androidx.media3.datasource.DataSource.Factory upstreamFactory = new androidx.media3.datasource.DefaultHttpDataSource.Factory()
+                        .setUserAgent("Mozilla/5.0 (Linux; Android 12) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+                        .setConnectTimeoutMs(15000)
+                        .setReadTimeoutMs(20000);
+                CacheDataSource ds = new CacheDataSource.Factory()
+                        .setCache(cache)
+                        .setUpstreamDataSourceFactory(upstreamFactory)
+                        .setFlags(CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR)
+                        .setCacheKeyFactory(dataSpec -> key)
+                        .createDataSource();
+                lxPrefetchDataSource = ds;
+                try {
+                    ds.open(new androidx.media3.datasource.DataSpec(android.net.Uri.parse(url)));
+                    byte[] buffer = new byte[64 * 1024];
+                    while (token > lxPrefetchCancelledSeq) {
+                        if (ds.read(buffer, 0, buffer.length) == androidx.media3.common.C.RESULT_END_OF_INPUT) break;
+                    }
+                    promise.resolve(token > lxPrefetchCancelledSeq);
+                } catch (Exception e) {
+                    promise.resolve(false);
+                } finally {
+                    try { ds.close(); } catch (Exception ignored) {}
+                    lxPrefetchDataSource = null;
+                }
+            } catch (Exception e) {
+                promise.resolve(false);
+            }
+        });
+    }
+
+    public void cancelPrefetch(Promise promise) {
+        lxPrefetchCancelledSeq = lxPrefetchSeq.get();
+        androidx.media3.datasource.DataSource ds = lxPrefetchDataSource;
+        if (ds != null) {
+            try { ds.close(); } catch (Exception ignored) {}
+        }
+        promise.resolve(true);
+    }
+
+    public void isCached(String url, Promise promise) {`
+  const prefetchExoOld = '    public abstract void isCached(String url, Promise promise);'
+  const prefetchExoNew = `    public abstract void isCached(String url, Promise promise);
+
+    public abstract void prefetchToCache(String url, String cacheKey, Promise promise);
+
+    public abstract void cancelPrefetch(Promise promise);`
+  const prefetchModuleOld = `    @ReactMethod
+    public void isCached(String url, final Promise callback) {`
+  const prefetchModuleNew = `    @ReactMethod
+    public void prefetchToCache(String url, String cacheKey, final Promise callback) {
+        waitForConnection(() -> binder.getPlayback().prefetchToCache(url, cacheKey, callback));
+    }
+
+    @ReactMethod
+    public void cancelPrefetch(final Promise callback) {
+        waitForConnection(() -> binder.getPlayback().cancelPrefetch(callback));
+    }
+
+    @ReactMethod
+    public void isCached(String url, final Promise callback) {`
+
+  const applyNamedPatch = async(filePath, name, anchor, replacement, idempotent) => {
+    try {
+      let file = (await fs.promises.readFile(filePath)).toString()
+      if (file.includes(idempotent)) {
+        console.log('  ' + name + ' already patched')
+        return
+      }
+      if (!file.includes(anchor)) {
+        console.warn('  WARNING: ' + name + ' pattern not found')
+        return
+      }
+      file = file.replace(anchor, replacement)
+      await fs.promises.writeFile(filePath, file)
+      console.log(name + ' patch: OK')
+    } catch (err) {
+      console.error('Patch ' + name + ' failed:', err.message)
+    }
+  }
+
+  await applyNamedPatch(localPlaybackPath, 'LocalPlayback.java prefetch',
+    prefetchLocalOld, prefetchLocalNew, 'lxPrefetchExecutor')
+  await applyNamedPatch(exoPlaybackPath, 'ExoPlayback.java prefetch',
+    prefetchExoOld, prefetchExoNew, 'abstract void prefetchToCache')
+  await applyNamedPatch(musicModulePath, 'MusicModule.java prefetch',
+    prefetchModuleOld, prefetchModuleNew, 'public void prefetchToCache(String url, String cacheKey, final Promise callback)')
 
   console.log('\nDependencies patch finished.\n')
 })()
