@@ -78,6 +78,10 @@ const rootPath = path.join(__dirname, './')
   try {
     let file = (await fs.promises.readFile(metadataManagerPath)).toString()
     for (const [fromStr, toStr] of metadataPatchs) {
+      if (file.includes(toStr)) {
+        console.log('Patching MetadataManager: ' + fromStr + '... already applied')
+        continue
+      }
       console.log('Patching MetadataManager: ' + fromStr + '...')
       if (!file.includes(fromStr)) {
         console.warn('  WARNING: Pattern not found, skipping')
