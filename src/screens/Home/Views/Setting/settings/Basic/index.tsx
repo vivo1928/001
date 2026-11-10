@@ -8,8 +8,6 @@ import Language from './Language'
 import FontSize from './FontSize'
 import ShareType from './ShareType'
 import IsStartupAutoPlay from './IsStartupAutoPlay'
-import IsSmartCache from './IsSmartCache'
-import CacheAheadCount from './CacheAheadCount'
 import IsStartupPushPlayDetailScreen from './IsStartupPushPlayDetailScreen'
 import IsAutoHidePlayBar from './IsAutoHidePlayBar'
 import IsHomePageScroll from './IsHomePageScroll'
@@ -28,8 +26,6 @@ export default memo(() => {
   return (
     <Section title={t('setting_basic')}>
       <IsStartupAutoPlay />
-      <IsSmartCache />
-      <CacheAheadCount />
       <IsStartupPushPlayDetailScreen />
       <IsShowBackBtn />
       <IsShowExitBtn />
