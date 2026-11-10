@@ -19,6 +19,7 @@ const stub = {
   cachedKeys: new Set(),
   resolveImpl: async(musicInfo) => ({ url: `https://cdn.example/${musicInfo.id}.mp3`, cacheKey: `lx:kg:320k:${musicInfo.id}` }),
   prefetched: [],
+  cancelled: 0,
 }
 
 const buildModule = () => loadModule('src/core/cache/smartCache.ts', {
@@ -27,7 +28,7 @@ const buildModule = () => loadModule('src/core/cache/smartCache.ts', {
     NativeModules: {
       TrackPlayerModule: {
         prefetchToCache: async(url, cacheKey) => { stub.prefetched.push({ url, cacheKey }); return true },
-        cancelPrefetch: async() => { stub.prefetched.push({ cancelled: true }) },
+        cancelPrefetch: async() => { stub.cancelled++ },
       },
     },
   },
@@ -45,7 +46,7 @@ const buildModule = () => loadModule('src/core/cache/smartCache.ts', {
   '@/store/player/state': stub.playerState,
 })
 
-const makeList = (n) => Array.from({ length: n }, (_, i) => ({ id: `s${i}`, source: 'kg', name: `n${i}`, singer: 'x' }))
+const makeList = (n, prefix = 's') => Array.from({ length: n }, (_, i) => ({ id: `${prefix}${i}`, source: 'kg', name: `n${i}`, singer: 'x' }))
 
 test('listLoop：按播放顺序向后取 N 首并循环回绕', async() => {
   stub.list = makeList(5)
@@ -65,13 +66,14 @@ test('list：到列表末尾即止，不回绕', async() => {
   assert.deepStrictEqual(result.map(item => item.musicInfo.id), ['s4'])
 })
 
-test('random：只预取确定性的下一首预测', async() => {
+test('random：确定性下一首优先，其余名额按列表顺序维持水位', async() => {
   stub.list = makeList(5)
+  stub.playerState.playInfo.playerPlayIndex = 0
   stub.nextInfo = { musicInfo: { id: 'r1', source: 'kg' }, listId: 'list1', isTempPlay: false }
   stub.setting['player.togglePlayMethod'] = 'random'
   const mod = buildModule()
   const result = await mod.getUpcomingPlayMusicInfos(10)
-  assert.deepStrictEqual(result.map(item => item.musicInfo.id), ['r1'])
+  assert.deepStrictEqual(result.map(item => item.musicInfo.id), ['r1', 's1', 's2', 's3', 's4'])
 })
 
 test('稍后播放优先且与当前曲去重', async() => {
@@ -97,17 +99,62 @@ test('singleLoop 与 count=0 不预取列表歌曲', async() => {
   assert.deepStrictEqual(await mod.getUpcomingPlayMusicInfos(0), [])
 })
 
-test('runSmartCache：已缓存跳过、占位链接不预取、正常歌依次预取', async() => {
+test('窗口维护：已缓存跳过、占位链接不预取、正常歌预取', async() => {
   stub.list = makeList(3)
   stub.playerState.playInfo.playerPlayIndex = 0
   stub.setting['player.cacheAheadCount'] = 2
   stub.prefetched = []
-  // 当前曲已完整缓存 → 跳过；s1 正常预取；s2 解析返回占位链接 → 不预取
-  stub.cachedKeys = new Set(['lx:kg:320k:cur'])
+  // s1 正常预取；s2 解析返回占位链接 → 不预取
+  stub.cachedKeys = new Set()
   stub.resolveImpl = async(musicInfo) => musicInfo.id == 's2'
     ? { url: 'https://lx-cache-hit.invalid/s2', cacheKey: 'lx:kg:320k:s2' }
     : { url: `https://cdn.example/${musicInfo.id}.mp3`, cacheKey: `lx:kg:320k:${musicInfo.id}` }
   const mod = buildModule()
-  await mod.runSmartCache()
+  await mod.runWindow()
   assert.deepStrictEqual(stub.prefetched, [{ url: 'https://cdn.example/s1.mp3', cacheKey: 'lx:kg:320k:s1' }])
+})
+
+test('滑动窗口：切一首只补新进窗口的一首', async() => {
+  stub.list = makeList(6)
+  stub.setting['player.cacheAheadCount'] = 3
+  stub.setting['player.togglePlayMethod'] = 'listLoop'
+  stub.prefetched = []
+  stub.cachedKeys = new Set()
+  stub.resolveImpl = async(musicInfo) => ({ url: `https://cdn.example/${musicInfo.id}.mp3`, cacheKey: `lx:kg:320k:${musicInfo.id}` })
+  const mod = buildModule()
+
+  // 第一轮：窗口 [s1, s2, s3] 全部未缓存 → 都预取
+  stub.playerState.playInfo.playerPlayIndex = 0
+  await mod.runWindow()
+  assert.deepStrictEqual(stub.prefetched.map(p => p.cacheKey), ['lx:kg:320k:s1', 'lx:kg:320k:s2', 'lx:kg:320k:s3'])
+
+  // 模拟切歌到 s1：窗口变为 [s2, s3, s4]，前三首已在缓存 → 只补 s4
+  stub.prefetched = []
+  stub.cachedKeys = new Set(['lx:kg:320k:s1', 'lx:kg:320k:s2', 'lx:kg:320k:s3'])
+  stub.playerState.playMusicInfo.musicInfo = { id: 's1', source: 'kg' }
+  stub.playerState.playInfo.playerPlayIndex = 1
+  await mod.runWindow()
+  assert.deepStrictEqual(stub.prefetched.map(p => p.cacheKey), ['lx:kg:320k:s4'])
+})
+
+test('当前曲补全：已缓存跳过，未缓存补全', async() => {
+  stub.list = makeList(3)
+  stub.prefetched = []
+  stub.playerState.playMusicInfo.musicInfo = { id: 'cur', source: 'kg' }
+  stub.cachedKeys = new Set(['lx:kg:320k:cur'])
+  const mod = buildModule()
+  await mod.runCurrentFill()
+  assert.deepStrictEqual(stub.prefetched, [])
+
+  stub.cachedKeys = new Set()
+  stub.playerState.playMusicInfo.musicInfo = { id: 's0', source: 'kg' }
+  await mod.runCurrentFill()
+  assert.deepStrictEqual(stub.prefetched.map(p => p.cacheKey), ['lx:kg:320k:s0'])
+})
+
+test('invalidatePrefetch：作废流水线并取消原生在途任务', async() => {
+  stub.cancelled = 0
+  const mod = buildModule()
+  mod.invalidatePrefetch()
+  assert.strictEqual(stub.cancelled, 1)
 })
