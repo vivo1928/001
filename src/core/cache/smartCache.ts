@@ -90,6 +90,7 @@ export const getUpcomingPlayMusicInfos = async(count: number): Promise<LX.Player
 
 const prefetchOne = async(musicInfo: LX.Player.PlayMusicInfo['musicInfo'], token: number) => {
   if (token != runToken || !musicInfo || !('source' in musicInfo)) return
+  if ('progress' in musicInfo) return
   const onlineInfo = musicInfo as LX.Music.MusicInfoOnline
   if (onlineInfo.source == 'local') return
 

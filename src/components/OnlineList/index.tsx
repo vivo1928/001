@@ -427,7 +427,7 @@ export default forwardRef<OnlineListType, OnlineListProps>(({
       <ListMusicMultiAdd ref={listMusicMultiAddRef} onAdded={() => { hancelExitSelect() }} />
       <ListMenu
         ref={listMenuRef}
-        onPlay={info => { handlePlay(info.musicInfo) }}
+        onPlay={info => { handlePlay(info.musicInfo, listRef.current?.getList()) }}
         onPlayLater={info => { hancelExitSelect(); handlePlayLater(info.musicInfo, info.selectedList, hancelExitSelect) }}
         onDownload={handleSingleDownload}
         onCopyName={info => { handleShare(info.musicInfo) }}

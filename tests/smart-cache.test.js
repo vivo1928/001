@@ -158,3 +158,21 @@ test('invalidatePrefetch：作废流水线并取消原生在途任务', async() 
   mod.invalidatePrefetch()
   assert.strictEqual(stub.cancelled, 1)
 })
+
+test('下载条目与本地源不进入预缓存', async() => {
+  stub.list = [
+    { id: 'd0', source: 'kg', name: 'd0', singer: 'x', progress: 1, metadata: {} },
+    { id: 'l0', source: 'local', name: 'l0', singer: 'x' },
+    { id: 's0', source: 'kg', name: 's0', singer: 'x' },
+  ]
+  stub.playerState.playMusicInfo.musicInfo = { id: 'cur', source: 'kg' }
+  stub.playerState.playInfo.playerPlayIndex = 0
+  stub.setting['player.cacheAheadCount'] = 10
+  stub.setting['player.togglePlayMethod'] = 'listLoop'
+  stub.prefetched = []
+  stub.cachedKeys = new Set()
+  stub.resolveImpl = async(musicInfo) => ({ url: `https://cdn.example/${musicInfo.id}.mp3`, cacheKey: `lx:${musicInfo.source}:320k:${musicInfo.id}` })
+  const mod = buildModule()
+  await mod.runWindow()
+  assert.deepStrictEqual(stub.prefetched.map(p => p.cacheKey), ['lx:kg:320k:s0'])
+})

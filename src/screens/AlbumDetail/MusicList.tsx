@@ -2,7 +2,7 @@ import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef } from 'rea
 import OnlineList, { type OnlineListType, type OnlineListProps } from '@/components/OnlineList'
 import Header, { type HeaderType } from './Header'
 import { useAlbumInfo } from './state'
-import { handlePlay, handlePlayAll } from './listAction'
+import { handlePlayAll } from './listAction'
 import musicSdk from '@/utils/musicSdk'
 import { toNewMusicInfo, normalizeAlbumDesc } from '@/utils'
 import DownloadQualityModal, { type DownloadQualityModalType } from '@/components/DownloadQualityModal'
@@ -136,7 +136,7 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId }, ref) 
       console.warn(`[AlbumDetail] handlePlayList: invalid index=${index} list.length=${list?.length ?? 'N/A'}`)
       return
     }
-    void handlePlay(list[index])
+    void handlePlayAll(info.id, info.source, list, index)
   }
   const handlePlayAllSongs = () => {
     const list = listRef.current?.getList()

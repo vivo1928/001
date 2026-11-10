@@ -1,5 +1,5 @@
 import { LIST_IDS } from '@/config/constant'
-import { addListMusics } from '@/core/list'
+import { addListMusics, setTempList } from '@/core/list'
 import { playList, playNext } from '@/core/player/player'
 import { addTempPlayList } from '@/core/player/tempPlayList'
 import settingState from '@/store/setting/state'
@@ -11,7 +11,18 @@ import musicSdk from '@/utils/musicSdk'
 import { toOldMusicInfo } from '@/utils'
 import { clearMusicUrlByMusic } from '@/utils/data'
 
-export const handlePlay = (musicInfo: LX.Music.MusicInfoOnline) => {
+/**
+ * 播放歌曲。带列表上下文（搜索结果、歌单/专辑页等）时整段装载为播放上下文，
+ * 上一首/下一首/预缓存窗口统一按该列表顺序；无上下文的单曲点播保持插队默认列表行为。
+ */
+export const handlePlay = (musicInfo: LX.Music.MusicInfoOnline, list?: LX.Music.MusicInfoOnline[], index?: number) => {
+  if (list?.length) {
+    const startIndex = index != null && index >= 0 ? index : list.findIndex(m => m.id == musicInfo.id)
+    void setTempList(`online__${list[0]?.source ?? musicInfo.source}_${list[0]?.id ?? musicInfo.id}`, [...list]).then(() => {
+      void playList(LIST_IDS.TEMP, startIndex < 0 ? 0 : startIndex)
+    })
+    return
+  }
   void addListMusics(LIST_IDS.DEFAULT, [musicInfo], settingState.setting['list.addMusicLocationType']).then(() => {
     const index = getListMusicSync(LIST_IDS.DEFAULT).findIndex(m => m.id == musicInfo.id)
     if (index < 0) return
