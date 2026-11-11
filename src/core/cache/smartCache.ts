@@ -5,7 +5,7 @@ import { getPlayCacheKey } from '@/utils/data'
 import { getPlayQuality } from '@/core/music/utils'
 import { isCached } from '@/plugins/player/utils'
 import { getNextPlayMusicInfo } from '@/core/player/player'
-import { getList } from '@/core/list'
+import { getListMusicSync } from '@/utils/listManage'
 import settingState from '@/store/setting/state'
 import playerState from '@/store/player/state'
 
@@ -72,7 +72,7 @@ export const getUpcomingPlayMusicInfos = async(count: number): Promise<LX.Player
 
   if (result.length >= count) return result
   const listId = playerState.playInfo.playerListId
-  const list = listId ? getList(listId) : []
+  const list = getListMusicSync(listId)
   if (!list.length) return result
   const startIndex = playerState.playInfo.playerPlayIndex
   for (let i = 1; result.length < count && i <= list.length; i++) {
@@ -115,20 +115,28 @@ const prefetchOne = async(musicInfo: LX.Player.PlayMusicInfo['musicInfo'], token
  * 切一首后通常只有一首新歌进入窗口，其余都在缓存里。
  */
 export const runWindow = async() => {
-  const token = runToken
-  const count = Number(settingState.setting['player.cacheAheadCount'] ?? 10)
-  const upcoming = await getUpcomingPlayMusicInfos(count)
-  for (const item of upcoming) {
-    if (token != runToken) return
-    await prefetchOne(item.musicInfo, token)
+  try {
+    const token = runToken
+    const count = Number(settingState.setting['player.cacheAheadCount'] ?? 10)
+    const upcoming = await getUpcomingPlayMusicInfos(count)
+    for (const item of upcoming) {
+      if (token != runToken) return
+      await prefetchOne(item.musicInfo, token)
+    }
+  } catch (err) {
+    console.log('[smartCache] runWindow failed:', (err as Error)?.message)
   }
 }
 
 /** 当前曲整首补全（播放稳定后调用） */
 export const runCurrentFill = async() => {
-  const token = runToken
-  const current = playerState.playMusicInfo.musicInfo
-  if (current) await prefetchOne(current, token)
+  try {
+    const token = runToken
+    const current = playerState.playMusicInfo.musicInfo
+    if (current) await prefetchOne(current, token)
+  } catch (err) {
+    console.log('[smartCache] runCurrentFill failed:', (err as Error)?.message)
+  }
 }
 
 export const scheduleWindow = () => {

@@ -41,7 +41,7 @@ const buildModule = () => loadModule('src/core/cache/smartCache.ts', {
   '@/core/music/utils': { getPlayQuality: () => '320k' },
   '@/plugins/player/utils': { isCached: async(key) => stub.cachedKeys.has(key) },
   '@/core/player/player': { getNextPlayMusicInfo: async() => stub.nextInfo },
-  '@/core/list': { getList: () => stub.list },
+  '@/utils/listManage': { getListMusicSync: () => stub.list },
   '@/store/setting/state': { setting: stub.setting },
   '@/store/player/state': stub.playerState,
 })
@@ -175,4 +175,37 @@ test('下载条目与本地源不进入预缓存', async() => {
   const mod = buildModule()
   await mod.runWindow()
   assert.deepStrictEqual(stub.prefetched.map(p => p.cacheKey), ['lx:kg:320k:s0'])
+})
+
+test('导入面回归：smartCache 具名导入与真实模块导出一致（防测试桩掩盖导出漂移）', () => {
+  const fs = require('fs')
+  const path = require('path')
+  const root = path.join(__dirname, '..')
+  const src = fs.readFileSync(path.join(root, 'src/core/cache/smartCache.ts'), 'utf8')
+  const importRe = /import\s+(?:type\s+)?\{([^}]+)\}\s+from\s+'([^']+)'/g
+  const resolveSrc = (spec) => {
+    const rel = spec.replace('@/', 'src/')
+    for (const suffix of ['.ts', '.tsx', '.js', '/index.ts', '/index.tsx', '/index.js']) {
+      const p = path.join(root, rel + suffix)
+      if (fs.existsSync(p)) return p
+    }
+    return null
+  }
+  let checked = 0
+  for (const m of src.matchAll(importRe)) {
+    const [, names, spec] = m
+    if (!spec.startsWith('@/')) continue
+    const file = resolveSrc(spec)
+    assert.ok(file, `无法解析导入源: ${spec}`)
+    const text = fs.readFileSync(file, 'utf8')
+    for (const raw of names.split(',')) {
+      const name = raw.trim().replace(/^type\s+/, '').split(/\s+as\s+/)[0].trim()
+      if (!name) continue
+      checked++
+      const exported = new RegExp(`export\\s+(?:const|let|var|function|async function|class|interface|type|enum)\\s+${name}\\b`).test(text) ||
+        new RegExp(`export\\s*\\{[^}]*\\b${name}\\b[^}]*\\}`).test(text)
+      assert.ok(exported, `真实模块未导出 ${name}（来自 ${spec}，smartCache.ts 导入了它）`)
+    }
+  }
+  assert.ok(checked > 0, '未解析到任何具名导入')
 })
