@@ -47,13 +47,14 @@ global.i18n = { t: (k) => k }
 
 test('A1: 非离线中文错误（获取链接失败）在播放场景也走缓存兜底', async() => {
   stub.resolveImpl = () => Promise.reject(new Error('获取链接失败'))
-  stub.savedMetas = [{ quality: '320k', url: 'https://old.example/a.mp3', ts: 0, expired: true }]
-  stub.isCachedImpl = async(key) => key == 'lx:kg:320k:song1'
+  stub.savedMetas = [{ quality: 'flac', url: 'https://old.example/a.flac', ts: 0, expired: true }]
+  stub.isCachedImpl = async(key) => key == 'lx:kg:flac:song1'
+  stub.meta = { url: '', ts: 0, expired: true }
   global.i18n = { t: (k) => k }
   const mod = buildModule().getMusicUrl
   const result = await mod({ musicInfo, isRefresh: false, forPlayback: true })
-  assert.strictEqual(result.url, 'https://old.example/a.mp3')
-  assert.strictEqual(result.cacheKey, 'lx:kg:320k:song1')
+  assert.strictEqual(result.url, 'https://old.example/a.flac')
+  assert.strictEqual(result.cacheKey, 'lx:kg:flac:song1')
 })
 
 test('A2: isRefresh 失败后同样允许兜底（断网刷新重试不再是死结）', async() => {
@@ -98,6 +99,60 @@ test('新鲜链接直接返回，不触发兜底与网络解析', async() => {
   const mod = buildModule().getMusicUrl
   const result = await mod({ musicInfo, isRefresh: false, forPlayback: true })
   assert.strictEqual(result.url, 'https://fresh.example/f.mp3')
+  assert.strictEqual(result.cacheKey, 'lx:kg:320k:song1')
+  stub.meta = { url: '', ts: 0, expired: true }
+})
+
+test('B1: URL 记录丢失但目标音质已缓存时免解析直起播（不调自定义音源）', async() => {
+  stub.resolveImpl = () => { throw new Error('不应被调用') }
+  stub.savedMetas = []
+  stub.isCachedImpl = async(key) => key == 'lx:kg:320k:song1'
+  stub.meta = { url: '', ts: 0, expired: true }
+  const mod = buildModule().getMusicUrl
+  const result = await mod({ musicInfo, isRefresh: false, forPlayback: true })
+  assert.ok(result.url.includes('lx-cache-hit.invalid'), `占位 URL 异常: ${result.url}`)
+  assert.strictEqual(result.cacheKey, 'lx:kg:320k:song1')
+})
+
+test('B2: 非播放场景（预取）即使已缓存也走解析，保留真实链接语义', async() => {
+  let called = false
+  stub.resolveImpl = () => {
+    called = true
+    return Promise.resolve({ url: 'https://new.example/n.mp3', quality: '320k', musicInfo, isFromCache: false })
+  }
+  stub.savedMetas = []
+  stub.isCachedImpl = async(key) => key == 'lx:kg:320k:song1'
+  stub.meta = { url: '', ts: 0, expired: true }
+  const mod = buildModule().getMusicUrl
+  const result = await mod({ musicInfo, isRefresh: false, forPlayback: false })
+  assert.strictEqual(called, true)
+  assert.strictEqual(result.url, 'https://new.example/n.mp3')
+  assert.strictEqual(result.cacheKey, 'lx:kg:320k:song1')
+})
+
+test('B3: isRefresh 强制刷新不短路，已缓存也重新解析', async() => {
+  let called = false
+  stub.resolveImpl = () => {
+    called = true
+    return Promise.resolve({ url: 'https://new.example/refresh.mp3', quality: '320k', musicInfo, isFromCache: false })
+  }
+  stub.savedMetas = []
+  stub.isCachedImpl = async(key) => key == 'lx:kg:320k:song1'
+  stub.meta = { url: '', ts: 0, expired: true }
+  const mod = buildModule().getMusicUrl
+  const result = await mod({ musicInfo, isRefresh: true, forPlayback: true })
+  assert.strictEqual(called, true)
+  assert.strictEqual(result.url, 'https://new.example/refresh.mp3')
+})
+
+test('B4: 过期链接且目标音质已缓存时优先旧真实链接，占位 URL 不越位', async() => {
+  stub.resolveImpl = () => { throw new Error('不应被调用') }
+  stub.meta = { url: 'https://old.example/expired.mp3', ts: 0, expired: true }
+  stub.savedMetas = []
+  stub.isCachedImpl = async(key) => key == 'lx:kg:320k:song1'
+  const mod = buildModule().getMusicUrl
+  const result = await mod({ musicInfo, isRefresh: false, forPlayback: true })
+  assert.strictEqual(result.url, 'https://old.example/expired.mp3')
   assert.strictEqual(result.cacheKey, 'lx:kg:320k:song1')
   stub.meta = { url: '', ts: 0, expired: true }
 })

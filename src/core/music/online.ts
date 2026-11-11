@@ -134,6 +134,7 @@ export const getMusicUrl = async({ musicInfo, quality, isRefresh, allowToggleSou
 }): Promise<{ url: string, cacheKey: string }> => {
   const targetQuality = quality ?? getPlayQuality(settingState.setting['player.playQuality'], musicInfo)
   const cacheMeta = await getMusicUrlMeta(musicInfo, targetQuality)
+  const cacheHitUrl = 'https://lx-cache-hit.invalid/' + encodeURIComponent(musicInfo.id)
 
   // 新鲜链接直接命中（命中磁盘缓存，秒播省流量）
   if (cacheMeta.url && !cacheMeta.expired && !isRefresh) {
@@ -153,6 +154,18 @@ export const getMusicUrl = async({ musicInfo, quality, isRefresh, allowToggleSou
     }
   }
 
+  // 缓存命中的歌直接起播，跳过自定义音源取链接：targetQuality 整首已落磁盘缓存时，
+  // 稳定 cacheKey 构造的 track 由 CacheDataSource 直接读盘，占位 URL 不会发起网络请求。
+  // 避免"明明已缓存还先去调音源解析"的浪费（解析还可能因音源限流/脚本失败而卡起播）。
+  // 仅播放场景短路；预取/下载/音质切换仍走解析，保留真实链接语义。
+  if (forPlayback && !isRefresh) {
+    const inCache = await TrackPlayer.isCached(getPlayCacheKey(musicInfo, targetQuality)).catch(() => false)
+    if (inCache) {
+      await applyAudioModeForQuality(targetQuality)
+      return { url: cacheHitUrl, cacheKey: getPlayCacheKey(musicInfo, targetQuality) }
+    }
+  }
+
   // 收集可兜底的旧链接：目标音质优先，其次其他音质。断网/解析失败时用它命中原磁盘缓存离线播放。
   // 直接枚举存储里该歌曲全部已记录链接（含换源/其他音质解析留下的记录），
   // 不局限于当前音源声明的 qualityList；播放场景只选"整首已完整缓存"（isCached 校验）
@@ -168,11 +181,10 @@ export const getMusicUrl = async({ musicInfo, quality, isRefresh, allowToggleSou
     // URL 记录丢失但磁盘音频仍在：稳定 cacheKey 可由 音源+id+音质 推导，
     // 用占位 URL 构造 track 即可（缓存完整命中时 CacheDataSource 不会发起网络请求）。
     if (forPlayback) {
-      const placeholder = 'https://lx-cache-hit.invalid/' + encodeURIComponent(musicInfo.id)
       const qualities = [targetQuality, ...allQualityNames.filter(q => q != targetQuality)]
       for (const quality of qualities) {
         const inCache = await TrackPlayer.isCached(getPlayCacheKey(musicInfo, quality)).catch(() => false)
-        if (inCache) return { url: placeholder, quality }
+        if (inCache) return { url: cacheHitUrl, quality }
       }
     }
     return null
