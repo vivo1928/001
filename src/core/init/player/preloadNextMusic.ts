@@ -1,5 +1,6 @@
 import { getMusicUrl } from '@/core/music'
-import { getNextPlayMusicInfo, resetRandomNextMusicInfo } from '@/core/player/player'
+import { getNextPlayMusicInfo } from '@/core/player/player'
+import { resetRandomQueue } from '@/core/player/randomQueue'
 import { checkUrl } from '@/utils/request'
 import { isCached } from '@/plugins/player/utils'
 
@@ -24,8 +25,8 @@ const preloadNextMusicUrl = async() => {
   if (preloadMusicInfo.isLoading || preloadMusicInfo.done) return
   preloadMusicInfo.isLoading = true
   try {
-    // getNextPlayMusicInfo 内部会把随机模式选中的歌曲缓存到 randomNextMusicInfo，
-    // 因此随后真正切歌时 playNext 会选到同一首，预加载与实播结果一致，随机循环也不会错位。
+    // getNextPlayMusicInfo 内部读取随机预抽队列的队头（与 playNext 消费的同一序列），
+    // 因此随后真正切歌时会选到同一首，预加载与实播结果一致，随机循环也不会错位。
     const info = await getNextPlayMusicInfo()
     // 无论是否预测到下一首都标记完成，避免在歌曲最后阶段每秒重复探测
     preloadMusicInfo.done = true
@@ -58,9 +59,8 @@ export default () => {
 
   const handleConfigUpdated: typeof global.state_event.configUpdated = (keys) => {
     if (!keys.includes('player.togglePlayMethod')) return
-    if (!preloadMusicInfo.info || preloadMusicInfo.info.isTempPlay) return
-    // 切换播放模式后，之前预测的下一首（尤其是随机选中的那首）已失效，需要重新预测
-    resetRandomNextMusicInfo()
+    // 切换播放模式后，随机队列与预加载预测全部失效，需要重新预测
+    resetRandomQueue()
     resetPreloadInfo()
   }
 

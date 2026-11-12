@@ -4,7 +4,7 @@ import { getMusicUrl } from '@/core/music'
 import { getPlayCacheKey } from '@/utils/data'
 import { getPlayQuality } from '@/core/music/utils'
 import { isCached } from '@/plugins/player/utils'
-import { getNextPlayMusicInfo } from '@/core/player/player'
+import { getRandomQueue } from '@/core/player/randomQueue'
 import { getListMusicSync } from '@/utils/listManage'
 import settingState from '@/store/setting/state'
 import playerState from '@/store/player/state'
@@ -62,12 +62,17 @@ export const getUpcomingPlayMusicInfos = async(count: number): Promise<LX.Player
   const method = settingState.setting['player.togglePlayMethod']
   if (method == 'singleLoop') return result
 
+  // 随机模式：沿预抽队列取未来曲目，与实播切歌完全同序；
+  // 队列是无放回抽样提交的确定序列，预多少命中多少，不再按列表顺序盲补
   if (method == 'random') {
-    const next = await getNextPlayMusicInfo().catch(() => null)
-    if (next?.musicInfo && !seen.has(next.musicInfo.id)) {
-      seen.add(next.musicInfo.id)
-      result.push(next)
+    const queue = await getRandomQueue(count - result.length).catch(() => [])
+    for (const item of queue) {
+      if (result.length >= count) break
+      if (!item?.musicInfo || seen.has(item.musicInfo.id)) continue
+      seen.add(item.musicInfo.id)
+      result.push(item)
     }
+    return result
   }
 
   if (result.length >= count) return result

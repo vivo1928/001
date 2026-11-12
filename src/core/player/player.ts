@@ -23,6 +23,7 @@ import { getMusicUrl, getPicPath, getLyricInfo } from '@/core/music'
 import { requestMsg } from '@/utils/message'
 import { getRandom } from '@/utils/common'
 import { filterList } from './utils'
+import { getRandomQueue, shiftRandomQueue } from './randomQueue'
 import BackgroundTimer from 'react-native-background-timer'
 import { checkIgnoringBatteryOptimization, checkNotificationPermission, debounceBackgroundTimer } from '@/utils/tools'
 import { LIST_IDS } from '@/config/constant'
@@ -242,7 +243,6 @@ const handlePlay = async() => {
   }
 
   global.lx.isPlayedStop &&= false
-  resetRandomNextMusicInfo()
 
   if (global.lx.restorePlayInfo) {
     void handleRestorePlay(global.lx.restorePlayInfo)
@@ -305,17 +305,6 @@ const handleToggleStop = async() => {
 }
 
 
-const randomNextMusicInfo = {
-  info: null as LX.Player.PlayMusicInfo | null,
-  // index: -1,
-}
-export const resetRandomNextMusicInfo = () => {
-  if (randomNextMusicInfo.info) {
-    randomNextMusicInfo.info = null
-    // randomNextMusicInfo.index = -1
-  }
-}
-
 export const getNextPlayMusicInfo = async(): Promise<LX.Player.PlayMusicInfo | null> => {
   if (playerState.tempPlayList.length) { // 如果稍后播放列表存在歌曲则直接播放改列表的歌曲
     const playMusicInfo = playerState.tempPlayList[0]
@@ -331,7 +320,7 @@ export const getNextPlayMusicInfo = async(): Promise<LX.Player.PlayMusicInfo | n
   if (!currentListId) return null
   const currentList = getList(currentListId)
 
-  // 分支优先级须与 playNext 保持一致（tempPlayList → playedList → randomNextMusicInfo → 计算），
+  // 分支优先级须与 playNext 保持一致（tempPlayList → playedList → 随机队列 → 计算），
   // 否则随机模式 + 历史回退场景下预加载预测的下一首与实播切歌不同，预热白费
   const playedList = playerState.playedList
   if (playedList.length) { // 移除已播放列表内不存在原列表的歌曲
@@ -357,7 +346,9 @@ export const getNextPlayMusicInfo = async(): Promise<LX.Player.PlayMusicInfo | n
     if (index < playedList.length) return playedList[index]
   }
 
-  if (randomNextMusicInfo.info) return randomNextMusicInfo.info
+  if (settingState.setting['player.togglePlayMethod'] == 'random') {
+    return (await getRandomQueue(1))[0] ?? null
+  }
   // const isCheckFile = findNum > 2 // 针对下载列表，如果超过两次都碰到无效歌曲，则过滤整个列表内的无效歌曲
   let { filteredList, playerIndex } = await filterList({ // 过滤已播放歌曲
     listId: currentListId,
@@ -396,10 +387,6 @@ export const getNextPlayMusicInfo = async(): Promise<LX.Player.PlayMusicInfo | n
     isTempPlay: false,
   }
 
-  if (togglePlayMethod == 'random') {
-    randomNextMusicInfo.info = nextPlayMusicInfo
-    // randomNextMusicInfo.index = nextIndex
-  }
   return nextPlayMusicInfo
 }
 
@@ -456,9 +443,12 @@ export const playNext = async(isAutoToggle = false): Promise<void> => {
       return
     }
   }
-  if (randomNextMusicInfo.info) {
-    await handlePlayNext(randomNextMusicInfo.info)
-    return
+  if (settingState.setting['player.togglePlayMethod'] == 'random') {
+    const next = await shiftRandomQueue()
+    if (next) {
+      await handlePlayNext(next)
+      return
+    }
   }
   // const isCheckFile = findNum > 2 // 针对下载列表，如果超过两次都碰到无效歌曲，则过滤整个列表内的无效歌曲
   let { filteredList, playerIndex } = await filterList({ // 过滤已播放歌曲

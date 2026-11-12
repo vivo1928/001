@@ -15,7 +15,7 @@ const stub = {
     tempPlayList: [],
   },
   list: [],
-  nextInfo: null,
+  randomQueue: [],
   cachedKeys: new Set(),
   resolveImpl: async(musicInfo) => ({ url: `https://cdn.example/${musicInfo.id}.mp3`, cacheKey: `lx:kg:320k:${musicInfo.id}` }),
   prefetched: [],
@@ -40,7 +40,7 @@ const buildModule = () => loadModule('src/core/cache/smartCache.ts', {
   '@/utils/data': { getPlayCacheKey: (m, q) => `lx:${m.source}:${q}:${m.id}` },
   '@/core/music/utils': { getPlayQuality: () => '320k' },
   '@/plugins/player/utils': { isCached: async(key) => stub.cachedKeys.has(key) },
-  '@/core/player/player': { getNextPlayMusicInfo: async() => stub.nextInfo },
+  '@/core/player/randomQueue': { getRandomQueue: async(count) => stub.randomQueue.slice(0, count) },
   '@/utils/listManage': { getListMusicSync: () => stub.list },
   '@/store/setting/state': { setting: stub.setting },
   '@/store/player/state': stub.playerState,
@@ -66,14 +66,19 @@ test('list：到列表末尾即止，不回绕', async() => {
   assert.deepStrictEqual(result.map(item => item.musicInfo.id), ['s4'])
 })
 
-test('random：确定性下一首优先，其余名额按列表顺序维持水位', async() => {
+test('random：沿预抽队列预取，与实播同序且不做列表顺序盲补', async() => {
   stub.list = makeList(5)
   stub.playerState.playInfo.playerPlayIndex = 0
-  stub.nextInfo = { musicInfo: { id: 'r1', source: 'kg' }, listId: 'list1', isTempPlay: false }
+  stub.randomQueue = [
+    { musicInfo: { id: 'r1', source: 'kg' }, listId: 'list1', isTempPlay: false },
+    { musicInfo: { id: 'r2', source: 'kg' }, listId: 'list1', isTempPlay: false },
+    { musicInfo: { id: 'r3', source: 'kg' }, listId: 'list1', isTempPlay: false },
+  ]
   stub.setting['player.togglePlayMethod'] = 'random'
   const mod = buildModule()
   const result = await mod.getUpcomingPlayMusicInfos(10)
-  assert.deepStrictEqual(result.map(item => item.musicInfo.id), ['r1', 's1', 's2', 's3', 's4'])
+  assert.deepStrictEqual(result.map(item => item.musicInfo.id), ['r1', 'r2', 'r3'])
+  stub.setting['player.togglePlayMethod'] = 'listLoop'
 })
 
 test('稍后播放优先且与当前曲去重', async() => {
