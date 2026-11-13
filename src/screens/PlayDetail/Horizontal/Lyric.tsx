@@ -40,7 +40,7 @@ const LrcLine = memo(({ line, lineNum, activeLine, onLayout, onPress }: LineProp
     ] as const : [
       theme['c-350'],
       theme['c-300'],
-      0.6,
+      0.8,
     ] as const
   }, [activeLine, lineNum, theme])
 
