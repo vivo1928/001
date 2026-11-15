@@ -6,6 +6,8 @@ import {
   stopDownload,
   mkdir,
   existsFile,
+  unlink,
+  moveFile,
   externalStorageDirectoryPath,
 } from '@/utils/fs'
 import { requestStoragePermission } from '@/utils/permissions'
@@ -178,9 +180,10 @@ class DownloadManager {
     if (index === -1) return
 
     const task = this.queue[index]
+    const wasDownloading = task.status === 'downloading'
 
     // 如果该任务正在下载，立即停止当前下载
-    if (task.status === 'downloading' && this.currentTaskId === taskId) {
+    if (wasDownloading && this.currentTaskId === taskId) {
       if (this.currentJobId !== null) {
         stopDownload(this.currentJobId)
         this.currentJobId = null
@@ -192,6 +195,9 @@ class DownloadManager {
     // 从队列中移除
     this.queue.splice(index, 1)
     this.onComplete(taskId, false, 'cancelled')
+
+    // 清理被取消任务的半成品文件（只删该任务自己的文件）
+    if (wasDownloading) void this.removePartialFile(task)
 
     // 不在此处手动修改 isProcessing/currentTaskId 或调用 processQueue：
     // 正在运行的 processQueue 会在 downloadSingleTask 被中断后于 finally 中
@@ -209,6 +215,8 @@ class DownloadManager {
         currentTask.status = 'failed'
         currentTask.error = 'cancelled'
         this.onComplete(currentTask.id, false, 'cancelled')
+        // 清理当前下载任务的半成品文件（只删正在下载的那个文件）
+        void this.removePartialFile(currentTask)
       }
       stopDownload(this.currentJobId)
       this.currentJobId = null
@@ -293,6 +301,22 @@ class DownloadManager {
   // -----------------------------------------------------------------------
   // 私有方法
   // -----------------------------------------------------------------------
+
+  /**
+   * 清理被取消/失败任务留下的半成品文件（.part），
+   * 只删除该任务自己的文件，不影响已完成文件或同路径的其他任务
+   */
+  private async removePartialFile(task: DownloadTask): Promise<void> {
+    const partPath = `${task.filePath}.part`
+    try {
+      if (!await existsFile(partPath)) return
+      // 同路径有其他任务正在下载时跳过，避免误删新任务的半成品
+      if (this.queue.some((t) => t !== task && t.filePath === task.filePath && t.status === 'downloading')) return
+      await unlink(partPath)
+    } catch (err) {
+      console.log('[DownloadManager] remove partial file failed:', partPath, err)
+    }
+  }
 
   /**
    * 处理下载队列 —— 顺序执行，同一时间只下载一个任务
@@ -441,8 +465,13 @@ class DownloadManager {
       return
     }
 
-    // 4. 发起下载（带超时控制）
-    const result = downloadFile(url, task.filePath, {
+    // 任务可能在准备阶段被取消
+    if (task.status !== 'downloading') return
+
+    // 4. 发起下载（先写入 .part 半成品，成功后再移动到目标路径，
+    // 目标路径只会出现完整文件，取消时只删 .part）
+    const partPath = `${task.filePath}.part`
+    const result = downloadFile(url, partPath, {
       headers: {
         'User-Agent':
           'Mozilla/5.0 (Linux; Android 10; Pixel 3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/79.0.3945.79 Mobile Safari/537.36',
@@ -469,32 +498,43 @@ class DownloadManager {
     try {
       downloadResult = await result.promise
     } catch (error: any) {
-      // 如果任务已被取消，静默忽略
-      if (task.status !== 'downloading') return
+      // 如果任务已被取消，清理半成品后静默忽略
+      if (task.status !== 'downloading') {
+        void this.removePartialFile(task)
+        return
+      }
       throw error
     }
 
     // 再次检查任务是否已被取消
-    if (task.status !== 'downloading') return
+    if (task.status !== 'downloading') {
+      void this.removePartialFile(task)
+      return
+    }
 
     // 5. 检查下载结果
     if (downloadResult.statusCode === 200) {
-      // 验证文件是否真的存在且大于0字节
-      const fileStat = await existsFile(task.filePath).catch(() => false)
-      if (!fileStat) {
+      // 验证半成品是否真的存在，然后原子替换到目标路径
+      const partExists = await existsFile(partPath).catch(() => false)
+      if (!partExists) {
         throw new Error('下载完成但文件不存在')
       }
+      await moveFile(partPath, task.filePath)
       task.status = 'completed'
       task.progress = 100
       this.onProgress(task.id, 100)
       this.onComplete(task.id, true)
     } else if (downloadResult.statusCode === 304) {
       // 文件未修改，视为已存在（缓存命中）
+      const partExists = await existsFile(partPath).catch(() => false)
+      if (partExists) await moveFile(partPath, task.filePath)
       task.status = 'completed'
       task.progress = 100
       this.onProgress(task.id, 100)
       this.onComplete(task.id, true)
     } else {
+      // 清理非 200 响应留下的半成品
+      void this.removePartialFile(task)
       throw new Error(`下载失败，服务器返回状态码: ${downloadResult.statusCode}`)
     }
   }

@@ -9,6 +9,7 @@ import DownloadQualityModal, { type DownloadQualityModalType } from '@/component
 import DownloadProgressModal, { type DownloadProgressModalType } from '@/components/DownloadProgressModal'
 import DownloadFailedModal, { type DownloadFailedModalType } from '@/components/DownloadFailedModal'
 import DownloadManager from '@/core/download/manager'
+import { toast } from '@/utils/tools'
 
 export interface MusicListProps {
   componentId: string
@@ -256,6 +257,8 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId }, ref) 
                     },
                     onCancel: () => {},
                   })
+                } else {
+                  toast(global.i18n.t('download_completed'))
                 }
                 downloadManager['onComplete'] = retryOnComplete
                 restoreCallbacks()
@@ -265,6 +268,7 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId }, ref) 
           }
         }
 
+        if (failedSongs.length === 0) toast(global.i18n.t('download_completed'))
         restoreCallbacks()
       }
     }

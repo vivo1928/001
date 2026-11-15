@@ -204,7 +204,8 @@ export default forwardRef<OnlineListType, OnlineListProps>(({
       if (id !== taskId) return
       downloadProgressRef.current?.close()
       if (success) {
-        // 下载成功，关闭弹窗
+        // 下载成功，提示完成
+        toast(global.i18n.t('download_completed'))
       } else if (error === 'cancelled') {
         // 用户取消了下载
         toast(global.i18n.t('download_cancelled'))
@@ -374,6 +375,8 @@ export default forwardRef<OnlineListType, OnlineListProps>(({
                     },
                     onCancel: () => {},
                   })
+                } else {
+                  toast(global.i18n.t('download_completed'))
                 }
                 downloadManager['onComplete'] = retryOnComplete
                 restoreCallbacks()
@@ -384,6 +387,7 @@ export default forwardRef<OnlineListType, OnlineListProps>(({
         }
 
         // 没有失败，全部完成
+        if (failedSongs.length === 0) toast(global.i18n.t('download_completed'))
         // 恢复回调
         restoreCallbacks()
       }

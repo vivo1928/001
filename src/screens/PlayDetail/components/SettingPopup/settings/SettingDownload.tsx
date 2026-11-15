@@ -55,7 +55,8 @@ export default memo(() => {
       if (id !== taskId) return
       downloadProgressRef.current?.close()
       if (success) {
-        // 下载成功，关闭弹窗
+        // 下载成功，提示完成
+        toast(t('download_completed'))
       } else if (error === 'cancelled') {
         // 用户取消了下载
         toast(t('download_cancelled'))
