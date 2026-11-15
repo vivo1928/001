@@ -8,7 +8,7 @@ buildscript {
         targetSdkVersion = 29
 
         ndkVersion = "26.1.10909125"
-        kotlinVersion = "1.9.24" // Or any version above 1.3.x
+        kotlinVersion = "1.9.25" // Or any version above 1.3.x
         RNNKotlinVersion = kotlinVersion
 
         // https://github.com/dream-horizon-org/react-native-fast-image/blob/main/docs/app-glide-module.md
