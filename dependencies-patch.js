@@ -603,5 +603,17 @@ const rootPath = path.join(__dirname, './')
     }`,
     'event?.let { ev -> getEventDispatcher()')
 
+  // ReactTypefaceUtils.java：RN 0.76+ 移除 ReactTextShadowNode.UNSET 字段，
+  // 改用文件内同值局部常量 UNSET（-1）
+  const reactTypefacePath = path.join(rnnUtilsDir, 'utils/ReactTypefaceUtils.java')
+  await applyNamedPatch(reactTypefacePath, 'ReactTypefaceUtils.java UNSET weight',
+    'weight == ReactTextShadowNode.UNSET', 'weight == UNSET', 'weight == UNSET)')
+  await applyNamedPatch(reactTypefacePath, 'ReactTypefaceUtils.java UNSET style',
+    'style == ReactTextShadowNode.UNSET', 'style == UNSET', 'style == UNSET)')
+  await applyNamedPatch(reactTypefacePath, 'ReactTypefaceUtils.java drop import',
+    'import com.facebook.react.views.text.ReactTextShadowNode;',
+    '// ReactTextShadowNode import removed: RN 0.76+ dropped the UNSET field, use local UNSET',
+    'use local UNSET')
+
   console.log('\nDependencies patch finished.\n')
 })()
