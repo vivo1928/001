@@ -1,13 +1,28 @@
 // import { requestStoragePermission } from '@/utils/common'
+import { Platform } from 'react-native'
+import { version } from '../../package.json'
 import { temporaryDirectoryPath, existsFile, appendFile, unlink, writeFile, readFile } from '@/utils/fs'
 
 const logPath = temporaryDirectoryPath + '/error.log'
 
+// 脱敏：避免日志导出/分享时泄露凭据
+const TOKEN_PATTERNS: Array<[RegExp, string]> = [
+  [/(ghp_|gho_|ghs_|ghu_|github_pat_)[A-Za-z0-9_]+/g, '$1[REDACTED]'],
+  [/glpat-[A-Za-z0-9_-]+/g, 'glpat-[REDACTED]'],
+  [/((?:bearer|token|access_token|password|api[_-]?key)\s*[=:]?\s*)[^\s'",;)]+/gi, '$1[REDACTED]'],
+]
+export const sanitizeLogText = (msg: string): string => {
+  let out = msg
+  for (const [pattern, replacement] of TOKEN_PATTERNS) out = out.replace(pattern, replacement)
+  return out
+}
+
 const logTools = {
   tempLog: [] as Array<{ time: string, type: 'LOG' | 'WARN' | 'ERROR', text: string }> | null,
   writeLog(msg: string) {
-    console.log(msg)
-    void appendFile(logPath, '\n----lx log----\n' + msg)
+    const safeMsg = sanitizeLogText(msg)
+    console.log(safeMsg)
+    void appendFile(logPath, '\n----lx log----\n' + safeMsg)
   },
   async initLogFile() {
     try {
@@ -23,7 +38,13 @@ const logTools = {
 }
 
 export const init = async() => {
-  return logTools.initLogFile()
+  await logTools.initLogFile()
+  // 会话信息头：版本与设备信息，便于定位"哪个版本、什么设备"上的问题
+  const model = (Platform.constants as any)?.Model ?? 'unknown'
+  const rnVersion = (Platform.constants as any)?.reactNativeVersion
+    ? Object.values((Platform.constants as any).reactNativeVersion).join('.')
+    : 'unknown'
+  logTools.writeLog(`session start | app v${version} | ${Platform.OS} api ${String(Platform.Version)} | model ${model} | rn ${rnVersion}`)
 }
 
 export const getLogs = async() => {

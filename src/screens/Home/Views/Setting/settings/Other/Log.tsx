@@ -1,5 +1,5 @@
 import { memo, useRef, useState, useEffect } from 'react'
-import { View } from 'react-native'
+import { View, Share } from 'react-native'
 import { getLogs, clearLogs } from '@/utils/log'
 // import { gzip, ungzip } from 'pako'
 
@@ -41,6 +41,16 @@ export default memo(() => {
     })
   }
 
+  const handleShareLog = () => {
+    void getLogs().then(content => {
+      if (!content.trim()) {
+        toast(t('setting_other_log_tip_null'))
+        return
+      }
+      void Share.share({ message: content }).catch(() => {})
+    })
+  }
+
   const handleSetEnableSyncErrorLog = (enable: boolean) => {
     setIsEnableSyncErrorLog(enable)
     global.lx.isEnableSyncLog = enable
@@ -68,6 +78,9 @@ export default memo(() => {
         </View>
         <View style={styles.btn}>
           <Button onPress={openLogModal}>{t('setting_other_log_btn_show')}</Button>
+        </View>
+        <View style={styles.btn}>
+          <Button onPress={handleShareLog}>{t('setting_other_log_btn_share')}</Button>
         </View>
       </SubTitle>
       <ConfirmAlert

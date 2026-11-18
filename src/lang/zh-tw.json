@@ -398,6 +398,7 @@
   "setting_other_log_btn_clean": "清空",
   "setting_other_log_btn_hide": "關閉",
   "setting_other_log_btn_show": "查看日誌",
+  "setting_other_log_btn_share": "分享日誌",
   "setting_other_log_sync_log": "記錄同步日誌",
   "setting_other_log_tip_clean_success": "日誌清理完成",
   "setting_other_log_tip_null": "日誌是空的哦~",

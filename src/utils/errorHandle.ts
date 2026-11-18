@@ -39,4 +39,13 @@ if (process.env.NODE_ENV !== 'development') {
     log.error(errorString)
     console.log('+++++', errorString, '+++++')
   }, false)
+
+  // 未处理的 Promise 拒绝也落盘，避免静默失败无迹可查
+  const globalAny = global as any
+  if (typeof globalAny.addEventListener === 'function') {
+    globalAny.addEventListener('unhandledrejection', (e: any) => {
+      const reason = e?.reason
+      log.error(`Unhandled promise rejection: ${reason instanceof Error ? (reason.stack ?? reason.message) : String(reason)}`)
+    })
+  }
 }
