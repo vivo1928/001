@@ -520,5 +520,88 @@ const rootPath = path.join(__dirname, './')
   await applyNamedPatch(musicModulePath, 'MusicModule.java prefetch',
     prefetchModuleOld, prefetchModuleNew, 'public void prefetchToCache(String url, String cacheKey, final Promise callback)')
 
+  // ---------------------------------------------------------------------------
+  // react-native-navigation 7.51.x 与 RN 0.76+ 兼容补丁
+  // 1. ReactViewGroup.kt：RN 0.76+ 移除 getFullBorderRadius()，改反射读取（行为不变）
+  // 2. LayoutDirectionApplier.kt：currentReactContext 变为自定义 getter 后无法 smart cast
+  // 3. ModalContentLayout.kt：RN 0.76+ 对 MotionEvent/EventDispatcher 参数收紧空安全
+  // ---------------------------------------------------------------------------
+  const rnnUtilsDir = path.join(rootPath, 'node_modules/react-native-navigation/lib/android/app/src/main/java/com/reactnativenavigation')
+  const reactViewGroupPath = path.join(rnnUtilsDir, 'utils/ReactViewGroup.kt')
+  const layoutDirectionPath = path.join(rnnUtilsDir, 'viewcontrollers/viewcontroller/LayoutDirectionApplier.kt')
+  const modalContentPath = path.join(rootPath, 'node_modules/react-native-navigation/lib/android/app/src/reactNative71/java/com/reactnativenavigation/react/modal/ModalContentLayout.kt')
+
+  await applyNamedPatch(reactViewGroupPath, 'ReactViewGroup.kt fullBorderRadius',
+`val ReactViewGroup.borderRadius: Float
+    get() = (background as? ReactViewBackgroundDrawable)?.fullBorderRadius ?: 0f`,
+`val ReactViewGroup.borderRadius: Float
+    get() = (background as? ReactViewBackgroundDrawable)?.let { bg ->
+        try {
+            // RN 0.76+ 移除 getFullBorderRadius()，反射读取以兼容新旧 RN
+            bg.javaClass.getMethod("getFullBorderRadius").invoke(bg) as? Float ?: 0f
+        } catch (_: Throwable) {
+            0f
+        }
+    } ?: 0f`,
+    'getMethod("getFullBorderRadius")')
+
+  await applyNamedPatch(layoutDirectionPath, 'LayoutDirectionApplier.kt smart cast',
+`        if (options.layout.direction.hasValue() && instanceManager.currentReactContext != null) {
+            root.activity.window.decorView.layoutDirection = options.layout.direction.get()
+            I18nUtil.getInstance().allowRTL(instanceManager.currentReactContext, options.layout.direction.isRtl)
+            I18nUtil.getInstance().forceRTL(instanceManager.currentReactContext, options.layout.direction.isRtl)
+        }`,
+`        val reactContext = instanceManager.currentReactContext
+        if (options.layout.direction.hasValue() && reactContext != null) {
+            root.activity.window.decorView.layoutDirection = options.layout.direction.get()
+            I18nUtil.getInstance().allowRTL(reactContext, options.layout.direction.isRtl)
+            I18nUtil.getInstance().forceRTL(reactContext, options.layout.direction.isRtl)
+        }`,
+    'val reactContext = instanceManager.currentReactContext')
+
+  await applyNamedPatch(modalContentPath, 'ModalContentLayout.kt nullable gestures',
+`    override fun onChildStartedNativeGesture(child: View, androidEvent: MotionEvent?) {
+        mJSTouchDispatcher.onChildStartedNativeGesture(androidEvent, this.getEventDispatcher())
+    }
+    override fun onChildStartedNativeGesture(androidEvent: MotionEvent?) {
+        mJSTouchDispatcher.onChildStartedNativeGesture(androidEvent, this.getEventDispatcher())
+    }
+    override fun onChildEndedNativeGesture(child: View, androidEvent: MotionEvent?) {
+        mJSTouchDispatcher.onChildEndedNativeGesture(androidEvent, this.getEventDispatcher())
+    }`,
+`    override fun onChildStartedNativeGesture(child: View, androidEvent: MotionEvent?) {
+        androidEvent?.let { ev -> this.getEventDispatcher()?.let { ed -> mJSTouchDispatcher.onChildStartedNativeGesture(ev, ed) } }
+    }
+    override fun onChildStartedNativeGesture(androidEvent: MotionEvent?) {
+        androidEvent?.let { ev -> this.getEventDispatcher()?.let { ed -> mJSTouchDispatcher.onChildStartedNativeGesture(ev, ed) } }
+    }
+    override fun onChildEndedNativeGesture(child: View, androidEvent: MotionEvent?) {
+        androidEvent?.let { ev -> this.getEventDispatcher()?.let { ed -> mJSTouchDispatcher.onChildEndedNativeGesture(ev, ed) } }
+    }`,
+    'androidEvent?.let { ev -> this.getEventDispatcher()')
+
+  await applyNamedPatch(modalContentPath, 'ModalContentLayout.kt nullable touch',
+`    override fun onInterceptTouchEvent(event: MotionEvent?): Boolean {
+        mJSTouchDispatcher.handleTouchEvent(event, getEventDispatcher())
+        return super.onInterceptTouchEvent(event)
+    }
+
+    override fun onTouchEvent(event: MotionEvent?): Boolean {
+        mJSTouchDispatcher.handleTouchEvent(event, getEventDispatcher())
+        super.onTouchEvent(event)
+        return true
+    }`,
+`    override fun onInterceptTouchEvent(event: MotionEvent?): Boolean {
+        event?.let { ev -> getEventDispatcher()?.let { ed -> mJSTouchDispatcher.handleTouchEvent(ev, ed) } }
+        return super.onInterceptTouchEvent(event)
+    }
+
+    override fun onTouchEvent(event: MotionEvent?): Boolean {
+        event?.let { ev -> getEventDispatcher()?.let { ed -> mJSTouchDispatcher.handleTouchEvent(ev, ed) } }
+        super.onTouchEvent(event)
+        return true
+    }`,
+    'event?.let { ev -> getEventDispatcher()')
+
   console.log('\nDependencies patch finished.\n')
 })()
