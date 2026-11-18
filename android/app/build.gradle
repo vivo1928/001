@@ -53,6 +53,9 @@ react {
     //
     //   The list of flags to pass to the Hermes compiler. By default is "-O", "-output-source-map"
     // hermesFlags = ["-O", "-output-source-map"]
+
+    // RN 0.76+ 新 autolinking：把发现的原生库项目注入 app 依赖（settings 侧已 include）
+    autolinkLibrariesWithApp()
 }
 
 /**
