@@ -90,6 +90,12 @@ export type DownloadProgressCallback = (taskId: string, progress: number) => voi
 /** 下载完成回调 */
 export type DownloadCompleteCallback = (taskId: string, success: boolean, error?: string) => void
 
+/** 下载事件订阅者（可按需只订阅其中一种事件） */
+export interface DownloadEventListener {
+  onProgress?: DownloadProgressCallback
+  onComplete?: DownloadCompleteCallback
+}
+
 // ---------------------------------------------------------------------------
 // 下载管理器
 // ---------------------------------------------------------------------------
@@ -97,26 +103,28 @@ export type DownloadCompleteCallback = (taskId: string, success: boolean, error?
 class DownloadManager {
   private readonly queue: DownloadTask[] = []
   private isProcessing = false
-  private readonly onProgress: DownloadProgressCallback
-  private readonly onComplete: DownloadCompleteCallback
+  private readonly listeners = new Set<DownloadEventListener>()
   private currentJobId: number | null = null
   private currentTaskId: string | null = null
   private readonly downloadDir: string
   private readonly abortController: AbortController | null = null
 
-  constructor(
-    onProgress: DownloadProgressCallback = () => {},
-    onComplete: DownloadCompleteCallback = () => {},
-    downloadDir?: string,
-  ) {
-    this.onProgress = onProgress
-    this.onComplete = onComplete
+  constructor(downloadDir?: string) {
     this.downloadDir = downloadDir ?? BASE_DOWNLOAD_DIR
   }
 
   // -----------------------------------------------------------------------
   // 公共方法
   // -----------------------------------------------------------------------
+
+  /**
+   * 订阅下载事件，返回取消订阅函数。
+   * 多个下载流程可同时订阅并按任务 id 过滤，互不覆盖
+   */
+  on(handlers: DownloadEventListener): () => void {
+    this.listeners.add(handlers)
+    return () => { this.listeners.delete(handlers) }
+  }
 
   /**
    * 获取下载文件的保存路径和文件名
@@ -194,7 +202,7 @@ class DownloadManager {
 
     // 从队列中移除
     this.queue.splice(index, 1)
-    this.onComplete(taskId, false, 'cancelled')
+    this.emitComplete(taskId, false, 'cancelled')
 
     // 清理被取消任务的半成品文件（只删该任务自己的文件）
     if (wasDownloading) void this.removePartialFile(task)
@@ -214,7 +222,7 @@ class DownloadManager {
       if (currentTask) {
         currentTask.status = 'failed'
         currentTask.error = 'cancelled'
-        this.onComplete(currentTask.id, false, 'cancelled')
+        this.emitComplete(currentTask.id, false, 'cancelled')
         // 清理当前下载任务的半成品文件（只删正在下载的那个文件）
         void this.removePartialFile(currentTask)
       }
@@ -229,7 +237,7 @@ class DownloadManager {
     for (const task of remainingTasks) {
       task.status = 'failed'
       task.error = 'cancelled'
-      this.onComplete(task.id, false, 'cancelled')
+      this.emitComplete(task.id, false, 'cancelled')
     }
 
     this.queue.length = 0
@@ -302,6 +310,14 @@ class DownloadManager {
   // 私有方法
   // -----------------------------------------------------------------------
 
+  private emitProgress(taskId: string, progress: number): void {
+    for (const l of this.listeners) l.onProgress?.(taskId, progress)
+  }
+
+  private emitComplete(taskId: string, success: boolean, error?: string): void {
+    for (const l of this.listeners) l.onComplete?.(taskId, success, error)
+  }
+
   /**
    * 清理被取消/失败任务留下的半成品文件（.part），
    * 只删除该任务自己的文件，不影响已完成文件或同路径的其他任务
@@ -355,7 +371,7 @@ class DownloadManager {
       }
 
       nextTask.status = 'failed'
-      this.onComplete(nextTask.id, false, nextTask.error)
+      this.emitComplete(nextTask.id, false, nextTask.error)
     } finally {
       // 仅当本次调用仍在处理该任务时才清理状态并续推队列，
       // 避免与取消操作或其他 processQueue 调用产生竞态（并发下载）
@@ -460,8 +476,8 @@ class DownloadManager {
       console.log(`[DownloadManager] file already exists, skipping: ${task.filePath}`)
       task.status = 'completed'
       task.progress = 100
-      this.onProgress(task.id, 100)
-      this.onComplete(task.id, true)
+      this.emitProgress(task.id, 100)
+      this.emitComplete(task.id, true)
       return
     }
 
@@ -487,7 +503,7 @@ class DownloadManager {
             ? Math.round((res.bytesWritten / res.contentLength) * 100)
             : 0
         task.progress = Math.min(progress, 100)
-        this.onProgress(task.id, task.progress)
+        this.emitProgress(task.id, task.progress)
       },
       progressDivider: 1,
     })
@@ -522,16 +538,16 @@ class DownloadManager {
       await moveFile(partPath, task.filePath)
       task.status = 'completed'
       task.progress = 100
-      this.onProgress(task.id, 100)
-      this.onComplete(task.id, true)
+      this.emitProgress(task.id, 100)
+      this.emitComplete(task.id, true)
     } else if (downloadResult.statusCode === 304) {
       // 文件未修改，视为已存在（缓存命中）
       const partExists = await existsFile(partPath).catch(() => false)
       if (partExists) await moveFile(partPath, task.filePath)
       task.status = 'completed'
       task.progress = 100
-      this.onProgress(task.id, 100)
-      this.onComplete(task.id, true)
+      this.emitProgress(task.id, 100)
+      this.emitComplete(task.id, true)
     } else {
       // 清理非 200 响应留下的半成品
       void this.removePartialFile(task)

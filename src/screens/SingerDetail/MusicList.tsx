@@ -10,8 +10,7 @@ import { handlePlay, handlePlayAll } from './listAction'
 import DownloadQualityModal, { type DownloadQualityModalType } from '@/components/DownloadQualityModal'
 import DownloadProgressModal, { type DownloadProgressModalType } from '@/components/DownloadProgressModal'
 import DownloadFailedModal, { type DownloadFailedModalType } from '@/components/DownloadFailedModal'
-import DownloadManager, { type DownloadTask } from '@/core/download/manager'
-import { toast } from '@/utils/tools'
+import useDownloadFlow from '@/core/download/useDownloadFlow'
 
 export interface MusicListProps {
   componentId: string
@@ -32,7 +31,7 @@ const buildDesc = (info: { name?: string, song_count?: number, album_count?: num
   return parts.join(' · ')
 }
 
-const downloadManager = new DownloadManager()
+
 
 export default forwardRef<MusicListType, MusicListProps>(({ componentId, activeTab, onTabChange }, ref) => {
   const listRef = useRef<OnlineListType>(null)
@@ -43,6 +42,12 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId, activeT
   const downloadQualityRef = useRef<DownloadQualityModalType>(null)
   const downloadProgressRef = useRef<DownloadProgressModalType>(null)
   const downloadFailedRef = useRef<DownloadFailedModalType>(null)
+  // 统一下载流程：权限、音质选择、进度弹窗、取消、完成提示、批量重试
+  const downloadFlow = useDownloadFlow({
+    progress: downloadProgressRef,
+    quality: downloadQualityRef,
+    failed: downloadFailedRef,
+  })
 
   useImperativeHandle(ref, () => ({
     async loadList(source, id) {
@@ -172,22 +177,16 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId, activeT
     const list = singerDetailState.listDetailInfo.list
     if (!list?.length) return
     const { id } = singerDetailState.listDetailInfo
+    const subDir = info.name || undefined
+    const run = (fullList: LX.Music.MusicInfoOnline[]) => {
+      downloadFlow.downloadBatch(fullList, { subDir })
+    }
     // 先显示获取歌曲数量中
     downloadProgressRef.current?.show(global.i18n.t('download_getting_song_count'), {
       onCancel: () => {
-        downloadManager.cancelAll()
         downloadProgressRef.current?.close()
       },
     })
-    const showQualityPicker = (fullList: LX.Music.MusicInfoOnline[]) => {
-      downloadQualityRef.current?.show(fullList[0], {
-        showFileSize: false,
-        onSelect: (quality) => {
-          const subDir = info.name || undefined
-          startBatchDownload(fullList, quality, subDir)
-        },
-      })
-    }
     try {
       const result = await getListDetailAll(id)
       downloadProgressRef.current?.close()
@@ -198,146 +197,20 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId, activeT
           global.i18n.t('download_get_incomplete_desc', { total: result.total, fetched: result.list.length }),
           [
             { text: global.i18n.t('cancel'), style: 'cancel' },
-            { text: global.i18n.t('agree'), onPress: () => { showQualityPicker(result.list) } },
+            { text: global.i18n.t('agree'), onPress: () => { run(result.list) } },
           ],
         )
         return
       }
-      showQualityPicker(result.list)
+      run(result.list)
     } catch {
       downloadProgressRef.current?.close()
       // 降级：使用当前已加载列表
-      downloadQualityRef.current?.show(list[0], {
-        showFileSize: false,
-        onSelect: (quality) => {
-          const subDir = info.name || undefined
-          startBatchDownload(list, quality, subDir)
-        },
-      })
+      run(list)
     }
   }
 
   // 原有的批量下载逻辑（用于单页情况）
-  const startBatchDownload = (list: LX.Music.MusicInfoOnline[], quality: LX.Quality, subDir?: string) => {
-    const total = list.length
-
-    const originalOnProgress = downloadManager['onProgress']
-    const originalOnComplete = downloadManager['onComplete']
-    const restoreCallbacks = () => {
-      downloadManager['onProgress'] = originalOnProgress
-      downloadManager['onComplete'] = originalOnComplete
-    }
-
-    downloadProgressRef.current?.show(global.i18n.t('download_batch'), {
-      onCancel: () => {
-        downloadManager.cancelAll()
-        downloadProgressRef.current?.close()
-        restoreCallbacks()
-      },
-    })
-
-    const taskIds = downloadManager.addBatchToQueue(list, quality, subDir)
-    const allTasks = downloadManager.getTasksByIds(taskIds)
-    const failedSongs: Array<{ name: string, singer: string, error?: string }> = []
-
-    const getBatchStats = () => downloadManager.getBatchStats(taskIds)
-    const doneCountOf = (stats: ReturnType<typeof getBatchStats>) => stats.completed + stats.failed
-
-    // 设置进度回调
-    downloadManager['onProgress'] = (id, progress) => {
-      const stats = getBatchStats()
-      const doneCount = doneCountOf(stats)
-      const currentSong = Math.min(doneCount + 1, total)
-      downloadProgressRef.current?.updateProgress(
-        total > 0 ? Math.min(Math.round((doneCount / total) * 100), 100) : 0,
-        `${global.i18n.t('download_current_progress', { current: currentSong, total })} ${progress}%`,
-      )
-    }
-
-    // 设置完成回调
-    downloadManager['onComplete'] = (id, success, error) => {
-      const task = allTasks.find(t => t.id === id)
-      if (!task) return
-      if (!success && error !== 'cancelled') {
-        failedSongs.push({
-          name: task.musicInfo.name,
-          singer: task.musicInfo.singer,
-          error,
-        })
-      }
-
-      const stats = getBatchStats()
-      const doneCount = doneCountOf(stats)
-
-      if (doneCount < total) {
-        downloadProgressRef.current?.updateProgress(
-          total > 0 ? Math.round((doneCount / total) * 100) : 0,
-          `${global.i18n.t('download_current_progress', { current: doneCount + 1, total })}`,
-        )
-      }
-
-      // 所有任务完成
-      if (doneCount >= total) {
-        downloadProgressRef.current?.close()
-
-        // 如果有失败，尝试重试一次
-        if (failedSongs.length > 0) {
-          const retryList = list.filter(item =>
-            failedSongs.some(f => f.name === item.name && f.singer === item.singer),
-          )
-          if (retryList.length > 0) {
-            downloadProgressRef.current?.show(global.i18n.t('download_batch'), {
-              onCancel: () => {
-                downloadManager.cancelAll()
-                downloadProgressRef.current?.close()
-                restoreCallbacks()
-              },
-            })
-            const retryIds = downloadManager.addBatchToQueue(retryList, quality, subDir)
-            taskIds.push(...retryIds)
-            allTasks.push(...downloadManager.getTasksByIds(retryIds))
-
-            const retryOnComplete = downloadManager['onComplete']
-            downloadManager['onComplete'] = (retryId, retrySuccess, retryError) => {
-              const retryStats = getBatchStats()
-              if (doneCountOf(retryStats) >= taskIds.length) {
-                downloadProgressRef.current?.close()
-                const finalFailed = failedSongs.filter(f => {
-                  const idx = retryList.findIndex(item => item.name === f.name && item.singer === f.singer)
-                  if (idx === -1) return false
-                  const retryTask = downloadManager.getTasksByIds([retryIds[idx]])[0]
-                  return retryTask ? retryTask.status === 'failed' : false
-                })
-                if (finalFailed.length > 0) {
-                  downloadFailedRef.current?.showFailedSongs(finalFailed, {
-                    onRetryAll: () => {
-                      startBatchDownload(
-                        list.filter(item =>
-                          finalFailed.some(f => f.name === item.name && f.singer === item.singer),
-                        ),
-                        quality,
-                        subDir,
-                      )
-                    },
-                    onCancel: () => {},
-                  })
-                } else {
-                  toast(global.i18n.t('download_completed'))
-                }
-                downloadManager['onComplete'] = retryOnComplete
-                restoreCallbacks()
-              }
-            }
-            return
-          }
-        }
-
-        if (failedSongs.length === 0) toast(global.i18n.t('download_completed'))
-        restoreCallbacks()
-      }
-    }
-  }
-
   return (
     <>
       <View style={{ flex: 1 }}>
