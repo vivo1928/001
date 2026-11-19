@@ -520,5 +520,12 @@ const rootPath = path.join(__dirname, './')
   await applyNamedPatch(musicModulePath, 'MusicModule.java prefetch',
     prefetchModuleOld, prefetchModuleNew, 'public void prefetchToCache(String url, String cacheKey, final Promise callback)')
 
+  // Gradle 9 移除 jcenter()，react-native-exception-handler 2.10 仍在 buildscript 中使用
+  const exceptionHandlerGradlePath = path.join(rootPath, 'node_modules/react-native-exception-handler/android/build.gradle')
+  await applyNamedPatch(exceptionHandlerGradlePath, 'react-native-exception-handler jcenter',
+    '    repositories {\n        jcenter()\n    }',
+    '    repositories {\n        // jcenter() removed in Gradle 9\n        mavenCentral()\n    }',
+    '// jcenter() removed in Gradle 9')
+
   console.log('\nDependencies patch finished.\n')
 })()
