@@ -3,6 +3,17 @@ import { Alert } from 'react-native'
 import { setJSExceptionHandler, setNativeExceptionHandler } from 'react-native-exception-handler'
 import { log } from '@/utils/log'
 import { toast } from './tools'
+import { appendFile, externalStorageDirectoryPath, privateStorageDirectoryPath } from '@/utils/fs'
+
+// 把崩溃信息写到用户可取到的位置，便于无 adb 环境排查
+const persistCrash = (title: string, text: string) => {
+  const content = `\n===== ${new Date().toISOString()} ${title} =====\n${text}\n`
+  try {
+    void appendFile(`${externalStorageDirectoryPath}/lx-crash.log`, content).catch(() => {
+      void appendFile(`${privateStorageDirectoryPath}/lx-crash.log`, content).catch(() => {})
+    })
+  } catch (_) { /* ignore */ }
+}
 
 const errorHandler = (e: Error, isFatal: boolean) => {
   const excludedErrors = [
@@ -30,6 +41,7 @@ const errorHandler = (e: Error, isFatal: boolean) => {
     }
   }
   log.error(e.stack)
+  persistCrash('JS crash', `${e.name} ${e.message}\n${e.stack ?? ''}`)
 }
 
 if (process.env.NODE_ENV !== 'development') {
@@ -37,6 +49,7 @@ if (process.env.NODE_ENV !== 'development') {
 
   setNativeExceptionHandler((errorString) => {
     log.error(errorString)
+    persistCrash('Native crash', String(errorString))
     console.log('+++++', errorString, '+++++')
   }, false)
 

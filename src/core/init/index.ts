@@ -17,11 +17,15 @@ import { cheatTip } from '@/utils/tools'
 
 let isFirstPush = true
 const handlePushedHomeScreen = async() => {
+  bootLog('Home screen pushed.')
   await cheatTip()
+  bootLog('Cheat tip inited.')
   if (settingState.setting['common.isAgreePact']) {
     if (isFirstPush) {
       isFirstPush = false
+      bootLog('Checking update...')
       void checkUpdate()
+      bootLog('Init deeplink...')
       void initDeeplink()
     }
   } else {
