@@ -1,11 +1,19 @@
-import { NativeEventEmitter, NativeModules } from 'react-native'
+import { NativeEventEmitter, NativeModules, TurboModuleRegistry } from 'react-native'
 
-const { UserApiModule } = NativeModules
+// 兼容新架构：优先走 TurboModule 解析（legacy 模块经 interop 暴露），并给出可诊断的缺失信息
+const resolveUserApiModule = (): typeof NativeModules.UserApiModule => {
+  const mod = NativeModules.UserApiModule ?? TurboModuleRegistry.get('UserApiModule')
+  if (mod == null) {
+    const keys = Object.keys(NativeModules)
+    throw new Error(`[UserApiModule] native module is not available. NativeModules keys: ${keys.join(',')}`)
+  }
+  return mod
+}
 
 let loadScriptInfo: LX.UserApi.UserApiInfo | null = null
 export const loadScript = (info: LX.UserApi.UserApiInfo & { script: string }) => {
   loadScriptInfo = info
-  UserApiModule.loadScript({
+  resolveUserApiModule().loadScript({
     id: info.id,
     name: info.name,
     description: info.description,
@@ -31,7 +39,7 @@ export interface SendActions {
   response: SendResponseParams
 }
 export const sendAction = <T extends keyof SendActions>(action: T, data: SendActions[T]) => {
-  UserApiModule.sendAction(action, JSON.stringify(data))
+  resolveUserApiModule().sendAction(action, JSON.stringify(data))
 }
 
 // export const clearAppCache = CacheModule.clearAppCache as () => Promise<void>
@@ -78,7 +86,7 @@ export type ActionsEvent = { [K in keyof Actions]: { action: K, data: Actions[K]
 
 export const onScriptAction = (handler: (event: ActionsEvent) => void): () => void => {
   // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-  const eventEmitter = new NativeEventEmitter(UserApiModule)
+  const eventEmitter = new NativeEventEmitter(resolveUserApiModule())
   const eventListener = eventEmitter.addListener('api-action', event => {
     if (event.data) event.data = JSON.parse(event.data as string)
     if (event.action == 'init') {
@@ -96,5 +104,5 @@ export const onScriptAction = (handler: (event: ActionsEvent) => void): () => vo
 }
 
 export const destroy = () => {
-  UserApiModule.destroy()
+  resolveUserApiModule().destroy()
 }
