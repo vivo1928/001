@@ -30,21 +30,21 @@ const rootPath = path.join(__dirname, './')
     }
   }
 
-  // 将 track-player 模块的 media3 版本升到与 app 模块一致（1.10.1）。
+  // 将 track-player 模块的 media3 版本升到与 app 模块一致（1.11.1）。
   // track-player 硬编码 1.8.0，而 EqualizerAudioProcessor 用到的
   // androidx.media3.common.AudioFormat 在 media3 1.9 才引入，不升级会编译失败。
   const trackPlayerBuildGradlePath = path.join(rootPath, 'node_modules/react-native-track-player/android/build.gradle')
   try {
     let file = (await fs.promises.readFile(trackPlayerBuildGradlePath)).toString()
     const media3Patches = [
-      ["def media3Version = '1.8.0'", "def media3Version = '1.10.1'"],
-      ['implementation "androidx.media3:media3-exoplayer:1.8.0"', 'implementation "androidx.media3:media3-exoplayer:1.10.1"'],
+      ["def media3Version = '1.8.0'", "def media3Version = '1.11.1'"],
+      ['implementation "androidx.media3:media3-exoplayer:1.8.0"', 'implementation "androidx.media3:media3-exoplayer:1.11.1"'],
     ]
     for (const [fromStr, toStr] of media3Patches) {
       if (file.includes(fromStr)) {
         file = file.replace(fromStr, toStr)
         console.log('Patch track-player build.gradle media3: OK')
-      } else if (file.includes('1.10.1')) {
+      } else if (file.includes('1.11.1')) {
         console.log('track-player build.gradle media3 already patched')
         break
       } else {
@@ -519,101 +519,6 @@ const rootPath = path.join(__dirname, './')
     prefetchExoOld, prefetchExoNew, 'abstract void prefetchToCache')
   await applyNamedPatch(musicModulePath, 'MusicModule.java prefetch',
     prefetchModuleOld, prefetchModuleNew, 'public void prefetchToCache(String url, String cacheKey, final Promise callback)')
-
-  // ---------------------------------------------------------------------------
-  // react-native-navigation 7.51.x 与 RN 0.76+ 兼容补丁
-  // 1. ReactViewGroup.kt：RN 0.76+ 移除 getFullBorderRadius()，改反射读取（行为不变）
-  // 2. LayoutDirectionApplier.kt：currentReactContext 变为自定义 getter 后无法 smart cast
-  // 3. ModalContentLayout.kt：RN 0.76+ 对 MotionEvent/EventDispatcher 参数收紧空安全
-  // ---------------------------------------------------------------------------
-  const rnnUtilsDir = path.join(rootPath, 'node_modules/react-native-navigation/lib/android/app/src/main/java/com/reactnativenavigation')
-  const reactViewGroupPath = path.join(rnnUtilsDir, 'utils/ReactViewGroup.kt')
-  const layoutDirectionPath = path.join(rnnUtilsDir, 'viewcontrollers/viewcontroller/LayoutDirectionApplier.kt')
-  const modalContentPath = path.join(rootPath, 'node_modules/react-native-navigation/lib/android/app/src/reactNative71/java/com/reactnativenavigation/react/modal/ModalContentLayout.kt')
-
-  await applyNamedPatch(reactViewGroupPath, 'ReactViewGroup.kt fullBorderRadius',
-`val ReactViewGroup.borderRadius: Float
-    get() = (background as? ReactViewBackgroundDrawable)?.fullBorderRadius ?: 0f`,
-`val ReactViewGroup.borderRadius: Float
-    get() = (background as? ReactViewBackgroundDrawable)?.let { bg ->
-        try {
-            // RN 0.76+ 移除 getFullBorderRadius()，反射读取以兼容新旧 RN
-            bg.javaClass.getMethod("getFullBorderRadius").invoke(bg) as? Float ?: 0f
-        } catch (_: Throwable) {
-            0f
-        }
-    } ?: 0f`,
-    'getMethod("getFullBorderRadius")')
-
-  await applyNamedPatch(layoutDirectionPath, 'LayoutDirectionApplier.kt smart cast',
-`        if (options.layout.direction.hasValue() && instanceManager.currentReactContext != null) {
-            root.activity.window.decorView.layoutDirection = options.layout.direction.get()
-            I18nUtil.getInstance().allowRTL(instanceManager.currentReactContext, options.layout.direction.isRtl)
-            I18nUtil.getInstance().forceRTL(instanceManager.currentReactContext, options.layout.direction.isRtl)
-        }`,
-`        val reactContext = instanceManager.currentReactContext
-        if (options.layout.direction.hasValue() && reactContext != null) {
-            root.activity.window.decorView.layoutDirection = options.layout.direction.get()
-            I18nUtil.getInstance().allowRTL(reactContext, options.layout.direction.isRtl)
-            I18nUtil.getInstance().forceRTL(reactContext, options.layout.direction.isRtl)
-        }`,
-    'val reactContext = instanceManager.currentReactContext')
-
-  await applyNamedPatch(modalContentPath, 'ModalContentLayout.kt nullable gestures',
-`    override fun onChildStartedNativeGesture(child: View, androidEvent: MotionEvent?) {
-        mJSTouchDispatcher.onChildStartedNativeGesture(androidEvent, this.getEventDispatcher())
-    }
-    override fun onChildStartedNativeGesture(androidEvent: MotionEvent?) {
-        mJSTouchDispatcher.onChildStartedNativeGesture(androidEvent, this.getEventDispatcher())
-    }
-    override fun onChildEndedNativeGesture(child: View, androidEvent: MotionEvent?) {
-        mJSTouchDispatcher.onChildEndedNativeGesture(androidEvent, this.getEventDispatcher())
-    }`,
-`    override fun onChildStartedNativeGesture(child: View, androidEvent: MotionEvent?) {
-        androidEvent?.let { ev -> this.getEventDispatcher()?.let { ed -> mJSTouchDispatcher.onChildStartedNativeGesture(ev, ed) } }
-    }
-    override fun onChildStartedNativeGesture(androidEvent: MotionEvent?) {
-        androidEvent?.let { ev -> this.getEventDispatcher()?.let { ed -> mJSTouchDispatcher.onChildStartedNativeGesture(ev, ed) } }
-    }
-    override fun onChildEndedNativeGesture(child: View, androidEvent: MotionEvent?) {
-        androidEvent?.let { ev -> this.getEventDispatcher()?.let { ed -> mJSTouchDispatcher.onChildEndedNativeGesture(ev, ed) } }
-    }`,
-    'androidEvent?.let { ev -> this.getEventDispatcher()')
-
-  await applyNamedPatch(modalContentPath, 'ModalContentLayout.kt nullable touch',
-`    override fun onInterceptTouchEvent(event: MotionEvent?): Boolean {
-        mJSTouchDispatcher.handleTouchEvent(event, getEventDispatcher())
-        return super.onInterceptTouchEvent(event)
-    }
-
-    override fun onTouchEvent(event: MotionEvent?): Boolean {
-        mJSTouchDispatcher.handleTouchEvent(event, getEventDispatcher())
-        super.onTouchEvent(event)
-        return true
-    }`,
-`    override fun onInterceptTouchEvent(event: MotionEvent?): Boolean {
-        event?.let { ev -> getEventDispatcher()?.let { ed -> mJSTouchDispatcher.handleTouchEvent(ev, ed) } }
-        return super.onInterceptTouchEvent(event)
-    }
-
-    override fun onTouchEvent(event: MotionEvent?): Boolean {
-        event?.let { ev -> getEventDispatcher()?.let { ed -> mJSTouchDispatcher.handleTouchEvent(ev, ed) } }
-        super.onTouchEvent(event)
-        return true
-    }`,
-    'event?.let { ev -> getEventDispatcher()')
-
-  // ReactTypefaceUtils.java：RN 0.76+ 移除 ReactTextShadowNode.UNSET 字段，
-  // 改用文件内同值局部常量 UNSET（-1）
-  const reactTypefacePath = path.join(rnnUtilsDir, 'utils/ReactTypefaceUtils.java')
-  await applyNamedPatch(reactTypefacePath, 'ReactTypefaceUtils.java UNSET weight',
-    'weight == ReactTextShadowNode.UNSET', 'weight == UNSET', 'weight == UNSET)')
-  await applyNamedPatch(reactTypefacePath, 'ReactTypefaceUtils.java UNSET style',
-    'style == ReactTextShadowNode.UNSET', 'style == UNSET', 'style == UNSET)')
-  await applyNamedPatch(reactTypefacePath, 'ReactTypefaceUtils.java drop import',
-    'import com.facebook.react.views.text.ReactTextShadowNode;',
-    '// ReactTextShadowNode import removed: RN 0.76+ dropped the UNSET field, use local UNSET',
-    'use local UNSET')
 
   console.log('\nDependencies patch finished.\n')
 })()
