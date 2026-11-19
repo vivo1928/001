@@ -67,15 +67,14 @@ public class UserApiModule extends ReactContextBaseJavaModule {
   }
 
   @ReactMethod
-  public boolean sendAction(String action, String info) {
+  public void sendAction(String action, String info) {
     JavaScriptThread javaScriptThread = this.javaScriptThread;
-    if (javaScriptThread == null) return false;
+    if (javaScriptThread == null) return;
     Handler jsHandler = javaScriptThread.getHandler();
     Message message = jsHandler.obtainMessage();
     message.what = HandlerWhat.ACTION;
     message.obj = new Object[]{action, info};
     jsHandler.sendMessage(message);
-    return true;
   }
 
   @ReactMethod
