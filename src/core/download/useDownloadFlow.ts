@@ -99,6 +99,9 @@ export default function useDownloadFlow(refs: DownloadFlowRefs): DownloadFlow {
   const managerRef = useRef<DownloadManager | null>(null)
   if (!managerRef.current) managerRef.current = new DownloadManager()
   const manager = managerRef.current
+  // 单曲流程跟踪的任务集合：同一流程可能有多个任务排队，
+  // 全部结束才关闭进度弹窗，避免先完成的任务提前关掉弹窗
+  const singleTasksRef = useRef<Set<string>>(new Set())
 
   const ensurePermission = async(): Promise<boolean> => {
     const granted = await requestStoragePermission()
@@ -117,14 +120,14 @@ export default function useDownloadFlow(refs: DownloadFlowRefs): DownloadFlow {
         },
       })
       const taskId = manager.addToQueue(musicInfo, quality)
+      singleTasksRef.current.add(taskId)
       const off = manager.on({
         onProgress: (id, p) => {
           if (id === taskId) progress?.updateProgress(p)
         },
         onComplete: (id, success, error) => {
-          if (id !== taskId) return
+          if (!singleTasksRef.current.delete(id)) return
           off()
-          progress?.close()
           if (success) {
             toast(t('download_completed') as string)
           } else if (error === 'cancelled') {
@@ -136,6 +139,7 @@ export default function useDownloadFlow(refs: DownloadFlowRefs): DownloadFlow {
               onCancel: () => {},
             })
           }
+          if (singleTasksRef.current.size === 0) progress?.close()
         },
       })
     })()

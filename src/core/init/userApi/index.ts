@@ -104,7 +104,9 @@ export default async(setting: LX.AppSetting) => {
                       // eslint-disable-next-line @typescript-eslint/promise-function-async
                     }).then(res => {
                       // console.log(res)
-                      return { type, url: res.data.url }
+                      // 插件可能实际降级（如请求无损只拿到 320k），必须尊重其返回的真实音质，
+                      // 否则下载层会把低品质内容按请求音质命名
+                      return { type: (res.data.type || type) as LX.Quality, url: res.data.url }
                     }).catch(err => {
                       console.log(err.message)
                       throw err

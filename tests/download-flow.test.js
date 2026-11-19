@@ -16,6 +16,7 @@ const withFastTimers = async(fn) => {
 
 const buildState = () => ({
   files: new Set(),
+  sizeOverride: null,
   downloads: [],
   stopped: [],
   unlinked: [],
@@ -24,7 +25,7 @@ const buildState = () => ({
   downloadImpl: async() => ({ statusCode: 200 }),
 })
 
-const buildMocks = (state) => ({
+const buildMocks = (state, overrides = {}) => Object.assign({
   react: { useRef: init => ({ current: init }) },
   '@/lang': { useI18n: () => (key) => key },
   '@/utils/fs': {
@@ -39,6 +40,7 @@ const buildMocks = (state) => ({
     existsFile: async(p) => state.files.has(p),
     unlink: async(p) => { state.unlinked.push(p); state.files.delete(p) },
     moveFile: async(from, to) => { state.moved.push([from, to]); state.files.delete(from); state.files.add(to) },
+    stat: async() => ({ size: state.sizeOverride ?? 10 * 1024 * 1024 }),
     externalStorageDirectoryPath: '/sdcard',
   },
   '@/core/music/utils': {
@@ -51,11 +53,11 @@ const buildMocks = (state) => ({
     toast: (msg) => { state.toasts.push(msg) },
   },
   '@/store/setting/state': { setting: { 'download.fileName': ':name - :singer' } },
-})
+}, overrides)
 
 const music = (id, name) => ({ id, name, singer: `singer${id}`, source: 'kg', meta: {} })
 
-const buildManager = (state) => loadModule('src/core/download/manager.ts', buildMocks(state)).default
+const buildManager = (state, overrides) => loadModule('src/core/download/manager.ts', buildMocks(state, overrides)).default
 
 test('manager: 订阅式事件接收进度与完成，下载写 .part 成功后移动到目标路径', async() => {
   const state = buildState()
@@ -197,4 +199,56 @@ test('useDownloadFlow: 批量首败重试仍失败后给出失败清单', async(
   assert(failedCall, '重试后仍失败应弹失败清单')
   assert.deepStrictEqual(failedCall.songs.map(s => s.name), ['bad'])
   assert.strictEqual(state.toasts.includes('download_completed'), false, '存在失败不应提示下载完成')
+})
+
+test('manager: 音源降级时按插件返回的真实音质改名并提示', async() => {
+  const state = buildState()
+  const DownloadManager = buildManager(state, {
+    '@/core/music/utils': { handleGetOnlineMusicUrl: async() => ({ url: 'https://cdn.example/low.mp3', quality: '128k' }) },
+    '@/core/music/online': { buildQualityFallbackOrder: () => ['flac', '320k', '128k'] },
+  })
+  const dm = new DownloadManager()
+  const info = { id: 'm1', name: 'A', singer: 'S', source: 'kg', meta: { _qualitys: { '128k': {}, flac: {} } } }
+
+  dm.addToQueue(info, 'flac')
+  await flush()
+
+  assert(state.downloads[0].path.endsWith('.mp3.part'), '应按真实音质 128k 使用 mp3 后缀')
+  assert(state.toasts.some(x => x.includes('已降级为 128k')), '应提示实际降级音质')
+})
+
+test('manager: 下载文件明显小于标称大小时警告', async() => {
+  const state = buildState()
+  state.sizeOverride = 3 * 1024 * 1024
+  const DownloadManager = buildManager(state, {
+    '@/core/music/utils': { handleGetOnlineMusicUrl: async() => ({ url: 'https://cdn.example/x.flac', quality: 'flac' }) },
+  })
+  const dm = new DownloadManager()
+  const info = { id: 'm1', name: 'A', singer: 'S', source: 'kg', meta: { _qualitys: { flac: { size: '30MB' } } } }
+
+  dm.addToQueue(info, 'flac')
+  await flush()
+
+  assert(state.toasts.some(x => x.includes('明显小于')), '应提示大小与标称不符')
+})
+
+test('useDownloadFlow: 多个单曲任务全部完成才关闭弹窗', async() => {
+  const state = buildState()
+  const pending = []
+  state.downloadImpl = () => new Promise(resolve => { pending.push(resolve) })
+  const { default: useDownloadFlow } = loadModule('src/core/download/useDownloadFlow.ts', buildMocks(state))
+  const progress = { shown: [], closed: 0, show(t, o) { this.shown.push([t, o]) }, updateProgress() {}, close() { this.closed++ } }
+  const flow = useDownloadFlow({ progress: { current: progress }, confirmAlert: { current: null } })
+
+  flow.downloadSingle(music('a', 'A'), { quality: '128k' })
+  flow.downloadSingle(music('b', 'B'), { quality: '128k' })
+  await flush()
+  assert.strictEqual(pending.length, 1, '同一时间只下载一个任务')
+  pending[0]({ statusCode: 200 })
+  await flush()
+  assert.strictEqual(progress.closed, 0, '首个任务完成不应关闭弹窗')
+  assert.strictEqual(pending.length, 2, '第二个任务应继续下载')
+  pending[1]({ statusCode: 200 })
+  await flush()
+  assert.strictEqual(progress.closed, 1, '全部任务完成才关闭弹窗')
 })

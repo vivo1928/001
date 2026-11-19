@@ -8,6 +8,7 @@ import {
   existsFile,
   unlink,
   moveFile,
+  stat as statFile,
   externalStorageDirectoryPath,
 } from '@/utils/fs'
 import { requestStoragePermission } from '@/utils/permissions'
@@ -335,6 +336,30 @@ class DownloadManager {
   }
 
   /**
+   * 保守校验下载文件大小与音源声明的标称大小：
+   * 实际大小明显偏小时提示，便于发现"标签无损、实际低质"的静默降级
+   */
+  private async checkDownloadedSize(task: DownloadTask): Promise<void> {
+    try {
+      const sizeStr = (task.musicInfo.meta?._qualitys as any)?.[task.quality]?.size
+      if (typeof sizeStr !== 'string') return
+      const match = /([\d.]+)\s*(GB|MB|KB)/i.exec(sizeStr)
+      if (!match) return
+      const unit = match[2].toUpperCase()
+      const expected = parseFloat(match[1]) * (unit === 'GB' ? 1024 * 1024 * 1024 : unit === 'MB' ? 1024 * 1024 : 1024)
+      if (!(expected > 1024 * 1024)) return
+      const fileStat = await statFile(task.filePath)
+      const actual = Number(fileStat.size)
+      if (!(actual > 0)) return
+      if (actual < expected * 0.5) {
+        toast(`下载文件大小(${Math.round(actual / 1024 / 1024)}MB)明显小于${task.quality}标称大小(${sizeStr})，音源可能已降级`)
+      }
+    } catch (err) {
+      console.log('[DownloadManager] size check failed:', task.filePath, err)
+    }
+  }
+
+  /**
    * 处理下载队列 —— 顺序执行，同一时间只下载一个任务
    */
   private async processQueue(): Promise<void> {
@@ -536,6 +561,7 @@ class DownloadManager {
         throw new Error('下载完成但文件不存在')
       }
       await moveFile(partPath, task.filePath)
+      await this.checkDownloadedSize(task)
       task.status = 'completed'
       task.progress = 100
       this.emitProgress(task.id, 100)
