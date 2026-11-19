@@ -63,7 +63,7 @@ public class MainApplication extends NavigationApplication {
   @Override
   public ReactHost getReactHost() {
     if (mReactHost == null) {
-      mReactHost = DefaultReactHost.getDefaultReactHost(this, mReactNativeHost);
+      mReactHost = DefaultReactHost.getDefaultReactHost(this, mReactNativeHost, null);
     }
     return mReactHost;
   }
