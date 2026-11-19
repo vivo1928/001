@@ -1,10 +1,11 @@
 package cn.toside.music.mobile;
 
 import com.facebook.react.PackageList;
-import com.reactnativenavigation.NavigationApplication;
+import com.facebook.react.ReactHost;
 import com.facebook.react.ReactNativeHost;
 import com.facebook.react.ReactPackage;
-import com.facebook.react.defaults.DefaultNewArchitectureEntryPoint;
+import com.facebook.react.defaults.DefaultReactHost;
+import com.reactnativenavigation.NavigationApplication;
 import com.reactnativenavigation.react.NavigationReactNativeHost;
 import java.util.List;
 
@@ -50,18 +51,26 @@ public class MainApplication extends NavigationApplication {
         }
       };
 
+  // RN 0.8x（新架构）启动走 ReactHost，RNN 8 的 ReactGateway 依赖该实例；
+  // 缺失时启动即崩。必须按 RNN 官方安装文档提供 DefaultReactHost。
+  private ReactHost mReactHost;
+
   @Override
   public ReactNativeHost getReactNativeHost() {
     return mReactNativeHost;
   }
 
   @Override
-  public void onCreate() {
-    super.onCreate();
-
-    if (BuildConfig.IS_NEW_ARCHITECTURE_ENABLED) {
-      // If you opted-in for the New Architecture, we load the native entry point for this app.
-      DefaultNewArchitectureEntryPoint.load();
+  public ReactHost getReactHost() {
+    if (mReactHost == null) {
+      mReactHost = DefaultReactHost.getDefaultReactHost(this, mReactNativeHost);
     }
+    return mReactHost;
+  }
+
+  @Override
+  public void onCreate() {
+    // SoLoader 初始化、新架构入口加载与 ReactGateway 创建由 NavigationApplication.onCreate 负责
+    super.onCreate();
   }
 }
