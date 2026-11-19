@@ -532,18 +532,98 @@ const rootPath = path.join(__dirname, './')
   const modalContentPath = path.join(rootPath, 'node_modules/react-native-navigation/lib/android/app/src/reactNative71/java/com/reactnativenavigation/react/modal/ModalContentLayout.kt')
 
   await applyNamedPatch(reactViewGroupPath, 'ReactViewGroup.kt fullBorderRadius',
-`val ReactViewGroup.borderRadius: Float
+`import com.facebook.react.views.view.ReactViewBackgroundDrawable
+import com.facebook.react.views.view.ReactViewGroup
+
+val ReactViewGroup.borderRadius: Float
     get() = (background as? ReactViewBackgroundDrawable)?.fullBorderRadius ?: 0f`,
-`val ReactViewGroup.borderRadius: Float
-    get() = (background as? ReactViewBackgroundDrawable)?.let { bg ->
-        try {
-            // RN 0.76+ 移除 getFullBorderRadius()，反射读取以兼容新旧 RN
-            bg.javaClass.getMethod("getFullBorderRadius").invoke(bg) as? Float ?: 0f
-        } catch (_: Throwable) {
-            0f
+`import android.view.View
+import com.facebook.react.views.view.ReactViewGroup
+
+// RN 0.77+ 移除了 ReactViewBackgroundDrawable；通过反射按需读取圆角，读不到按 0 处理
+private fun View.fullBorderRadiusOrZero(): Float {
+    val bg = background ?: return 0f
+    return try {
+        val method = bg.javaClass.methods.firstOrNull { it.name == "getFullBorderRadius" && it.parameterCount == 0 }
+        (method?.invoke(bg) as? Float) ?: 0f
+    } catch (_: Throwable) {
+        0f
+    }
+}
+
+val ReactViewGroup.borderRadius: Float
+    get() = fullBorderRadiusOrZero()`,
+    'fullBorderRadiusOrZero')
+
+  // RN 0.77 移除了 ReactViewBackgroundDrawable，RNN 的背景色读取与共享元素背景动画改走 BackgroundStyleApplicator
+  const viewUtilsPath = path.join(rnnUtilsDir, 'utils/ViewUtils.java')
+  await applyNamedPatch(viewUtilsPath, 'ViewUtils.java getBackgroundColor',
+`    public static int getBackgroundColor(View view) {
+        if (view.getBackground() instanceof ReactViewBackgroundDrawable) {
+            return ((ReactViewBackgroundDrawable) view.getBackground()).getColor();
         }
-    } ?: 0f`,
-    'getMethod("getFullBorderRadius")')
+        throw new RuntimeException(view.getBackground().getClass().getSimpleName() + " is not ReactViewBackgroundDrawable");
+    }`,
+`    public static int getBackgroundColor(View view) {
+        // RN 0.77+ 移除了 ReactViewBackgroundDrawable，统一走 BackgroundStyleApplicator
+        Integer color = com.facebook.react.uimanager.BackgroundStyleApplicator.INSTANCE.getBackgroundColor(view);
+        return color != null ? color : android.graphics.Color.TRANSPARENT;
+    }`,
+    'BackgroundStyleApplicator.INSTANCE.getBackgroundColor')
+  await applyNamedPatch(viewUtilsPath, 'ViewUtils.java drop drawable import',
+    'import com.facebook.react.views.view.ReactViewBackgroundDrawable;',
+    '// import com.facebook.react.views.view.ReactViewBackgroundDrawable; // removed in RN 0.77',
+    '// removed in RN 0.77')
+
+  const backgroundColorEvaluatorPath = path.join(rnnUtilsDir, 'views/element/animators/BackgroundColorEvaluator.kt')
+  await applyNamedPatch(backgroundColorEvaluatorPath, 'BackgroundColorEvaluator.kt view',
+`import com.facebook.react.views.view.ReactViewBackgroundDrawable
+
+class BackgroundColorEvaluator(private val background: ReactViewBackgroundDrawable) : TypeEvaluator<DoubleArray> {`,
+`import android.view.View
+import com.facebook.react.uimanager.BackgroundStyleApplicator
+
+class BackgroundColorEvaluator(private val view: View) : TypeEvaluator<DoubleArray> {`,
+    'class BackgroundColorEvaluator(private val view: View)')
+  await applyNamedPatch(backgroundColorEvaluatorPath, 'BackgroundColorEvaluator.kt set color',
+    '        background.color = com.reactnativenavigation.utils.ColorUtils.labToColor(color)',
+    '        BackgroundStyleApplicator.setBackgroundColor(view, com.reactnativenavigation.utils.ColorUtils.labToColor(color))',
+    'BackgroundStyleApplicator.setBackgroundColor(view')
+
+  const backgroundColorAnimatorPath = path.join(rnnUtilsDir, 'views/element/animators/BackgroundColorAnimator.kt')
+  await applyNamedPatch(backgroundColorAnimatorPath, 'BackgroundColorAnimator.kt drawable checks',
+`import com.facebook.react.views.view.ReactViewBackgroundDrawable
+import com.reactnativenavigation.options.SharedElementTransitionOptions
+import com.reactnativenavigation.utils.*
+
+class BackgroundColorAnimator(from: View, to: View) : PropertyAnimatorCreator<ViewGroup>(from, to) {
+    override fun shouldAnimateProperty(fromChild: ViewGroup, toChild: ViewGroup): Boolean {
+        return fromChild.background is ReactViewBackgroundDrawable &&
+                toChild.background is ReactViewBackgroundDrawable && (fromChild.background as ReactViewBackgroundDrawable).color != (toChild.background as ReactViewBackgroundDrawable).color
+    }`,
+`import com.reactnativenavigation.options.SharedElementTransitionOptions
+import com.reactnativenavigation.utils.*
+
+class BackgroundColorAnimator(from: View, to: View) : PropertyAnimatorCreator<ViewGroup>(from, to) {
+    override fun shouldAnimateProperty(fromChild: ViewGroup, toChild: ViewGroup): Boolean {
+        return fromChild.background != null && toChild.background != null &&
+                ViewUtils.getBackgroundColor(fromChild) != ViewUtils.getBackgroundColor(toChild)
+    }`,
+    'ViewUtils.getBackgroundColor(fromChild)')
+  await applyNamedPatch(backgroundColorAnimatorPath, 'BackgroundColorAnimator.kt evaluator arg',
+    '        val backgroundColorEvaluator = BackgroundColorEvaluator(to.background as ReactViewBackgroundDrawable)',
+    '        val backgroundColorEvaluator = BackgroundColorEvaluator(to)',
+    'BackgroundColorEvaluator(to)')
+
+  const modalHostLayoutPath = path.join(rnnUtilsDir, 'react/modal/ModalHostLayout.kt')
+  await applyNamedPatch(modalHostLayoutPath, 'ModalHostLayout.kt structure null guard',
+`    override fun dispatchProvideStructure(structure: ViewStructure?) {
+        mHostView.dispatchProvideStructure(structure)
+    }`,
+`    override fun dispatchProvideStructure(structure: ViewStructure?) {
+        if (structure != null) mHostView.dispatchProvideStructure(structure)
+    }`,
+    'if (structure != null) mHostView.dispatchProvideStructure')
 
   await applyNamedPatch(layoutDirectionPath, 'LayoutDirectionApplier.kt smart cast',
 `        if (options.layout.direction.hasValue() && instanceManager.currentReactContext != null) {
