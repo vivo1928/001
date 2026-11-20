@@ -7,7 +7,6 @@ import android.os.Bundle;
 import com.facebook.react.bridge.Arguments;
 import com.facebook.react.bridge.ReactContext;
 import com.facebook.react.bridge.WritableMap;
-import com.facebook.react.modules.core.DeviceEventManagerModule.RCTDeviceEventEmitter;
 
 /**
  * @author Guichaguri
@@ -49,7 +48,8 @@ public class MusicEvents extends BroadcastReceiver {
 
         WritableMap map = data != null ? Arguments.fromBundle(data) : null;
 
-        reactContext.getJSModule(RCTDeviceEventEmitter.class).emit(event, map);
+        // 新架构（bridgeless）下 getJSModule 已弃用，改用 emitDeviceEvent
+        reactContext.emitDeviceEvent(event, map);
     }
 
 }

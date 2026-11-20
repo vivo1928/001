@@ -6,7 +6,6 @@ import androidx.annotation.Nullable;
 
 import com.facebook.react.bridge.ReactApplicationContext;
 import com.facebook.react.bridge.WritableMap;
-import com.facebook.react.modules.core.DeviceEventManagerModule;
 
 public class UtilsEvent {
   final String SCREEN_STATE = "screen-state";
@@ -16,8 +15,7 @@ public class UtilsEvent {
   UtilsEvent(ReactApplicationContext reactContext) { this.reactContext = reactContext; }
 
   public void sendEvent(String eventName, @Nullable WritableMap params) {
-    reactContext
-      .getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter.class)
-      .emit(eventName, params);
+    // 新架构（bridgeless）下 getJSModule 已弃用，改用 emitDeviceEvent
+    reactContext.emitDeviceEvent(eventName, params);
   }
 }
