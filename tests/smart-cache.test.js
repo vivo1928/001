@@ -43,6 +43,7 @@ const buildModule = () => loadModule('src/core/cache/smartCache.ts', {
   '@/core/player/randomQueue': { getRandomQueue: async(count) => stub.randomQueue.slice(0, count) },
   '@/utils/listManage': { getListMusicSync: () => stub.list },
   '@/utils/userApiLog': { userApiLog: () => {} },
+  '@/utils/userApiHeaders': { getRecordedHeaders: () => undefined },
   '@/store/setting/state': { setting: stub.setting },
   '@/store/player/state': stub.playerState,
 })

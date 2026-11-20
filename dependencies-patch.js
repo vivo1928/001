@@ -420,7 +420,7 @@ const rootPath = path.join(__dirname, './')
     private volatile int lxPrefetchCancelledSeq = -1;
     private volatile androidx.media3.datasource.DataSource lxPrefetchDataSource;
 
-    public void prefetchToCache(String url, String cacheKey, Promise promise) {
+    public void prefetchToCache(String url, String cacheKey, java.util.Map<String, String> headers, Promise promise) {
         if (cache == null || cacheMaxSize <= 0) {
             promise.resolve(false);
             return;
@@ -433,10 +433,13 @@ const rootPath = path.join(__dirname, './')
                 return;
             }
             try {
-                androidx.media3.datasource.DataSource.Factory upstreamFactory = new androidx.media3.datasource.DefaultHttpDataSource.Factory()
+                androidx.media3.datasource.DefaultHttpDataSource.Factory upstreamFactory = new androidx.media3.datasource.DefaultHttpDataSource.Factory()
                         .setUserAgent("Mozilla/5.0 (Linux; Android 12) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
                         .setConnectTimeoutMs(15000)
                         .setReadTimeoutMs(20000);
+                if (headers != null && !headers.isEmpty()) {
+                    upstreamFactory.setDefaultRequestProperties(headers);
+                }
                 CacheDataSource ds = new CacheDataSource.Factory()
                         .setCache(cache)
                         .setUpstreamDataSourceFactory(upstreamFactory)
@@ -476,14 +479,26 @@ const rootPath = path.join(__dirname, './')
   const prefetchExoOld = '    public abstract void isCached(String url, Promise promise);'
   const prefetchExoNew = `    public abstract void isCached(String url, Promise promise);
 
-    public abstract void prefetchToCache(String url, String cacheKey, Promise promise);
+    public abstract void prefetchToCache(String url, String cacheKey, java.util.Map<String, String> headers, Promise promise);
 
     public abstract void cancelPrefetch(Promise promise);`
   const prefetchModuleOld = `    @ReactMethod
     public void isCached(String url, final Promise callback) {`
   const prefetchModuleNew = `    @ReactMethod
-    public void prefetchToCache(String url, String cacheKey, final Promise callback) {
-        waitForConnection(() -> binder.getPlayback().prefetchToCache(url, cacheKey, callback));
+    public void prefetchToCache(String url, String cacheKey, ReadableMap headers, final Promise callback) {
+        java.util.Map<String, String> headerMap = null;
+        if (headers != null) {
+            headerMap = new java.util.HashMap<>();
+            Bundle bundle = Arguments.toBundle(headers);
+            if (bundle != null) {
+                for (String key : bundle.keySet()) {
+                    Object value = bundle.get(key);
+                    if (value != null) headerMap.put(key, String.valueOf(value));
+                }
+            }
+        }
+        final java.util.Map<String, String> finalHeaders = headerMap;
+        waitForConnection(() -> binder.getPlayback().prefetchToCache(url, cacheKey, finalHeaders, callback));
     }
 
     @ReactMethod

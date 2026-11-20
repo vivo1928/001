@@ -7,11 +7,12 @@ import { getPlayQuality } from '@/core/music/utils'
 import { isCached } from '@/plugins/player/utils'
 import { getRandomQueue } from '@/core/player/randomQueue'
 import { getListMusicSync } from '@/utils/listManage'
+import { getRecordedHeaders } from '@/utils/userApiHeaders'
 import settingState from '@/store/setting/state'
 import playerState from '@/store/player/state'
 
 interface PrefetchNativeModule {
-  prefetchToCache: (url: string, cacheKey: string) => Promise<boolean>
+  prefetchToCache: (url: string, cacheKey: string, headers?: Record<string, string>) => Promise<boolean>
   cancelPrefetch: () => Promise<void>
 }
 const prefetchModule: PrefetchNativeModule | undefined = NativeModules.TrackPlayerModule
@@ -106,19 +107,44 @@ const prefetchOne = async(musicInfo: LX.Player.PlayMusicInfo['musicInfo'], token
   userApiLog('smartcache check', { id: onlineInfo.id, source: onlineInfo.source, quality: targetQuality, cached })
   if (cached || token != runToken) return
 
-  const result = await getMusicUrl({ musicInfo: onlineInfo, forPlayback: false }).catch(() => null)
-  if (!result?.url || token != runToken) return
-  // 离线兜底产生的占位链接无实际内容，无需预缓存
-  if (result.url.includes('lx-cache-hit.invalid')) return
-  const alreadyCached = await isCached(result.cacheKey).catch(() => false)
-  if (alreadyCached || token != runToken) return
+  // 与播放一致的解析链路：失败会自动换源（allowToggleSource）
+  const resolveUrl = async(isRefresh: boolean) => getMusicUrl({
+    musicInfo: onlineInfo,
+    isRefresh,
+    forPlayback: false,
+    allowToggleSource: true,
+    onToggleSource: (target) => {
+      userApiLog('smartcache toggle source', { from: onlineInfo.source, to: target?.source })
+    },
+  }).catch(() => null)
 
-  try {
-    const ok = await prefetchModule?.prefetchToCache(result.url, result.cacheKey)
-    userApiLog('smartcache prefetch', { id: onlineInfo.id, ok, key: result.cacheKey })
-  } catch (e: any) {
-    userApiLog('smartcache prefetch fail', { id: onlineInfo.id, message: e?.message ?? String(e) })
+  const tryPrefetch = async(result: { url: string, cacheKey: string } | null) => {
+    if (!result?.url || token != runToken) return false
+    // 离线兜底产生的占位链接无实际内容，无需预缓存
+    if (result.url.includes('lx-cache-hit.invalid')) return false
+    const alreadyCached = await isCached(result.cacheKey).catch(() => false)
+    if (alreadyCached) {
+      userApiLog('smartcache already cached', { id: onlineInfo.id, key: result.cacheKey })
+      return true
+    }
+    try {
+      // 复用解析该链接时同域名的请求头（UA/Referer/X-Token 等），避免 CDN 拒绝
+      const ok = await prefetchModule?.prefetchToCache(result.url, result.cacheKey, getRecordedHeaders(result.url)) ?? false
+      userApiLog('smartcache prefetch', { id: onlineInfo.id, ok, key: result.cacheKey })
+      return ok
+    } catch (e: any) {
+      userApiLog('smartcache prefetch fail', { id: onlineInfo.id, message: e?.message ?? String(e) })
+      return false
+    }
   }
+
+  let result = await resolveUrl(false)
+  if (await tryPrefetch(result)) return
+  if (token != runToken) return
+
+  // 链接过期/被拒：刷新一次（解析链路内部仍会自动换源），再试一次
+  result = await resolveUrl(true)
+  await tryPrefetch(result)
 }
 
 /**
