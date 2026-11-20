@@ -68,8 +68,10 @@ public class MusicService extends HeadlessJsTaskService {
         if(!serviceForeground) {
             ReactContext reactContext = getCurrentReactContextCompat();
 
-            // Checks whether there is a React activity
-            if(reactContext == null || !reactContext.hasCurrentActivity()) {
+            // bridgeless 下 ReactContext.hasCurrentActivity() 不可靠（恒为 false），
+            // 会导致服务被误判为后台而立即 stopSelf，随后绑定永不回来、所有播放调用挂起。
+            // 优先用 ReactHost 生命周期判断是否在前台；未知时保持服务存活。
+            if(isAppInForegroundCompat(reactContext) == Boolean.FALSE) {
                 String channel = Utils.getNotificationChannel(this);
 
                 // Sets the service to foreground with an empty notification

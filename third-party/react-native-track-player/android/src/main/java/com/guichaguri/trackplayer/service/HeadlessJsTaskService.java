@@ -177,6 +177,25 @@ public abstract class HeadlessJsTaskService extends Service implements HeadlessJ
     return findReactHost(getApplication());
   }
 
+  /**
+   * 是否处于前台：ReactHost 生命周期为 RESUMED 视为前台。
+   * 返回 null 表示无法判断（调用方应保守处理）。
+   */
+  protected @Nullable Boolean isAppInForegroundCompat(ReactContext reactContext) {
+    ReactHost reactHost = getReactHostCompat();
+    if (reactHost != null) {
+      try {
+        return reactHost.getLifecycleState() == com.facebook.react.common.LifecycleState.RESUMED;
+      } catch (Throwable ignored) { /* ignore */ }
+    }
+    if (reactContext != null) {
+      try {
+        return reactContext.hasCurrentActivity();
+      } catch (Throwable ignored) { /* ignore */ }
+    }
+    return null;
+  }
+
   /** 新架构优先取 ReactHost 的上下文，旧架构回退 ReactInstanceManager */
   protected @Nullable ReactContext getCurrentReactContextCompat() {
     ReactHost reactHost = getReactHostCompat();

@@ -1,6 +1,7 @@
 package com.guichaguri.trackplayer.module;
 
 import android.content.ComponentName;
+import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.ServiceConnection;
@@ -122,12 +123,23 @@ public class MusicModule extends ReactContextBaseJavaModule implements ServiceCo
 
         ReactApplicationContext context = getReactApplicationContext();
 
-        // Binds the service to get a MediaWrapper instance
+        // Binds the service to get a MediaWrapper instance.
+        // 用 BIND_AUTO_CREATE 并在失败时复位状态：否则服务不存在时绑定静默失败，
+        // 回调会永久排队，所有播放调用挂起（表现为一直“获取链接中”）。
         Intent intent = new Intent(context, MusicService.class);
         context.startService(intent);
         intent.setAction(Utils.CONNECT_INTENT);
-        context.bindService(intent, this, 0);
+        boolean bound;
+        try {
+            bound = context.bindService(intent, this, Context.BIND_AUTO_CREATE);
+        } catch (Exception ex) {
+            bound = false;
+        }
 
+        if (!bound) {
+            connecting = false;
+            return;
+        }
         connecting = true;
     }
 
