@@ -1,6 +1,6 @@
 // import { createCipheriv, createDecipheriv, publicEncrypt, privateDecrypt, constants } from 'crypto'
 import { aesEncryptSync, aesDecryptSync, rsaEncryptSync, rsaDecryptSync, AES_MODE, RSA_PADDING } from '@/utils/nativeModules/crypto'
-import { btoa } from 'react-native-quick-base64'
+import { btoa } from '@/utils/base64'
 
 
 export const aesEncrypt = (text: string, b64Key: string) => {

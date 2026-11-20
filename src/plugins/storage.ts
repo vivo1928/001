@@ -8,6 +8,17 @@ const partKeyArrPrefixRxp = /^@___PART_A___/
 const keySplit = ','
 const limit = 500000
 
+// async-storage 3.x 移除了 multiGet/multiSet/multiRemove，这里提供等价实现
+const compatMultiGet = async(keys: readonly string[]): Promise<Array<[string, string | null]>> => {
+  return Promise.all(keys.map(async key => [key, await AsyncStorage.getItem(key)] as [string, string | null]))
+}
+const compatMultiSet = async(datas: Array<[string, string]>) => {
+  for (const [key, value] of datas) await AsyncStorage.setItem(key, value)
+}
+const compatMultiRemove = async(keys: string[]) => {
+  for (const key of keys) await AsyncStorage.removeItem(key)
+}
+
 const buildData = (key: string, value: any, datas: Array<[string, string]>) => {
   let valueStr = JSON.stringify(value)
   if (valueStr.length <= limit) {
@@ -29,7 +40,7 @@ const buildData = (key: string, value: any, datas: Array<[string, string]>) => {
 const handleGetDataOld = async<T>(partKeys: string): Promise<T> => {
   const keys = partKeys.replace(partKeyPrefixRxp, '').split(keySplit)
 
-  return AsyncStorage.multiGet(keys).then(datas => {
+  return compatMultiGet(keys).then(datas => {
     return JSON.parse(datas.map(data => data[1]).join(''))
   })
 }
@@ -38,7 +49,7 @@ const handleGetData = async<T>(partKeys: string): Promise<T> => {
   if (partKeys.startsWith(partKeyPrefix)) return handleGetDataOld<T>(partKeys)
 
   const keys = JSON.parse(partKeys.replace(partKeyArrPrefixRxp, '')) as string[]
-  return AsyncStorage.multiGet(keys).then(datas => {
+  return compatMultiGet(keys).then(datas => {
     return JSON.parse(datas.map(data => data[1]).join(''))
   })
 }
@@ -49,7 +60,7 @@ export const saveData = async(key: string, value: any) => {
 
   try {
     await removeData(key)
-    await AsyncStorage.multiSet(datas)
+    await compatMultiSet(datas)
   } catch (e: any) {
     // saving error
     log.error('storage error[saveData]:', key, e.message)
@@ -86,7 +97,7 @@ export const removeData = async(key: string) => {
       let partKeys = value.replace(partKeyPrefixRxp, '').split(keySplit)
       partKeys.push(key)
       try {
-        await AsyncStorage.multiRemove(partKeys)
+        await compatMultiRemove(partKeys)
       } catch (e: any) {
         // remove error
         log.error('storage error[removeData]:', key, e.message)
@@ -97,7 +108,7 @@ export const removeData = async(key: string) => {
       let partKeys = JSON.parse(value.replace(partKeyArrPrefixRxp, '')) as string[]
       partKeys.push(key)
       try {
-        await AsyncStorage.multiRemove(partKeys)
+        await compatMultiRemove(partKeys)
       } catch (e: any) {
         // remove error
         log.error('storage error[removeData]:', key, e.message)
@@ -134,7 +145,7 @@ export const getDataMultiple = async<T extends readonly string[]>(keys: T) => {
   type RawData = { [K in keyof T]: [T[K], string | null] }
   let datas: RawData
   try {
-    datas = await AsyncStorage.multiGet(keys) as RawData
+    datas = await compatMultiGet(keys) as unknown as RawData
   } catch (e: any) {
     // read error
     log.error('storage error[getDataMultiple]:', e.message)
@@ -161,7 +172,7 @@ export const saveDataMultiple = async(datas: Array<[string, any]>) => {
   }
   try {
     await removeDataMultiple(datas.map(k => k[0]))
-    await AsyncStorage.multiSet(allData)
+    await compatMultiSet(allData)
   } catch (e: any) {
     // save error
     log.error('storage error[saveDataMultiple]:', e.message)
@@ -172,7 +183,7 @@ export const saveDataMultiple = async(datas: Array<[string, any]>) => {
 
 export const removeDataMultiple = async(keys: string[]) => {
   if (!keys.length) return
-  const datas = await AsyncStorage.multiGet(keys)
+  const datas = await compatMultiGet(keys)
   let allKeys = []
   for (const [key, value] of datas) {
     allKeys.push(key)
@@ -185,7 +196,7 @@ export const removeDataMultiple = async(keys: string[]) => {
     }
   }
   try {
-    await AsyncStorage.multiRemove(allKeys)
+    await compatMultiRemove(allKeys)
   } catch (e: any) {
     // remove error
     log.error('storage error[removeDataMultiple]:', e.message)

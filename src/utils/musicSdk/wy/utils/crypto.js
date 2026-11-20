@@ -1,5 +1,5 @@
 // https://github.com/Binaryify/NeteaseCloudMusicApi/blob/master/util/crypto.js
-import { btoa } from 'react-native-quick-base64'
+import { btoa } from '@/utils/base64'
 import { aesEncryptSync, aesDecryptSync, rsaEncryptSync, AES_MODE, RSA_PADDING } from '@/utils/nativeModules/crypto'
 import { toMD5 } from '../../utils'
 const iv = btoa('0102030405060708')
