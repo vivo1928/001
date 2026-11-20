@@ -1,9 +1,6 @@
-// 记录自定义源请求时实际使用的请求头（UA/Referer/Cookie），
-// 供播放器在拉取同域名音频时复用，避免 CDN 因缺少头信息拒绝（403）。
-interface RecordedHeaders { [key: string]: string }
-
-const hostHeaders = new Map<string, RecordedHeaders>()
-const keys = ['user-agent', 'referer', 'cookie']
+// 记录自定义源请求时实际使用的请求头，供播放器拉取“同域名”音频时复用，
+// 避免 CDN 因缺少 UA/Referer/X-Token 等头信息拒绝（403）。
+const hostHeaders = new Map<string, Record<string, string>>()
 
 const getHost = (url: string) => {
   try {
@@ -13,25 +10,21 @@ const getHost = (url: string) => {
   }
 }
 
-export const recordUserApiHeaders = (url: string, headers?: Record<string, string> | null) => {
+export const recordUserApiHeaders = (url: string, headers?: Record<string, any> | null) => {
   if (!headers) return
   const host = getHost(url)
   if (!host) return
-  const picked: RecordedHeaders = {}
+  const picked: Record<string, string> = {}
   for (const [k, v] of Object.entries(headers)) {
-    const lk = k.toLowerCase()
-    if (!keys.includes(lk) || typeof v !== 'string' || !v) continue
-    picked[lk === 'user-agent' ? 'User-Agent' : lk === 'referer' ? 'Referer' : 'Cookie'] = v
+    if (typeof v !== 'string' || !v) continue
+    picked[k] = v
   }
   if (Object.keys(picked).length) hostHeaders.set(host, picked)
 }
 
-export const getRecordedHeaders = (url: string): RecordedHeaders | undefined => {
+// 仅对完全相同的域名复用，避免把令牌/凭据带到第三方 CDN
+export const getRecordedHeaders = (url: string): Record<string, string> | undefined => {
   const host = getHost(url)
   if (!host) return undefined
-  if (hostHeaders.has(host)) return hostHeaders.get(host)
-  for (const [h, v] of hostHeaders) {
-    if (host.endsWith(`.${h}`) || h.endsWith(`.${host}`)) return v
-  }
-  return undefined
+  return hostHeaders.get(host)
 }
