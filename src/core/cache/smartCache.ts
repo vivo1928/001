@@ -1,3 +1,4 @@
+import { userApiLog } from '@/utils/userApiLog'
 import { NativeModules } from 'react-native'
 import BackgroundTimer from 'react-native-background-timer'
 import { getMusicUrl } from '@/core/music'
@@ -102,6 +103,7 @@ const prefetchOne = async(musicInfo: LX.Player.PlayMusicInfo['musicInfo'], token
   // 已完整缓存则跳过，避免为缓存内的歌做无谓的链接解析
   const targetQuality = getPlayQuality(settingState.setting['player.playQuality'], onlineInfo)
   const cached = await isCached(getPlayCacheKey(onlineInfo, targetQuality)).catch(() => false)
+  userApiLog('smartcache check', { id: onlineInfo.id, source: onlineInfo.source, quality: targetQuality, cached })
   if (cached || token != runToken) return
 
   const result = await getMusicUrl({ musicInfo: onlineInfo, forPlayback: false }).catch(() => null)
@@ -111,7 +113,12 @@ const prefetchOne = async(musicInfo: LX.Player.PlayMusicInfo['musicInfo'], token
   const alreadyCached = await isCached(result.cacheKey).catch(() => false)
   if (alreadyCached || token != runToken) return
 
-  await prefetchModule?.prefetchToCache(result.url, result.cacheKey).catch(() => {})
+  try {
+    const ok = await prefetchModule?.prefetchToCache(result.url, result.cacheKey)
+    userApiLog('smartcache prefetch', { id: onlineInfo.id, ok, key: result.cacheKey })
+  } catch (e: any) {
+    userApiLog('smartcache prefetch fail', { id: onlineInfo.id, message: e?.message ?? String(e) })
+  }
 }
 
 /**
@@ -124,6 +131,7 @@ export const runWindow = async() => {
     const token = runToken
     const count = Number(settingState.setting['player.cacheAheadCount'] ?? 10)
     const upcoming = await getUpcomingPlayMusicInfos(count)
+    userApiLog('smartcache window', { count, upcoming: upcoming.length })
     for (const item of upcoming) {
       if (token != runToken) return
       await prefetchOne(item.musicInfo, token)
