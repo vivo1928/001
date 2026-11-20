@@ -1,6 +1,10 @@
 import { Platform, AppRegistry, DeviceEventEmitter, NativeEventEmitter, NativeModules } from 'react-native'
 // @ts-ignore
-import * as resolveAssetSource from 'react-native/Libraries/Image/resolveAssetSource'
+// RN 0.8x 起该模块可能以 { default } 形式导出，这里做兼容规避 "Object is not a function"
+import * as resolveAssetSourceModule from 'react-native/Libraries/Image/resolveAssetSource'
+const resolveAssetSource: (path: string) => unknown = typeof resolveAssetSourceModule === 'function'
+  ? (resolveAssetSourceModule as unknown as (path: string) => unknown)
+  : ((resolveAssetSourceModule as unknown as { default?: (path: string) => unknown }).default ?? (() => null))
 import {
   MetadataOptions,
   PlayerOptions,

@@ -58,7 +58,11 @@ var __spreadArray = (this && this.__spreadArray) || function (to, from, pack) {
 Object.defineProperty(exports, "__esModule", { value: true });
 var react_native_1 = require("react-native");
 // @ts-ignore
-var resolveAssetSource = require("react-native/Libraries/Image/resolveAssetSource");
+var resolveAssetSourceModule = require("react-native/Libraries/Image/resolveAssetSource");
+// RN 0.8x 起该模块可能以 { default } 形式导出，做兼容处理
+var resolveAssetSource = typeof resolveAssetSourceModule === 'function'
+    ? resolveAssetSourceModule
+    : (resolveAssetSourceModule && resolveAssetSourceModule.default) || function (p) { return null; };
 var interfaces_1 = require("./interfaces");
 var TrackPlayer = react_native_1.NativeModules.TrackPlayerModule;
 var emitter = react_native_1.Platform.OS !== 'android' ? new react_native_1.NativeEventEmitter(TrackPlayer) : react_native_1.DeviceEventEmitter;
