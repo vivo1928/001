@@ -11,7 +11,14 @@ import androidx.media3.common.util.UnstableApi;
 import androidx.media3.database.DatabaseProvider;
 import androidx.media3.database.StandaloneDatabaseProvider;
 import androidx.media3.datasource.DataSource;
+import android.net.Uri;
+import androidx.media3.datasource.DataSpec;
+import androidx.media3.datasource.DefaultHttpDataSource;
 import androidx.media3.datasource.cache.CacheDataSource;
+import androidx.media3.datasource.cache.CacheWriter;
+import com.facebook.react.bridge.Promise;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import androidx.media3.datasource.cache.CacheSpan;
 import androidx.media3.datasource.cache.LeastRecentlyUsedCacheEvictor;
 import androidx.media3.datasource.cache.SimpleCache;
@@ -39,6 +46,73 @@ public class LocalPlayback extends ExoPlayback<ExoPlayer> {
 
     private SimpleCache cache;
     private boolean prepared = false;
+
+    // URL -> 缓存条目（cacheKey/UA/请求头）：播放缓存与预取共用
+    private static final class CacheEntry {
+        final String cacheKey;
+        final String userAgent;
+        final Map<String, String> headers;
+        CacheEntry(String cacheKey, String userAgent, Map<String, String> headers) {
+            this.cacheKey = cacheKey;
+            this.userAgent = userAgent;
+            this.headers = headers;
+        }
+    }
+    private static final Map<String, CacheEntry> sUrlEntries = new ConcurrentHashMap<>();
+    private static volatile Thread sPrefetchThread;
+
+    @Override
+    public void registerCacheEntry(String url, String cacheKey, String userAgent, Map<String, String> headers) {
+        if (url == null || cacheKey == null || cacheKey.isEmpty()) return;
+        sUrlEntries.put(url, new CacheEntry(cacheKey, userAgent, headers));
+    }
+
+    @Override
+    public void cancelPrefetch() {
+        Thread t = sPrefetchThread;
+        sPrefetchThread = null;
+        if (t != null) t.interrupt();
+    }
+
+    @Override
+    public void prefetch(String url, String cacheKey, final Promise promise) {
+        if (cache == null || url == null) {
+            if (promise != null) promise.resolve(false);
+            return;
+        }
+        final String key = (cacheKey != null && !cacheKey.isEmpty()) ? cacheKey : url;
+        final CacheEntry entry = sUrlEntries.get(url);
+        cancelPrefetch();
+        Thread thread = new Thread(() -> {
+            boolean ok = false;
+            try {
+                DefaultHttpDataSource.Factory upstream = new DefaultHttpDataSource.Factory()
+                        .setConnectTimeoutMs(15000)
+                        .setReadTimeoutMs(20000)
+                        .setAllowCrossProtocolRedirects(true);
+                if (entry != null) {
+                    if (entry.userAgent != null) upstream.setUserAgent(entry.userAgent);
+                    if (entry.headers != null) upstream.setDefaultRequestProperties(entry.headers);
+                }
+                CacheDataSource.Factory factory = new CacheDataSource.Factory()
+                        .setCache(cache)
+                        .setUpstreamDataSourceFactory(upstream)
+                        .setCacheKeyFactory(dataSpec -> key)
+                        .setFlags(CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR);
+                DataSpec spec = new DataSpec.Builder().setUri(Uri.parse(url)).build();
+                new CacheWriter(factory.createDataSource(), spec, null, null).cache();
+                ok = !cache.getCachedSpans(key).isEmpty();
+            } catch (Throwable ignored) {
+                // 取消/网络失败均按未缓存处理
+            }
+            if (sPrefetchThread == Thread.currentThread()) sPrefetchThread = null;
+            if (promise != null) {
+                try { promise.resolve(ok); } catch (Throwable ignored) {}
+            }
+        }, "TrackPlayerPrefetch");
+        sPrefetchThread = thread;
+        thread.start();
+    }
     public LocalPlayback(Context context, MusicManager manager, ExoPlayer player, long maxCacheSize,
                          boolean autoUpdateMetadata) {
         super(context, manager, player, autoUpdateMetadata);
@@ -66,6 +140,10 @@ public class LocalPlayback extends ExoPlayback<ExoPlayer> {
         return new CacheDataSource.Factory()
                                 .setCache(cache)
                                 .setUpstreamDataSourceFactory(ds)
+                                .setCacheKeyFactory(dataSpec -> {
+                                    CacheEntry entry = sUrlEntries.get(dataSpec.uri.toString());
+                                    return entry != null ? entry.cacheKey : dataSpec.uri.toString();
+                                })
                                 .setFlags(CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR);
     }
 

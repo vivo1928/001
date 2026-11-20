@@ -69,6 +69,8 @@ public class Track extends TrackMetadata {
 
     public Map<String, String> headers;
 
+    public String cacheKey;
+
     public final long queueId;
 
     public Track(Context context, Bundle bundle, int ratingType) {
@@ -91,6 +93,7 @@ public class Track extends TrackMetadata {
 
         contentType = bundle.getString("contentType");
         userAgent = bundle.getString("userAgent");
+        cacheKey = bundle.getString("cacheKey");
 
         Bundle httpHeaders = bundle.getBundle("headers");
         if(httpHeaders != null) {
@@ -169,6 +172,9 @@ public class Track extends TrackMetadata {
             if(headers != null) {
                 factory.setDefaultRequestProperties(headers);
             }
+
+            // 登记 URL → cacheKey/请求头，播放缓存按稳定 key 索引（自定义源链接会变）
+            playback.registerCacheEntry(uri.toString(), cacheKey, userAgent, headers);
 
             ds = playback.enableCaching(factory);
 

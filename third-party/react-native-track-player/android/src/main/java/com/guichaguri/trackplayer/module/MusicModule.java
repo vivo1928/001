@@ -31,6 +31,7 @@ import com.guichaguri.trackplayer.service.Utils;
 import com.guichaguri.trackplayer.service.models.NowPlayingMetadata;
 import com.guichaguri.trackplayer.service.models.Track;
 import com.guichaguri.trackplayer.service.player.ExoPlayback;
+import com.guichaguri.trackplayer.service.player.LocalPlayback;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -337,6 +338,33 @@ public class MusicModule extends ReactContextBaseJavaModule implements ServiceCo
         waitForConnection(() -> {
             binder.getPlayback().removeUpcomingTracks();
             callback.resolve(null);
+        });
+    }
+
+    @ReactMethod
+    public void prefetchToCache(final String url, final String cacheKey, final Promise promise) {
+        waitForConnection(() -> {
+            if (binder == null) {
+                promise.resolve(false);
+                return;
+            }
+            ExoPlayback playback = binder.getPlayback();
+            if (playback instanceof LocalPlayback) {
+                ((LocalPlayback) playback).prefetch(url, cacheKey, promise);
+            } else {
+                promise.resolve(false);
+            }
+        });
+    }
+
+    @ReactMethod
+    public void cancelPrefetch(final Promise promise) {
+        waitForConnection(() -> {
+            if (binder != null) {
+                ExoPlayback playback = binder.getPlayback();
+                if (playback instanceof LocalPlayback) ((LocalPlayback) playback).cancelPrefetch();
+            }
+            promise.resolve(null);
         });
     }
 
