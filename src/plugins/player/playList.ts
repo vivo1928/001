@@ -1,3 +1,4 @@
+import { userApiLog } from '@/utils/userApiLog'
 import TrackPlayer, { State } from 'react-native-track-player'
 import BackgroundTimer from 'react-native-background-timer'
 import { defaultUrl } from '@/config'
@@ -215,10 +216,15 @@ const handlePlayMusic = async(musicInfo: LX.Player.PlayMusic, url: string, cache
   const tracks = buildTracks(musicInfo, url, cacheKey)
   const track = tracks[0]
   // await updateMusicInfo(track)
+  userApiLog('tp:getCurrentTrack')
   const currentTrackIndex = await TrackPlayer.getCurrentTrack()
+  userApiLog('tp:add', tracks.length)
   await TrackPlayer.add(tracks)
+  userApiLog('tp:getQueue')
   const queue = await TrackPlayer.getQueue() as LX.Player.Track[]
+  userApiLog('tp:skip', { index: queue.findIndex(t => t.id == track.id), len: queue.length })
   await TrackPlayer.skip(queue.findIndex(t => t.id == track.id))
+  userApiLog('tp:skip done')
 
   if (currentTrackIndex == null) {
     if (!isTempTrack(track.id as string)) {
@@ -232,6 +238,7 @@ const handlePlayMusic = async(musicInfo: LX.Player.PlayMusic, url: string, cache
       // if (startupAutoPlay) store.dispatch(playerAction.playMusic())
       } else {
         await TrackPlayer.play()
+        userApiLog('tp:play done')
       }
     }
   } else {
@@ -239,6 +246,7 @@ const handlePlayMusic = async(musicInfo: LX.Player.PlayMusic, url: string, cache
     if (!isTempTrack(track.id as string)) {
       await TrackPlayer.seekTo(time)
       await TrackPlayer.play()
+      userApiLog('tp:play done (replace)')
     }
   }
 
@@ -252,7 +260,9 @@ export const playMusic = (musicInfo: LX.Player.PlayMusic, url: string, cacheKey:
   const id = actionId = Math.random()
   void playPromise.finally(() => {
     if (id != actionId) return
-    playPromise = handlePlayMusic(musicInfo, url, cacheKey, time)
+    playPromise = handlePlayMusic(musicInfo, url, cacheKey, time).catch((e: any) => {
+      userApiLog('handlePlayMusic fail', { message: e?.message ?? String(e) })
+    })
   })
 }
 

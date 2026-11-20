@@ -71,6 +71,10 @@ const registerPlaybackService = async() => {
   //   }
   // })
 
+  TrackPlayer.addEventListener(TPEvent.PlaybackState, ({ state }: any) => {
+    userApiLog('player state', { state })
+  })
+
   TrackPlayer.addEventListener(TPEvent.PlaybackError, async(err: any) => {
     console.log('playback-error', err)
     userApiLog('player error', { message: err?.message, code: err?.code })
