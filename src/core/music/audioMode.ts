@@ -1,3 +1,4 @@
+import { userApiLog } from '@/utils/userApiLog'
 import { setAudioOffloadEnabled } from '@/utils/nativeModules/equalizer'
 import settingState from '@/store/setting/state'
 
@@ -27,10 +28,18 @@ const isOffloadAllowed = (): boolean => settingState.setting['player.isEnableAud
  * 不会覆盖后发调用的模式，保证最终输出模式与最新音质一致。
  */
 let applyChain: Promise<void> = Promise.resolve()
+
+// 原生调用异常/未响应时兜底，避免阻塞起播（曾出现一直卡在“获取链接中”）
+const withTimeout = <T>(p: Promise<T>, ms: number): Promise<T | void> =>
+  Promise.race([p, new Promise<void>(resolve => setTimeout(resolve, ms))])
+
 export const applyAudioModeForQuality = (quality: LX.Quality | null | undefined): Promise<void> => {
   const shouldOffload = isOffloadAllowed() && quality != null && OFFLOAD_QUALITYS.has(quality)
   currentOffloadMode = shouldOffload
-  applyChain = applyChain.then(() => setAudioOffloadEnabled(shouldOffload)).catch(() => {})
+  applyChain = applyChain
+    .then(() => withTimeout(Promise.resolve(setAudioOffloadEnabled(shouldOffload)), 3000))
+    .then(() => { userApiLog('audio mode', { shouldOffload }) })
+    .catch((e: any) => { userApiLog('audio mode fail', { message: e?.message ?? String(e) }) })
   return applyChain
 }
 

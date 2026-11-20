@@ -148,7 +148,14 @@ export const setMusicUrl = (musicInfo: LX.Music.MusicInfo | LX.Download.ListItem
       quality: result?.quality,
     })
     if (!result?.url) return
-    setResource(musicInfo, result.url, result.cacheKey, playerState.progress.nowPlayTime)
+    userApiLog('setResource', { cacheKey: result.cacheKey })
+    try {
+      setResource(musicInfo, result.url, result.cacheKey, playerState.progress.nowPlayTime)
+      userApiLog('setResource done')
+    } catch (e: any) {
+      userApiLog('setResource fail', { message: e?.message ?? String(e) })
+      throw e
+    }
   }).catch((err: any) => {
     console.log(err)
     userApiLog('play url fail', { message: err?.message ?? String(err) })
