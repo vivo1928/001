@@ -1,3 +1,4 @@
+import { userApiLog } from '@/utils/userApiLog'
 import { isInitialized, initial as playerInitial, isEmpty, setPause, setPlay, setResource, setStop, initTrackInfo } from '@/plugins/player'
 import {
   setStatusText,
@@ -141,10 +142,16 @@ export const setMusicUrl = (musicInfo: LX.Music.MusicInfo | LX.Download.ListItem
   if (cancelDelayRetry) cancelDelayRetry()
   global.lx.gettingUrlId = createGettingUrlId(musicInfo)
   void getMusicPlayUrl(musicInfo, isRefresh).then((result) => {
+    userApiLog('play url', {
+      source: ('source' in musicInfo ? musicInfo.source : musicInfo.metadata.musicInfo.source),
+      url: result?.url?.slice(0, 160),
+      quality: result?.quality,
+    })
     if (!result?.url) return
     setResource(musicInfo, result.url, result.cacheKey, playerState.progress.nowPlayTime)
   }).catch((err: any) => {
     console.log(err)
+    userApiLog('play url fail', { message: err?.message ?? String(err) })
     setStatusText(err.message as string)
     global.app_event.error()
     addDelayNextTimeout()

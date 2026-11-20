@@ -19,8 +19,10 @@ export default async(setting: LX.AppSetting) => {
     target.abort()
   }
   const sendScriptRequest = (requestKey: string, url: string, options: RequestParams['options']) => {
+    userApiLog('fetch', { method: options.method, url, headers: options.headers, binary: options.binary })
     let req = fetchData(url, options)
     req.request.then(response => {
+      userApiLog('fetch ok', { url, status: response.statusCode, len: typeof response.body === 'string' ? response.body.length : -1 })
       // console.log(response)
       sendAction('response', {
         error: null,
@@ -28,6 +30,7 @@ export default async(setting: LX.AppSetting) => {
         response,
       })
     }).catch(err => {
+      userApiLog('fetch fail', { url, error: err.message })
       sendAction('response', {
         error: err.message,
         requestKey,
@@ -67,7 +70,7 @@ export default async(setting: LX.AppSetting) => {
     return requestPromise
   }
   const handleUserApiResponse = ({ status, result, requestKey, errorMessage }: ResponseParams) => {
-    userApiLog('response', { status, errorMessage, requestKey })
+    userApiLog('response', { status, errorMessage, requestKey, result: status ? undefined : String(result).slice(0, 300) })
     const target = userApiRequestMap.get(requestKey)
     if (!target) return
     userApiRequestMap.delete(requestKey)
