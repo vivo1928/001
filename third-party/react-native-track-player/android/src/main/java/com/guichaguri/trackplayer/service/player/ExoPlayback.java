@@ -13,8 +13,6 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import com.facebook.react.bridge.Promise;
-
-import java.util.Map;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
@@ -91,17 +89,6 @@ public abstract class ExoPlayback<T extends Player> implements Player.Listener, 
     public abstract int getRepeatMode();
 
     public abstract void isCached(String url, Promise promise);
-
-    /** 登记播放缓存 key（URL -> cacheKey），基类默认忽略 */
-    public void registerCacheEntry(String url, String cacheKey, String userAgent, Map<String, String> headers) {}
-
-    /** 预取整首到磁盘缓存；基类默认忽略 */
-    public void prefetch(String url, String cacheKey, Promise promise) {
-        if (promise != null) promise.resolve(false);
-    }
-
-    /** 取消预取；基类默认忽略 */
-    public void cancelPrefetch() {}
 
     public abstract void getCacheSize(Promise promise);
 
