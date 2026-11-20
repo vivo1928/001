@@ -2,6 +2,7 @@ import { action, state } from '@/store/userApi'
 import { addUserApi, getUserApiScript, removeUserApi as removeUserApiFromStore, setUserApiAllowShowUpdateAlert as setUserApiAllowShowUpdateAlertFromStore } from '@/utils/data'
 import { destroy, loadScript } from '@/utils/nativeModules/userApi'
 import { log as writeLog } from '@/utils/log'
+import { userApiLog } from '@/utils/userApiLog'
 
 
 export const setUserApi = async(apiId: string) => {
@@ -10,7 +11,15 @@ export const setUserApi = async(apiId: string) => {
 
   const target = state.list.find(api => api.id === apiId)
   if (!target) throw new Error('api not found')
-  const script = await getUserApiScript(target.id)
+  userApiLog('loadScript', target.id, target.name)
+  let script: string
+  try {
+    script = await getUserApiScript(target.id)
+  } catch (e: any) {
+    userApiLog('loadScript error', target.id, e?.message ?? String(e))
+    throw e
+  }
+  userApiLog('script loaded', target.id, `len=${script.length}`)
   loadScript({ ...target, script })
 }
 

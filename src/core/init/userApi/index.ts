@@ -5,6 +5,7 @@ import BackgroundTimer from 'react-native-background-timer'
 import { fetchData } from './request'
 import { getUserApiList } from '@/utils/data'
 import { confirmDialog, openUrl, tipDialog } from '@/utils/tools'
+import { userApiLog } from '@/utils/userApiLog'
 
 
 export default async(setting: LX.AppSetting) => {
@@ -45,6 +46,7 @@ export default async(setting: LX.AppSetting) => {
       BackgroundTimer.clearTimeout(target.timeout)
       target.reject(new Error('request failed'))
     }
+    userApiLog('request', data.url)
     const requestPromise = new Promise<ResponseParams['result']>((resolve, reject) => {
       userApiRequestMap.set(data.requestKey, {
         resolve,
@@ -52,6 +54,7 @@ export default async(setting: LX.AppSetting) => {
         timeout: BackgroundTimer.setTimeout(() => {
           const target = userApiRequestMap.get(data.requestKey)
           if (!target) return
+          userApiLog('timeout', data.url)
           userApiRequestMap.delete(data.requestKey)
           target.reject(new Error('request timeout'))
         }, 20_000),
@@ -64,6 +67,7 @@ export default async(setting: LX.AppSetting) => {
     return requestPromise
   }
   const handleUserApiResponse = ({ status, result, requestKey, errorMessage }: ResponseParams) => {
+    userApiLog('response', { status, errorMessage, requestKey })
     const target = userApiRequestMap.get(requestKey)
     if (!target) return
     userApiRequestMap.delete(requestKey)
@@ -73,6 +77,7 @@ export default async(setting: LX.AppSetting) => {
   }
   const handleStateChange = ({ status, errorMessage, info }: InitParams) => {
     // console.log(status, message, info)
+    userApiLog('init', { status, errorMessage, id: info?.id, sources: info?.sources?.length })
     setUserApiStatus(status, errorMessage)
     if (!info || info.id !== settingState.setting['common.apiSource']) return
     if (status) {
@@ -234,6 +239,7 @@ export default async(setting: LX.AppSetting) => {
         showUpdateAlert(event.data)
         break
       case 'log':
+        userApiLog('script', (event as unknown as { type: string }).type, (event as unknown as { log: string }).log)
         switch ((event as unknown as { type: keyof typeof log }).type) {
           case 'log':
           case 'info':
