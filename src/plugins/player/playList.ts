@@ -4,6 +4,7 @@ import { defaultUrl } from '@/config'
 // import { action as playerAction } from '@/store/modules/player'
 import settingState from '@/store/setting/state'
 import playerState from '@/store/player/state'
+import { getRecordedHeaders } from '@/utils/userApiHeaders'
 
 
 const defaultUserAgent = 'Mozilla/5.0 (Linux; Android 10; Pixel 3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/79.0.3945.79 Mobile Safari/537.36'
@@ -54,11 +55,15 @@ const getPlayHeaders = (musicInfo: LX.Player.PlayMusic, url: string): { [key: st
       break
     }
   }
+  const source = getPlaySource(musicInfo)
   if (!referer) {
-    const source = getPlaySource(musicInfo)
     if (source && !source.startsWith('user_api_')) referer = sourceRefererMap[source as LX.OnlineSource] ?? null
   }
-  return referer ? { Referer: referer } : undefined
+  // 自定义源：复用解析 URL 时使用的请求头（部分源 CDN 校验 UA/Referer）
+  const recorded = source?.startsWith('user_api_') ? getRecordedHeaders(url) : undefined
+  const headers: Record<string, string> = { ...(recorded ?? {}) }
+  if (referer) headers.Referer = referer
+  return Object.keys(headers).length ? headers : undefined
 }
 
 export const state = {

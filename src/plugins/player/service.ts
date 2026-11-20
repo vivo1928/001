@@ -1,3 +1,4 @@
+import { userApiLog } from '@/utils/userApiLog'
 /* eslint-disable @typescript-eslint/no-misused-promises */
 import TrackPlayer, { State as TPState, Event as TPEvent } from 'react-native-track-player'
 // import { store } from '@/store'
@@ -72,6 +73,7 @@ const registerPlaybackService = async() => {
 
   TrackPlayer.addEventListener(TPEvent.PlaybackError, async(err: any) => {
     console.log('playback-error', err)
+    userApiLog('player error', { message: err?.message, code: err?.code })
     global.app_event.error()
     global.app_event.playerError(err?.message)
   })

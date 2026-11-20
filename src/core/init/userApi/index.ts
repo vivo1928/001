@@ -6,6 +6,7 @@ import { fetchData } from './request'
 import { getUserApiList } from '@/utils/data'
 import { confirmDialog, openUrl, tipDialog } from '@/utils/tools'
 import { userApiLog } from '@/utils/userApiLog'
+import { recordUserApiHeaders } from '@/utils/userApiHeaders'
 
 
 export default async(setting: LX.AppSetting) => {
@@ -20,6 +21,7 @@ export default async(setting: LX.AppSetting) => {
   }
   const sendScriptRequest = (requestKey: string, url: string, options: RequestParams['options']) => {
     userApiLog('fetch', { method: options.method, url, headers: options.headers, binary: options.binary })
+    recordUserApiHeaders(url, options.headers)
     let req = fetchData(url, options)
     req.request.then(response => {
       userApiLog('fetch ok', { url, status: response.statusCode, len: typeof response.body === 'string' ? response.body.length : -1 })
