@@ -94,3 +94,17 @@ jobs:
           files: lx-music-mobile-v${{ env.PACKAGE_VERSION }}-arm64-v8a-release.apk
           prerelease: true
           make_latest: false
+
+      # 固定下载地址：每次构建都覆盖同一个 tag/文件名，链接永远指向最新版
+      - name: Publish fixed latest download
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cp "lx-music-mobile-v${{ env.PACKAGE_VERSION }}-arm64-v8a-release.apk" lx-music-mobile-latest.apk
+          if ! gh release view latest --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release create latest --repo "$GITHUB_REPOSITORY" \
+              --title "最新版本（固定下载链接）" \
+              --notes "此处的安装包始终是最新构建，下载文件名固定为 lx-music-mobile-latest.apk" \
+              --prerelease
+          fi
+          gh release upload latest lx-music-mobile-latest.apk --repo "$GITHUB_REPOSITORY" --clobber
