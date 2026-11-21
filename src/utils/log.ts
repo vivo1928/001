@@ -14,7 +14,6 @@ const logTools = {
   tempLog: [] as Array<{ time: string, type: 'LOG' | 'WARN' | 'ERROR', text: string }> | null,
   writeLog(msg: string) {
     const safeMsg = sanitizeLogText(msg)
-    console.log(safeMsg)
     void appendFile(logPath, '\n----lx log----\n' + safeMsg)
     appLog('log', safeMsg)
   },

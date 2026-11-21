@@ -118,9 +118,30 @@ const writeLine = (line: string) => {
   })
 }
 
+const RATE_WINDOW = 1000
+const RATE_MAX = 300
+let windowStart = 0
+let windowCount = 0
+let droppedCount = 0
+
 export const appLog = (tag: string, ...args: any[]) => {
+  const now = Date.now()
+  if (now - windowStart >= RATE_WINDOW) {
+    windowStart = now
+    if (droppedCount > 0) {
+      const dropped = droppedCount
+      droppedCount = 0
+      writeLine(`${now} log rate limited, dropped ${dropped} lines\n`)
+    }
+    windowCount = 0
+  }
+  // 日志风暴保护：每秒最多 300 行，超出计数并在下个窗口汇总
+  if (windowCount++ >= RATE_MAX) {
+    droppedCount++
+    return
+  }
   const data = args.length ? ` ${formatArgs(args)}` : ''
-  writeLine(`${Date.now()} ${tag}${data}\n`)
+  writeLine(`${now} ${tag}${data}\n`)
 }
 
 export const initAppLog = async() => {

@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState, forwardRef, useImperativeHandle, useCallback, useEffect } from 'react'
 import { perfLog, perfTimer } from '@/utils/perfLog'
 import { getScreenReaderEnabled } from '@/utils/a11y'
+import { appLog } from '@/utils/appLog'
 import { FlatList, type FlatListProps, RefreshControl, View, Vibration, AccessibilityInfo, PanResponder, type GestureResponderEvent, type NativeScrollEvent, type NativeSyntheticEvent, type LayoutChangeEvent, Dimensions } from 'react-native'
 import { RecyclerListView, DataProvider, LayoutProvider } from 'recyclerlistview'
 
@@ -225,6 +226,7 @@ const List = forwardRef<ListType, ListProps>(({
   }
 
   const handlePress = (item: LX.Music.MusicInfoOnline, index: number) => {
+    appLog('list:press', { index, name: item.name, singer: item.singer, source: item.source })
     requestAnimationFrame(() => {
       if (checkHomePagerIdle && !global.lx.homePagerIdle) return
       if (isMultiSelectModeRef.current) {
@@ -241,6 +243,7 @@ const List = forwardRef<ListType, ListProps>(({
   }
 
   const handleLongPress = (item: LX.Music.MusicInfoOnline, index: number) => {
+    appLog('list:longpress', { index, name: item.name, singer: item.singer, source: item.source })
     prevSelectIndexRef.current = index
     dragStartIndexRef.current = index
     dragLastIndexRef.current = index

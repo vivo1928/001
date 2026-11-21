@@ -3,6 +3,7 @@ import BackgroundTimer from 'react-native-background-timer'
 import { playMusic as handlePlayMusic } from './playList'
 import { existsFile, moveFile, privateStorageDirectoryPath, temporaryDirectoryPath } from '@/utils/fs'
 import { toast } from '@/utils/tools'
+import { appLog } from '@/utils/appLog'
 // import { PlayerMusicInfo } from '@/store/modules/player/playInfo'
 
 
@@ -172,9 +173,23 @@ export const setLoop = async(loop: boolean) => TrackPlayer.setRepeatMode(loop ? 
 
 export const setPause = async() => TrackPlayer.pause()
 // export const skipToNext = () => TrackPlayer.skipToNext()
-export const setCurrentTime = async(time: number) => TrackPlayer.seekTo(time)
-export const setVolume = async(num: number) => TrackPlayer.setVolume(num)
-export const setPlaybackRate = async(num: number) => TrackPlayer.setRate(num)
+export const setCurrentTime = async(time: number) => {
+  appLog('player:seek', { time: Math.round(time) })
+  return TrackPlayer.seekTo(time)
+}
+let lastVolumeLogAt = 0
+export const setVolume = async(num: number) => {
+  // 拖动音量条会高频触发，限制最低间隔
+  if (Date.now() - lastVolumeLogAt > 500) {
+    lastVolumeLogAt = Date.now()
+    appLog('player:volume', { value: Math.round(num * 100) })
+  }
+  return TrackPlayer.setVolume(num)
+}
+export const setPlaybackRate = async(num: number) => {
+  appLog('player:rate', { value: num })
+  return TrackPlayer.setRate(num)
+}
 export interface NowPlayingTitles {
   title?: string
   artist?: string

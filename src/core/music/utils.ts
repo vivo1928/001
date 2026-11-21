@@ -16,7 +16,10 @@ import { extendQualityTypes } from '@/utils/musicSdk/utils'
 // ── 单歌临时音质覆盖 ──
 // 播放详情页手动切换音质时设置，切歌后清空
 let tempPlayQuality: LX.Quality | null = null
-export const setTempPlayQuality = (q: LX.Quality | null) => { tempPlayQuality = q }
+export const setTempPlayQuality = (q: LX.Quality | null) => {
+  appLog('quality:temp', q)
+  tempPlayQuality = q
+}
 export const getTempPlayQuality = (): LX.Quality | null => tempPlayQuality
 export const clearTempPlayQuality = () => { tempPlayQuality = null }
 

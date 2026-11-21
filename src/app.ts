@@ -9,6 +9,7 @@ import { listenLaunchEvent } from './navigation/regLaunchedEvent'
 import { tipDialog } from './utils/tools'
 import { initScreenReaderState } from './utils/a11y'
 import { appLog, initAppLog } from './utils/appLog'
+import { AppState } from 'react-native'
 
 // 高频进度类事件不落盘，其余事件（切页/播放/配置/列表增删/音源切换等）全部记录
 const IGNORE_LOG_EVENTS = new Set([
@@ -23,6 +24,9 @@ const IGNORE_LOG_EVENTS = new Set([
   else appLog(`event:${name}`, args)
 }
 void initAppLog()
+AppState.addEventListener('change', (state) => {
+  appLog('appstate', state)
+})
 
 console.log('starting app...')
 void initScreenReaderState()

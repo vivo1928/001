@@ -2,6 +2,7 @@ import { memo, useCallback, useEffect, useRef, useState } from 'react'
 import { View, AccessibilityInfo } from 'react-native'
 import RNSlider from '@react-native-community/slider'
 import { useTheme } from '@/store/theme/hook'
+import { appLog } from '@/utils/appLog'
 
 export interface SliderProps {
   value: number
@@ -44,6 +45,7 @@ export default memo(({ value, minimumValue, maximumValue, onSlidingStart, onSlid
   const handleSlidingComplete = useCallback((val: number) => {
     isTouchingRef.current = false
     setSliderValue(val)
+    appLog('slider', { label: accessibilityLabel, value: Math.round(val) })
     onSlidingComplete?.(val)
     setTimeout(() => { pendingRef.current = false }, 300)
   }, [onSlidingComplete])

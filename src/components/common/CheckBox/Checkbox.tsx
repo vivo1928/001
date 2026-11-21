@@ -9,6 +9,7 @@ import {
 
 import { Icon } from '../Icon'
 import { createStyle } from '@/utils/tools'
+import { appLog } from '@/utils/appLog'
 import { scaleSizeW } from '@/utils/pixelRatio'
 
 export interface Props {
@@ -83,10 +84,15 @@ const Checkbox = ({
   }, [checked, scaleAnim])
 
 
+  const handlePress = React.useCallback((e: GestureResponderEvent) => {
+    appLog('checkbox', { label: accessibilityLabel, checked, disabled: !!disabled })
+    onPress?.(e)
+  }, [accessibilityLabel, checked, disabled, onPress])
+
   return (
     <Pressable
       {...rest}
-      onPress={onPress}
+      onPress={handlePress}
       disabled={disabled}
       accessibilityRole="checkbox"
       accessibilityState={{ disabled, checked }}

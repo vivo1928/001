@@ -1,6 +1,7 @@
 import { useTheme } from '@/store/theme/hook'
 import { useMemo, useRef, useImperativeHandle, forwardRef } from 'react'
 import { Pressable, type PressableProps, StyleSheet, type View, type ViewProps } from 'react-native'
+import { appLog } from '@/utils/appLog'
 // import { AppColors } from '@/theme'
 
 
@@ -17,7 +18,7 @@ export interface BtnType {
   measure: (callback: (x: number, y: number, width: number, height: number, pageX: number, pageY: number) => void) => void
 }
 
-export default forwardRef<BtnType, BtnProps>(({ ripple: propsRipple = {}, disabled, children, style, ...props }, ref) => {
+export default forwardRef<BtnType, BtnProps>(({ ripple: propsRipple = {}, disabled, children, style, accessibilityLabel, onPress, onLongPress, ...props }, ref) => {
   const theme = useTheme()
   const btnRef = useRef<View>(null)
   const ripple = useMemo(() => ({
@@ -31,10 +32,23 @@ export default forwardRef<BtnType, BtnProps>(({ ripple: propsRipple = {}, disabl
     },
   }))
 
+  const label = accessibilityLabel ?? (typeof children === 'string' ? children : undefined)
+  const handlePress: PressableProps['onPress'] = (e) => {
+    appLog('tap', { label, disabled: !!disabled })
+    onPress?.(e)
+  }
+  const handleLongPress: PressableProps['onLongPress'] = (e) => {
+    appLog('longtap', { label, disabled: !!disabled })
+    onLongPress?.(e)
+  }
+
   return (
     <Pressable
       android_ripple={ripple}
       disabled={disabled}
+      accessibilityLabel={accessibilityLabel}
+      onPress={onPress ? handlePress : undefined}
+      onLongPress={onLongPress ? handleLongPress : undefined}
       style={StyleSheet.compose({ opacity: disabled ? 0.3 : 1 }, style)}
       {...props}
       ref={btnRef}

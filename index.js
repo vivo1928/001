@@ -2,6 +2,7 @@
  * @format
  */
 import './shim'
+import './src/utils/consoleLog'
 import './src/app'
 // import './test'
 // import '@/utils/errorHandle'
