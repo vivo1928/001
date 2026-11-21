@@ -46,6 +46,8 @@ export default forwardRef<ListType, ListProps>(({ onRefresh, onLoadMore, onOpenD
   const flatListRef = useRef<FlatList>(null)
   const recyclerListRef = useRef<RecyclerListView<any, any>>(null)
   const [currentList, setList] = useState<ListInfoItem[]>([])
+  const currentListRef = useRef<ListInfoItem[]>([])
+  currentListRef.current = currentList
   const [showSource, setShowSource] = useState(false)
   const [status, setStatus] = useState<Status>('idle')
   const statusRef = useRef<Status>('idle')
@@ -60,8 +62,11 @@ export default forwardRef<ListType, ListProps>(({ onRefresh, onLoadMore, onOpenD
 
   useImperativeHandle(ref, () => ({
     setList(list, isAppend = false, showSource = false) {
-      if (!isAppend) {
-        // 切换列表时重置自动续加载状态
+      // 注意：上拉加载更多时父组件传进来的是「累积后的全量列表」(isAppend=false)，
+      // 只有空列表/更短的列表才算刷新或切换列表，才重置续加载状态。
+      // 之前只要 isAppend=false 就重置，导致自动续加载上限永远失效，
+      // 进入歌单页会把 100 页分页全部拉完。
+      if (!isAppend && (list.length === 0 || list.length < currentListRef.current.length)) {
         autoFillCountRef.current = 0
         autoFillLastLenRef.current = 0
         autoFillStoppedRef.current = false
@@ -92,8 +97,15 @@ export default forwardRef<ListType, ListProps>(({ onRefresh, onLoadMore, onOpenD
     }
   }, [])
 
+  const lastScrollAtRef = useRef(0)
+  const markScrolled = useCallback(() => {
+    lastScrollAtRef.current = Date.now()
+  }, [])
   const handleLoadMore = () => {
     if (statusRef.current !== 'idle') return
+    // 只在最近发生过滚动时响应 onEndReached：列表内容不足一屏时，
+    // 布局更新会反复触发 onEndReached，造成无人操作也连续翻页。
+    if (Date.now() - lastScrollAtRef.current > 1500) return
     // 上一页没有任何新增（服务端返回空页 / 已到底）时不再触发，避免空页反复翻页
     if (currentList.length === lastLoadLenRef.current) return
     lastLoadLenRef.current = currentList.length
@@ -260,6 +272,7 @@ export default forwardRef<ListType, ListProps>(({ onRefresh, onLoadMore, onOpenD
                   layoutProvider={recyclerLayoutProvider}
                   rowRenderer={recyclerRowRenderer}
                   extendedState={recyclerExtendedState}
+                  onScroll={markScrolled}
                   onEndReached={handleLoadMore}
                   onEndReachedThreshold={0.6}
                   renderFooter={() => footerComponent}
@@ -289,6 +302,7 @@ export default forwardRef<ListType, ListProps>(({ onRefresh, onLoadMore, onOpenD
                 // refreshing={refreshing}
                 onEndReachedThreshold={0.6}
                 onEndReached={handleLoadMore}
+                onScroll={markScrolled}
                 maintainVisibleContentPosition={{ minIndexForVisible: 0, autoscrollToTopThreshold: 10 }}
                 refreshControl={refreshControl}
                 ListHeaderComponent={ListHeaderComponent}
