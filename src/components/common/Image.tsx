@@ -20,9 +20,6 @@ export const defaultHeaders = {
   'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/69.0.3497.100 Safari/537.36',
 }
 
-// 网络图片加载失败时的自动重试次数（避免网络抖动直接显示占位图）
-const MAX_RETRY = 1
-
 const EmptyPic = memo(({ style, nativeID }: { style: ImageProps['style'], nativeID: ImageProps['nativeID'] }) => {
   const theme = useTheme()
   const { onLayout, width } = useLayout()
@@ -46,31 +43,23 @@ const EmptyPic = memo(({ style, nativeID }: { style: ImageProps['style'], native
 
 const Image = memo(({ url, cache, resizeMode = 'cover', style, onError, nativeID }: ImageProps) => {
   const [isError, setError] = useState(false)
-  // 网络图片失败时先自动重试，只有重试仍失败才回落占位图
-  const [retryCount, setRetryCount] = useState(0)
-  const uri = typeof url == 'number'
+  const handleError = useCallback(() => {
+    setError(true)
+    onError?.(url!)
+  }, [onError, url])
+  useEffect(() => {
+    setError(false)
+  }, [url])
+  let uri = typeof url == 'number'
     ? FastImage.resolveAssetSource(url).uri
     : url?.startsWith('/')
       ? 'file://' + url
       : url
-  const handleError = useCallback(() => {
-    if (retryCount < MAX_RETRY && uri && /^https?:/.test(uri)) {
-      setRetryCount(retryCount + 1)
-      return
-    }
-    setError(true)
-    onError?.(url!)
-  }, [onError, retryCount, uri, url])
-  useEffect(() => {
-    setError(false)
-    setRetryCount(0)
-  }, [url])
   const showDefault = useMemo(() => !uri || isError, [isError, uri])
   return (
     showDefault ? <EmptyPic style={style} nativeID={nativeID} />
       : (
           <FastImage
-            key={retryCount}
             style={style}
             source={{
               uri: uri!,

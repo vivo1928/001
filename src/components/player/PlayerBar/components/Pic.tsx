@@ -6,7 +6,6 @@ import commonState from '@/store/common/state'
 import playerState from '@/store/player/state'
 import { LIST_IDS, NAV_SHEAR_NATIVE_IDS } from '@/config/constant'
 import Image from '@/components/common/Image'
-import { getThumbUrl, thumbPx } from '@/utils/image'
 import { useCallback } from 'react'
 import { setLoadErrorPicUrl, setMusicInfo } from '@/core/player/playInfo'
 import { useI18n } from '@/lang'
@@ -50,8 +49,7 @@ export default ({ isHome }: { isHome: boolean }) => {
   return (
     <TouchableOpacity onLongPress={handleLongPress} onPress={handlePress} activeOpacity={0.7}
       accessibilityLabel={t('cover_image')} accessibilityRole="imagebutton">
-      {/* 播放栏封面只显示 46dp，取缩略图减少流量；播放详情大图仍用原图 */}
-      <Image url={getThumbUrl(musicInfo.pic, thumbPx(PIC_HEIGHT))} nativeID={NAV_SHEAR_NATIVE_IDS.playDetail_pic} style={styles.image} onError={handleError} />
+      <Image url={musicInfo.pic} nativeID={NAV_SHEAR_NATIVE_IDS.playDetail_pic} style={styles.image} onError={handleError} />
     </TouchableOpacity>
   )
 }
