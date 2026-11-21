@@ -36,9 +36,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: node_modules
-          key: ${{ runner.os }}-node-modules-${{ hashFiles('package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-node-modules-
+          # 原生依赖与补丁脚本变化时必须重建 node_modules，
+          # 否则会复用旧的原生源码，出现"补丁未生效/重复应用"
+          key: ${{ runner.os }}-node-modules-${{ hashFiles('package-lock.json', 'dependencies-patch.js', 'third-party/react-native-track-player/**') }}
 
       - name: Install dependencies
         if: steps.cache-node-modules.outputs.cache-hit != 'true'

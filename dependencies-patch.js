@@ -531,9 +531,28 @@ const rootPath = path.join(__dirname, './')
   await applyNamedPatch(localPlaybackPath, 'LocalPlayback.java prefetch',
     prefetchLocalOld, prefetchLocalNew, 'lxPrefetchExecutor')
   await applyNamedPatch(exoPlaybackPath, 'ExoPlayback.java prefetch',
-    prefetchExoOld, prefetchExoNew, 'abstract void prefetchToCache')
+    prefetchExoOld, prefetchExoNew, 'void prefetchToCache(')
   await applyNamedPatch(musicModulePath, 'MusicModule.java prefetch',
-    prefetchModuleOld, prefetchModuleNew, 'public void prefetchToCache(String url, String cacheKey, final Promise callback)')
+    prefetchModuleOld, prefetchModuleNew, 'public void prefetchToCache(')
+
+  // 幂等兜底：任何原因导致补丁被重复应用时，直接让构建失败，
+  // 而不是等到 javac 报 "already defined" 再花几十分钟重试
+  const assertSingle = async(filePath, token) => {
+    try {
+      const text = (await fs.promises.readFile(filePath)).toString()
+      const count = text.split(token).length - 1
+      if (count > 1) {
+        console.error(`ERROR: ${filePath} 中 "${token}" 出现 ${count} 次，补丁被重复应用，终止构建`)
+        process.exit(1)
+      }
+    } catch (err) {
+      if (err && err.code === 'ENOENT') return
+      throw err
+    }
+  }
+  await assertSingle(musicModulePath, 'public void prefetchToCache(')
+  await assertSingle(exoPlaybackPath, 'void prefetchToCache(')
+  await assertSingle(localPlaybackPath, 'public void prefetchToCache(')
 
   // Gradle 9 移除 jcenter()，react-native-exception-handler 2.10 仍在 buildscript 中使用
   const exceptionHandlerGradlePath = path.join(rootPath, 'node_modules/react-native-exception-handler/android/build.gradle')
