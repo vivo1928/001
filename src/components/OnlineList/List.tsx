@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState, forwardRef, useImperativeHandle, useCallback, useEffect } from 'react'
+import { perfLog, perfTimer } from '@/utils/perfLog'
 import { FlatList, type FlatListProps, RefreshControl, View, Vibration, AccessibilityInfo, PanResponder, type GestureResponderEvent, type NativeScrollEvent, type NativeSyntheticEvent, type LayoutChangeEvent, Dimensions } from 'react-native'
 import { RecyclerListView, DataProvider, LayoutProvider } from 'recyclerlistview'
 
@@ -106,8 +107,10 @@ const List = forwardRef<ListType, ListProps>(({
 
   useImperativeHandle(ref, () => ({
     setList(list, isAppend, showSource) {
+      const doneSet = perfTimer('listSet')
       setList(list)
       setShowSource(showSource)
+      requestAnimationFrame(() => { doneSet({ n: list.length, append: !!isAppend }) })
       if (!isAppend) {
         // 切换列表时重置自动续加载状态
         autoFillCountRef.current = 0
@@ -445,6 +448,7 @@ const List = forwardRef<ListType, ListProps>(({
     }
     autoFillLastLenRef.current = len
     autoFillCountRef.current += 1
+    perfLog('autofill', { page: autoFillCountRef.current, len })
     handleLoadMore()
   }, [currentList, status, handleLoadMore])
 
@@ -502,6 +506,7 @@ const List = forwardRef<ListType, ListProps>(({
   // 读屏 + 单列时使用 RecyclerListView（cell 回收 + 最小重渲染，滚动时无障碍更顺）
   // 有 header（如歌单详情）时 header 外层固定渲染；横屏两列仍用 FlatList 避免多列兼容问题
   const useRecycler = USE_RECYCLERLIST && screenReaderEnabled && !rowInfo.current.rowNum
+  useEffect(() => { perfLog('listRenderer', { recycler: useRecycler, screenReaderEnabled }) }, [useRecycler, screenReaderEnabled])
   const listWidth = Dimensions.get('window').width
   const recyclerDataProvider = useMemo(
     () => new DataProvider((r1, r2) => r1 !== r2).cloneWithRows(currentList),

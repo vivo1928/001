@@ -2,6 +2,7 @@ import leaderboardState, { type Board, type ListDetailInfo } from '@/store/leade
 import leaderboardActions from '@/store/leaderboard/action'
 import { deduplicationList, toNewMusicInfo } from '@/utils'
 import musicSdk from '@/utils/musicSdk'
+import { perfLog, perfTimer } from '@/utils/perfLog'
 
 /**
  * 获取排行榜内单页歌曲
@@ -47,10 +48,16 @@ const withTimeout = async <T,>(promise: Promise<T>, ms: number, msg: string): Pr
 
 export const getBoardsList = async(source: LX.OnlineSource) => {
   // const source = (await getLeaderboardSetting()).source as LX.OnlineSource
-  if (leaderboardState.boards[source]) return leaderboardState.boards[source].list
+  if (leaderboardState.boards[source]) {
+    perfLog('boardsHit', { source, count: leaderboardState.boards[source].list.length })
+    return leaderboardState.boards[source].list
+  }
+  const done = perfTimer('boards')
   const board = await (musicSdk[source]?.leaderboard.getBoards() as Promise<Board>)
   setBoard(board, source)
-  return leaderboardState.boards[source]!.list
+  const list = leaderboardState.boards[source]!.list
+  done({ source, count: list.length })
+  return list
 }
 
 /**
@@ -73,7 +80,9 @@ const getListLimit = async(source: LX.OnlineSource, bangId: string, page: number
     if (prevPageData) sourcePage = prevPageData.sourcePage
   }
 
+  const doneFetch = perfTimer('boardFetch')
   return musicSdk[source]?.leaderboard.getList(bangId, sourcePage + 1).then((result: ListDetailInfo) => {
+    doneFetch({ source, bangId, sourcePage: sourcePage + 1, count: result.list.length, total: result.total })
     if (listCache !== cache.get(listKey)) return
     result.list = deduplicationList(result.list.map(m => toNewMusicInfo(m)) as LX.Music.MusicInfoOnline[])
     let p = page
@@ -130,9 +139,16 @@ export const getListDetail = async(id: string, page: number, isRefresh = false):
   }
 
   let pageCache = listCache.get(pageKey) as PageCache
-  if (pageCache) return pageCache.data
+  if (pageCache) {
+    perfLog('boardPageHit', { source, page, count: pageCache.data.list.length })
+    return pageCache.data
+  }
 
-  return getListLimit(source, bangId, page)
+  const done = perfTimer('boardPage')
+  return getListLimit(source, bangId, page).then((data) => {
+    done({ source, page, count: data.list.length })
+    return data
+  })
 }
 
 /**

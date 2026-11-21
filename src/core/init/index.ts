@@ -13,6 +13,7 @@ import commonActions from '@/store/common/action'
 import settingState from '@/store/setting/state'
 import { checkUpdate } from '@/core/version'
 import { bootLog } from '@/utils/bootLog'
+import { perfLog, perfTimer } from '@/utils/perfLog'
 import { cheatTip } from '@/utils/tools'
 
 let isFirstPush = true
@@ -38,9 +39,12 @@ let isInited = false
 export default async() => {
   if (isInited) return handlePushedHomeScreen
   bootLog('Initing...')
+  perfLog('init:start')
   commonActions.setFontSize(global.lx.fontSize)
   bootLog('Font size changed.')
+  let doneStep = perfTimer('init:setting')
   const setting = await initSetting()
+  doneStep()
   bootLog('Setting inited.')
   // console.log(setting)
 
@@ -49,7 +53,9 @@ export default async() => {
   await initI18n(setting)
   bootLog('I18n inited.')
 
+  doneStep = perfTimer('init:userApi')
   await initUserApi(setting)
+  doneStep()
   bootLog('User Api inited.')
 
   setApiSource(setting['common.apiSource'])
@@ -57,11 +63,17 @@ export default async() => {
 
   registerPlaybackService()
   bootLog('Playback Service Registered.')
+  doneStep = perfTimer('init:player')
   await initPlayer(setting)
+  doneStep()
   bootLog('Player inited.')
+  doneStep = perfTimer('init:data')
   await dataInit(setting)
+  doneStep()
   bootLog('Data inited.')
+  doneStep = perfTimer('init:commonState')
   await initCommonState(setting)
+  doneStep()
   bootLog('Common State inited.')
 
   void initSync(setting)
@@ -70,6 +82,7 @@ export default async() => {
   // syncSetting()
 
   isInited ||= true
+  perfLog('init:done')
 
   return handlePushedHomeScreen
 }

@@ -4,6 +4,7 @@ import BackgroundTimer from 'react-native-background-timer'
 import { requestMsg } from './message'
 import { bHh } from './musicSdk/options'
 import { deflateRaw } from 'pako'
+import { perfTimer } from './perfLog'
 
 const defaultHeaders = {
   'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/69.0.3497.100 Safari/537.36',
@@ -174,7 +175,8 @@ const blobToBuffer = (blob) => {
 }
 
 const fetchData = (url, { timeout = 15000, ...options }) => {
-  console.log('---start---', url)
+  const done = perfTimer('fetch')
+  const meta = { url: url.slice(0, 120), cache: options.cache ?? 'no-store' }
 
   const controller = new global.AbortController()
   let id = BackgroundTimer.setTimeout(() => {
@@ -188,12 +190,14 @@ const fetchData = (url, { timeout = 15000, ...options }) => {
         ...options,
         signal: controller.signal,
       }).then(resp => {
+        meta.status = resp.status
         // 检查 Content-Length，提前拒绝大响应，避免 OOM
         const contentLength = resp.headers?.get?.('content-length') || resp.headers?.map?.['content-length']
         if (contentLength && parseInt(contentLength) > MAX_RESPONSE_SIZE) {
           throw new Error(`Response too large: ${(parseInt(contentLength) / 1024 / 1024).toFixed(1)}MB`)
         }
         return (options.binary ? resp.blob() : resp.text()).then(text => {
+          meta.len = typeof text == 'string' ? text.length : (text?.size ?? -1)
           // console.log(options, headers, text)
           // 安全获取 headers，兼容不同环境的 Headers 实现
           let headersMap
@@ -229,8 +233,11 @@ const fetchData = (url, { timeout = 15000, ...options }) => {
         }
       }).catch(err => {
         // console.log(err, err.code, err.message)
+        meta.error = err?.message
         return Promise.reject(err)
       }).finally(() => {
+        meta.aborted = id == null
+        done(meta)
         if (id == null) return
         BackgroundTimer.clearTimeout(id)
       })

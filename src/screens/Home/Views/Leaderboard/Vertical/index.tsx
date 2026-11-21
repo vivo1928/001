@@ -17,6 +17,7 @@ import { getBoardsList } from '@/core/leaderboard'
 import { COMPONENT_IDS } from '@/config/constant'
 import { handleCollect, handlePlay } from '../listAction'
 import boardState from '@/store/leaderboard/state'
+import { perfLog, perfTimer } from '@/utils/perfLog'
 
 
 const MAX_WIDTH = scaleSizeW(200)
@@ -101,6 +102,8 @@ export default () => {
 
 
     isUnmountedRef.current = false
+    const doneTab = perfTimer('boardTab')
+    perfLog('boardTabMount')
     void getLeaderboardSetting().then(({ source, boardId }) => {
       boundInfo.current.source = source
       boundInfo.current.id = boardId
@@ -108,6 +111,7 @@ export default () => {
         const bound = list.find(l => l.id == boardId)
         boardsListRef.current?.setList(list, boardId)
         headerBarRef.current?.setBound(source, boardId, bound?.name ?? 'Unknown')
+        requestAnimationFrame(() => { doneTab({ source, boardId, boards: list.length }) })
       })
       musicListRef.current?.loadList(source, boardId)
     })

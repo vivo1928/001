@@ -1,5 +1,5 @@
 import { forwardRef, useImperativeHandle, useState } from 'react'
-import { View, ScrollView } from 'react-native'
+import { View, FlatList } from 'react-native'
 
 import { createStyle } from '@/utils/tools'
 import { type Position } from './ListMenu'
@@ -41,25 +41,25 @@ export default forwardRef<ListType, ListProps>(({ onBoundChange, onShowMenu }, r
   }
 
   return (
-    <ScrollView style={styles.scrollView} keyboardShouldPersistTaps={'always'}>
-      <View>
-        {
-          list.map((item, index) => {
-            return (
-              <ListItem
-                key={item.id}
-                item={item}
-                index={index}
-                longPressIndex={longPressIndex}
-                activeId={activeId}
-                onShowMenu={handleShowMenu}
-                onBoundChange={handleBoundChange}
-              />
-            )
-          })
-        }
-      </View>
-    </ScrollView>
+    <FlatList
+      style={styles.scrollView}
+      data={list}
+      keyboardShouldPersistTaps={'always'}
+      keyExtractor={item => item.id}
+      initialNumToRender={12}
+      windowSize={9}
+      removeClippedSubviews={false}
+      renderItem={({ item, index }) => (
+        <ListItem
+          item={item}
+          index={index}
+          longPressIndex={longPressIndex}
+          activeId={activeId}
+          onShowMenu={handleShowMenu}
+          onBoundChange={handleBoundChange}
+        />
+      )}
+    />
   )
 })
 

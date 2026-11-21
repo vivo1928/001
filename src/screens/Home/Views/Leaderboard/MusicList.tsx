@@ -3,6 +3,7 @@ import OnlineList, { type OnlineListType, type OnlineListProps } from '@/compone
 import { clearListDetail, getListDetail, setListDetail, setListDetailInfo } from '@/core/leaderboard'
 import boardState from '@/store/leaderboard/state'
 import { handlePlay } from './listAction'
+import { perfTimer } from '@/utils/perfLog'
 
 // export type MusicListProps = Pick<OnlineListProps,
 // 'onLoadMore'
@@ -29,12 +30,14 @@ export default forwardRef<MusicListType, {}>((props, ref) => {
         listRef.current?.setStatus('loading')
         const page = 1
         setListDetailInfo(id)
+        const doneLoad = perfTimer('boardFirstPage')
         return getListDetail(id, page).then((listDetail) => {
           const result = setListDetail(listDetail, id, page)
           if (isUnmountedRef.current) return
           requestAnimationFrame(() => {
             listRef.current?.setList(result.list)
             listRef.current?.setStatus(boardState.listDetailInfo.maxPage <= page ? 'end' : 'idle')
+            doneLoad({ id, count: result.list.length })
           })
         }).catch(() => {
           if (boardState.listDetailInfo.list.length && page == 1) clearListDetail()
