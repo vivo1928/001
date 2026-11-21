@@ -25,6 +25,7 @@ const stub = {
 const buildModule = () => loadModule('src/core/cache/smartCache.ts', {
   react: {},
   'react-native': {
+    AppState: { currentState: 'background', addEventListener: () => ({ remove: () => {} }) },
     NativeModules: {
       TrackPlayerModule: {
         prefetchToCache: async(url, cacheKey) => { stub.prefetched.push({ url, cacheKey }); return true },
