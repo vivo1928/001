@@ -10,6 +10,43 @@ export const createSignature = (time, str) => {
   return { sign, deviceId }
 }
 
+const pickImg = (imgItems, sizeType) => {
+  if (!Array.isArray(imgItems)) return null
+  const item = imgItems.find(it => it.imgSizeType === sizeType) || imgItems[0]
+  return item?.img || null
+}
+
+// 把 MIGUM2.0 的返回整理成 v3 的结构，这样 filterData 不用写两套
+const normalizeM2Body = (body) => {
+  const groups = body?.songResultData?.resultList
+  if (!Array.isArray(groups)) throw new Error('m2: ' + (body?.code || 'no resultList'))
+  const resultList = groups.map(group => (Array.isArray(group) ? group : []).map(raw => {
+    const album = Array.isArray(raw.albums) ? raw.albums[0] : null
+    const formats = Array.isArray(raw.newRateFormats) ? raw.newRateFormats : []
+    return {
+      songId: raw.id,
+      name: raw.name,
+      copyrightId: raw.copyrightId,
+      albumId: album?.id,
+      album: album?.name,
+      singerList: Array.isArray(raw.singers) ? raw.singers.map(s => ({ id: s.id, name: s.name })) : [],
+      img1: pickImg(raw.imgItems, '01'),
+      img2: pickImg(raw.imgItems, '02'),
+      img3: pickImg(raw.imgItems, '03'),
+      audioFormats: formats.map(f => {
+        const size = f.androidSize ?? f.size
+        return { formatType: f.formatType, size, isize: size, asize: size }
+      }),
+      // MIGUM2.0 没有时长字段：走这条兜底时列表会显示 00:00（正常走 v3 不受影响）
+      duration: 0,
+      lrcUrl: raw.lyricUrl || '',
+      mrcurl: raw.mrcurl || '',
+      trcUrl: raw.trcUrl || '',
+    }
+  }))
+  return { code: '000000', songResultData: { resultList, totalCount: body?.songResultData?.totalCount ?? 0 } }
+}
+
 export default {
   limit: 20,
   total: 0,
@@ -110,14 +147,16 @@ export default {
   //   return list
   // },
 
+  // 咪咕有两条官方搜索接口，特性互补，这里并发竞速、先成功者胜：
+  // - v3（jadeite）：字段全（含时长），但实测经常 5–15s 才回、甚至连接挂起；
+  // - MIGUM2.0（app.c.nf）：稳定 0.6s 左右，但没有时长字段。
+  // 慢的那条会在后台被丢弃；两条都失败才交给外层 search() 的重试。
   musicSearch(str, page, limit) {
-    // 咪咕接口偶发连接挂起（实测 15s 才被全局超时中断，UI 会一直停在“加载中”）。
-    // 改为 5s 超时 + 一次重试：挂起多半是瞬时连通性问题，重试通常能成功。
-    const request = (retry) => {
+    const v3 = () => {
       const time = Date.now().toString()
       const signData = createSignature(time, str)
-      const searchRequest = httpFetch(`https://jadeite.migu.cn/music_search/v3/search/searchAll?isCorrect=0&isCopyright=1&searchSwitch=%7B%22song%22%3A1%2C%22album%22%3A0%2C%22singer%22%3A0%2C%22tagSong%22%3A1%2C%22mvSong%22%3A0%2C%22bestShow%22%3A1%2C%22songlist%22%3A0%2C%22lyricSong%22%3A0%7D&pageSize=${limit}&text=${encodeURIComponent(str)}&pageNo=${page}&sort=0&sid=USS`, {
-        timeout: 5000,
+      return httpFetch(`https://jadeite.migu.cn/music_search/v3/search/searchAll?isCorrect=0&isCopyright=1&searchSwitch=%7B%22song%22%3A1%2C%22album%22%3A0%2C%22singer%22%3A0%2C%22tagSong%22%3A1%2C%22mvSong%22%3A0%2C%22bestShow%22%3A1%2C%22songlist%22%3A0%2C%22lyricSong%22%3A0%7D&pageSize=${limit}&text=${encodeURIComponent(str)}&pageNo=${page}&sort=0&sid=USS`, {
+        timeout: 4000,
         headers: {
           uiVersion: 'A_music_3.6.1',
           deviceId: signData.deviceId,
@@ -126,14 +165,45 @@ export default {
           channel: '0146921',
           'User-Agent': 'Mozilla/5.0 (Linux; U; Android 11.0.0; zh-cn; MI 11 Build/OPR1.170623.032) AppleWebKit/534.30 (KHTML, like Gecko) Version/4.0 Mobile Safari/534.30',
         },
-      })
-      return searchRequest.promise.catch((err) => {
-        if (retry >= 1) throw err
-        appLog('mg:search:retry', { text: str, page, err: String(err?.message || err) })
-        return request(retry + 1)
+      }).promise.then(({ body }) => {
+        if (!body || body.code !== '000000') throw new Error(`v3 code ${body && body.code}`)
+        return body
       })
     }
-    return request(0).then(({ body }) => body)
+
+    const m2 = () => {
+      const searchSwitch = encodeURIComponent('{"song":1,"album":0,"singer":0,"tagSong":1,"mvSong":0,"bestShow":1}')
+      const url = `https://app.c.nf.migu.cn/MIGUM2.0/v1.0/content/search_all.do?isCopyright=1&isCorrect=1&pageNo=${page}&pageSize=${limit}&searchSwitch=${searchSwitch}&sort=0&text=${encodeURIComponent(str)}`
+      return httpFetch(url, {
+        timeout: 4000,
+        headers: {
+          channel: '0146921',
+          'User-Agent': 'okhttp/3.9.1',
+        },
+      }).promise.then(({ body }) => normalizeM2Body(body))
+    }
+
+    return new Promise((resolve, reject) => {
+      let settled = false
+      let pending = 2
+      let lastError = null
+      const ok = (tag, body) => {
+        if (settled) return
+        settled = true
+        appLog('mg:search:winner', { tag, page })
+        resolve(body)
+      }
+      const fail = (tag, err) => {
+        lastError = err
+        appLog('mg:search:endpoint-fail', { tag, page, err: String(err?.message || err) })
+        if (--pending === 0 && !settled) {
+          settled = true
+          reject(lastError || new Error('mg search failed'))
+        }
+      }
+      v3().then(body => ok('v3', body)).catch(err => fail('v3', err))
+      m2().then(body => ok('m2', body)).catch(err => fail('m2', err))
+    })
   },
   filterData(rawData) {
     // console.log(rawData)
