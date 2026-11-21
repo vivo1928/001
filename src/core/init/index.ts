@@ -25,7 +25,8 @@ const handlePushedHomeScreen = async() => {
     if (isFirstPush) {
       isFirstPush = false
       bootLog('Checking update...')
-      void checkUpdate()
+      // 延后检查更新：避免启动后抢占网络，拖慢首次搜索/打开歌单
+      setTimeout(() => { void checkUpdate() }, 8000)
       bootLog('Init deeplink...')
       void initDeeplink()
     }

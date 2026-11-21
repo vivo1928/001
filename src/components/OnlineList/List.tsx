@@ -27,8 +27,10 @@ const USE_RECYCLERLIST = true
 const PRELOAD_DISTANCE = ITEM_HEIGHT * 6
 
 // 自动续加载：进入页面后持续加载下一页直到到底，无需滚动；
-// AUTO_FILL_MAX_PAGE 为安全上限，防止 maxPage 判定异常时无限请求
-const AUTO_FILL_MAX_PAGE = 500
+// 自动续加载的硬上限：只用于填满首屏，超出后交给滚动触发
+const AUTO_FILL_MAX_PAGE = 3
+// 首屏填充目标（容器高度的倍数），留一点余量让列表可滚动
+const AUTO_FILL_SCREEN_RATIO = 1.2
 
 type FlatListType = FlatListProps<LX.Music.MusicInfoOnline>
 
@@ -488,6 +490,14 @@ const List = forwardRef<ListType, ListProps>(({
     if (len === 0) return
     // 长度没增长，说明上一页没成功，停止
     if (len === autoFillLastLenRef.current) {
+      autoFillStoppedRef.current = true
+      return
+    }
+    // 只补到填满一屏就停：搜索/歌单等大列表不再把所有分页一次拉完
+    // （此前会一直加载到 maxPage，搜索 996 条会发 33 次请求，网络被占满）
+    const viewportHeight = containerRectRef.current.height || Dimensions.get('window').height
+    const rowNum = rowInfo.current.rowNum || 1
+    if (viewportHeight > 0 && Math.ceil(len / rowNum) * ITEM_HEIGHT >= viewportHeight * AUTO_FILL_SCREEN_RATIO) {
       autoFillStoppedRef.current = true
       return
     }
