@@ -14,6 +14,7 @@ import IsShowLyricRoma from './IsShowLyricRoma'
 import IsS2T from './IsS2T'
 import MaxCache from './MaxCache'
 import IsSmartCache from './IsSmartCache'
+import IsSmartCacheBackgroundOnly from './IsSmartCacheBackgroundOnly'
 import CacheAheadCount from './CacheAheadCount'
 import PlaybackRate from './PlaybackRate'
 import { useI18n } from '@/lang'
@@ -37,6 +38,7 @@ export default memo(() => {
       <IsS2T />
       <MaxCache />
       <IsSmartCache />
+      <IsSmartCacheBackgroundOnly />
       <CacheAheadCount />
       <PlayHighQuality />
     </Section>

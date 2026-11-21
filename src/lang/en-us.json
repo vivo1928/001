@@ -349,6 +349,7 @@
   "setting_basic_sourcename_title": "Choose the music streaming service name",
   "setting_basic_startup_auto_play": "Automatically play music on startup",
   "setting_basic_smart_cache": "Smart prefetch (cache full songs and upcoming ones for offline listening)",
+  "setting_basic_smart_cache_background_only": "Prefetch in background only (cache upcoming songs only when locked or in background)",
   "setting_basic_cache_ahead_count": "Songs to prefetch",
   "setting_basic_cache_ahead_count_off": "Current song only",
   "setting_basic_startup_push_play_detail_screen": "Open the playback detail page on startup",

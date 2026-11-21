@@ -24,6 +24,7 @@ const defaultSetting: LX.AppSetting = {
   'player.playbackRate': 1,
   'player.cacheSize': '1024',
   'player.isSmartCache': true,
+  'player.isSmartCacheBackgroundOnly': false,
   'player.cacheAheadCount': 10,
   'player.timeoutExit': '',
   'player.timeoutExitPlayed': true,

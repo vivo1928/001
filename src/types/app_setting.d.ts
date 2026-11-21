@@ -152,6 +152,11 @@ declare global {
       'player.isSmartCache': boolean
 
       /**
+       * 仅在后台（锁屏/切到后台）预取后续歌曲
+       */
+      'player.isSmartCacheBackgroundOnly': boolean
+
+      /**
        * 智能预缓存向后缓存歌曲数
        */
       'player.cacheAheadCount': number

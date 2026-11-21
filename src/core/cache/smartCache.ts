@@ -152,17 +152,19 @@ const prefetchOne = async(musicInfo: LX.Player.PlayMusicInfo['musicInfo'], token
  * 已缓存的歌只做本地判定直接跳过，因此重复执行代价极低；
  * 切一首后通常只有一首新歌进入窗口，其余都在缓存里。
  */
+const isBackgroundOnly = () => settingState.setting['player.isSmartCacheBackgroundOnly'] === true
+
 export const runWindow = async() => {
   try {
     const token = runToken
-    const configured = Number(settingState.setting['player.cacheAheadCount'] ?? 10)
-    // 前台只预取很少的下一首，避免后台下载把网络占满（搜索/歌单/播放都会变慢）；
-    // 退到后台/息屏后再按用户配置补满缓存
-    const count = AppState.currentState === 'active'
-      ? Math.min(configured, 2)
-      : Math.min(configured, 10)
+    // 严格按用户设置的数量预取（0 表示关闭）
+    const count = Number(settingState.setting['player.cacheAheadCount'] ?? 10)
+    if (isBackgroundOnly() && AppState.currentState === 'active') {
+      userApiLog('smartcache skip', { reason: 'backgroundOnly', appState: AppState.currentState, count })
+      return
+    }
     const upcoming = await getUpcomingPlayMusicInfos(count)
-    userApiLog('smartcache window', { appState: AppState.currentState, configured, count, upcoming: upcoming.length })
+    userApiLog('smartcache window', { appState: AppState.currentState, count, upcoming: upcoming.length })
     for (const item of upcoming) {
       if (token != runToken) return
       await prefetchOne(item.musicInfo, token)
@@ -175,8 +177,7 @@ export const runWindow = async() => {
 /** 当前曲整首补全（播放稳定后调用） */
 export const runCurrentFill = async() => {
   try {
-    // 前台时当前曲正由播放器边播边缓存，再补一次会与其争抢同一缓存段并重复下载
-    if (AppState.currentState === 'active') return
+    if (isBackgroundOnly() && AppState.currentState === 'active') return
     const token = runToken
     const current = playerState.playMusicInfo.musicInfo
     if (current) await prefetchOne(current, token)
@@ -231,8 +232,9 @@ export default () => {
   }
 
   const handleAppStateChanged = (state: string) => {
-    // 回到前台：立刻停掉后台的大批预取，之后只保留极小的预取窗口
-    if (state === 'active') invalidatePrefetch()
+    // 仅在用户开启「仅后台预取」时，回到前台才取消在途任务；
+    // 否则严格按用户设置的窗口继续预取
+    if (state === 'active' && isBackgroundOnly()) invalidatePrefetch()
     scheduleWindow()
     scheduleCurrentFill()
   }

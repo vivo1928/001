@@ -348,6 +348,7 @@
   "setting_basic_sourcename_title": "選取音樂串流平台名稱類型",
   "setting_basic_startup_auto_play": "啟動後自動播放音樂",
   "setting_basic_smart_cache": "智慧預快取（自動快取整首與後續歌曲，斷網也能聽）",
+  "setting_basic_smart_cache_background_only": "僅在背景預取（鎖螢幕或切到背景時才快取後續歌曲，前景使用更快）",
   "setting_basic_cache_ahead_count": "預快取歌曲數",
   "setting_basic_cache_ahead_count_off": "僅補全當前歌",
   "setting_basic_startup_push_play_detail_screen": "啟動後自動開啟播放詳情頁",
