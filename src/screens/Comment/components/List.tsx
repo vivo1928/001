@@ -11,9 +11,9 @@ import Text from '@/components/common/Text'
 
 type FlatListType = FlatListProps<Comment>
 
-// 自动续加载：进入页面后持续加载下一页直到到底，无需滚动
-// AUTO_FILL_MAX_PAGE 为安全上限，防止 maxPage 判定异常时无限请求
-const AUTO_FILL_MAX_PAGE = 500
+// 自动续加载：进入页面后最多自动补 2 页把首屏填满，之后交给滚动触发 onEndReached
+// （此前上限是 500，等于进入评论区就把所有分页拉完）
+const AUTO_FILL_MAX_PAGE = 2
 
 export interface ListProps {
   onRefresh: () => void
@@ -40,6 +40,7 @@ const List = forwardRef<ListType, ListProps>(({
   const autoFillCountRef = useRef(0)
   const autoFillLastLenRef = useRef(0)
   const autoFillStoppedRef = useRef(false)
+  const lastLoadLenRef = useRef(-1)
   // const currentListIdRef = useRef('')
   // console.log('render comment list')
 
@@ -52,6 +53,7 @@ const List = forwardRef<ListType, ListProps>(({
         autoFillCountRef.current = 0
         autoFillLastLenRef.current = 0
         autoFillStoppedRef.current = false
+        lastLoadLenRef.current = -1
       }
       setList(list)
     },
@@ -66,6 +68,9 @@ const List = forwardRef<ListType, ListProps>(({
 
   const handleLoadMore = () => {
     if (statusRef.current !== 'idle') return
+    // 上一页没有任何新增（空页 / 已到底）时不再触发，避免空页反复翻页
+    if (currentList.length === lastLoadLenRef.current) return
+    lastLoadLenRef.current = currentList.length
     onLoadMore()
   }
 
