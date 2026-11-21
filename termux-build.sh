@@ -181,8 +181,39 @@ if [ -x "${SDK}/cmake/bin/cmake" ]; then
   ln -sfn "${SDK}/cmake/share/cmake-4.2" "${SDK}/cmake/3.22.1.bak/share/cmake-4.2"
 fi
 
-AAPT2="$(command -v aapt2)"
-if [ -n "${AAPT2}" ] && [ -d "${HOME}/.gradle" ]; then
+# Termux 无法运行 SDK 自带的 glibc aapt2，需要替换为 Android 版。
+# 注意必须找到真正的 ELF 二进制：如果 command -v aapt2 指向包装脚本，
+# AGP 会用 /bin/sh 执行它并报 'Syntax error: ")" unexpected'。
+is_elf() {
+  [ -f "$1" ] && [ "$(head -c 4 "$1" 2>/dev/null | od -An -tx1 | tr -d ' \n')" = "7f454c46" ]
+}
+
+find_aapt2_elf() {
+  local cand
+  for cand in "$(command -v aapt2 2>/dev/null || true)" "${PREFIX}/libexec/aapt2" "${PREFIX}/opt/aapt2/bin/aapt2"; do
+    if [ -n "$cand" ] && is_elf "$cand"; then
+      printf '%s\n' "$cand"
+      return 0
+    fi
+  done
+  local f
+  while IFS= read -r f; do
+    if is_elf "$f"; then
+      printf '%s\n' "$f"
+      return 0
+    fi
+  done < <(find "${PREFIX}" -type f -name 'aapt2*' -size +1M 2>/dev/null)
+  return 1
+}
+
+AAPT2="$(find_aapt2_elf || true)"
+if [ -z "${AAPT2}" ]; then
+  echo "ERROR: 没找到可用的 aapt2 ELF 二进制（当前 command -v aapt2 可能是脚本或不存在）"
+  echo "       请执行: pkg install aapt   然后重新运行本脚本"
+  exit 1
+fi
+echo "使用 aapt2: ${AAPT2}"
+if [ -d "${HOME}/.gradle" ]; then
   find "${HOME}/.gradle" -type f -name aapt2 -exec cp "${AAPT2}" {} \;
   python3 - <<PY
 import os, zipfile, shutil
