@@ -7,8 +7,10 @@ import { exitApp } from './utils/nativeModules/utils'
 import { windowSizeTools } from './utils/windowSizeTools'
 import { listenLaunchEvent } from './navigation/regLaunchedEvent'
 import { tipDialog } from './utils/tools'
+import { initScreenReaderState } from './utils/a11y'
 
 console.log('starting app...')
+void initScreenReaderState()
 listenLaunchEvent()
 
 void Promise.all([getFontSize(), windowSizeTools.init()]).then(async([fontSize]) => {

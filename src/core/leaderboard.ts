@@ -31,6 +31,9 @@ interface PageCache { data: ListDetailInfo, sourcePage: number }
 type CacheValue = Map<string, PageCache | ListDetailInfo['list']>
 
 const cache = new Map<string, CacheValue>()
+// 每个榜单已取回的歌曲数：作为"从完整列表里再取多少"的偏移量，
+// 供 tx 这类只能整表返回、无法按页跳过的源做首屏精简加载
+const consumedByList = new Map<string, number>()
 const LIST_LOAD_LIMIT = 30
 // 全量拉取超时（毫秒）
 const FETCH_TIMEOUT = 15000
@@ -67,7 +70,7 @@ export const getBoardsList = async(source: LX.OnlineSource) => {
  * @param page 页数
  * @returns
  */
-const getListLimit = async(source: LX.OnlineSource, bangId: string, page: number): Promise<ListDetailInfo> => {
+const getListLimit = async(source: LX.OnlineSource, bangId: string, page: number, isRefresh = false): Promise<ListDetailInfo> => {
   const listKey = `${source}__${bangId}`
   const prevPageKey = `${source}__${bangId}__${page - 1}`
   const tempListKey = `${source}__${bangId}__temp`
@@ -80,11 +83,23 @@ const getListLimit = async(source: LX.OnlineSource, bangId: string, page: number
     if (prevPageData) sourcePage = prevPageData.sourcePage
   }
 
+  const offset = consumedByList.get(listKey) ?? 0
   const doneFetch = perfTimer('boardFetch')
-  return musicSdk[source]?.leaderboard.getList(bangId, sourcePage + 1).then((result: ListDetailInfo) => {
-    doneFetch({ source, bangId, sourcePage: sourcePage + 1, count: result.list.length, total: result.total })
-    if (listCache !== cache.get(listKey)) return
+  const leaderboard = musicSdk[source]?.leaderboard
+  // 支持按偏移取数的源（目前仅 tx）：首屏少取，后续按需补；
+  // 其余源保持原分页调用，第三个参数是它们内部的重试计数，不能串用
+  const request = typeof leaderboard?.getListByOffset === 'function'
+    ? leaderboard.getListByOffset(bangId, offset, isRefresh)
+    : leaderboard?.getList(bangId, sourcePage + 1)
+  return (request ?? Promise.reject(new Error('source not found'))).then((result: ListDetailInfo) => {
+    doneFetch({ source, bangId, sourcePage: sourcePage + 1, offset, count: result.list.length, total: result.total })
+    // 期间发生过刷新/换榜（缓存已被替换）：丢弃本次结果，返回空页避免上层读 undefined
+    if (listCache !== cache.get(listKey)) {
+      return { list: [], total: 0, maxPage: 0, page, source, limit: LIST_LOAD_LIMIT, key: null }
+    }
     result.list = deduplicationList(result.list.map(m => toNewMusicInfo(m)) as LX.Music.MusicInfoOnline[])
+    // 本次拉回的歌会被全部放进分页缓存（含临时页），累计偏移量随之增加
+    consumedByList.set(listKey, offset + result.list.length)
     let p = page
     const tempList = listCache.get(tempListKey) as ListDetailInfo['list']
     if (tempList) {
@@ -101,8 +116,11 @@ const getListLimit = async(source: LX.OnlineSource, bangId: string, page: number
       p++
     }
     sourcePage++
+    // 源本身已按本地页大小返回（tx 偏移模式 limit=30）时，末尾不足 30 首就是最后一页，
+    // 不能再放进临时页等待下一页，否则最后一页永远不会被取出
+    const isLocalPaged = result.limit === LIST_LOAD_LIMIT
     do {
-      if (result.list.length < LIST_LOAD_LIMIT && sourcePage < Math.ceil(result.total / result.limit)) {
+      if (!isLocalPaged && result.list.length < LIST_LOAD_LIMIT && sourcePage < Math.ceil(result.total / result.limit)) {
         listCache.set(tempListKey, result.list.splice(0, LIST_LOAD_LIMIT))
         break
       }
@@ -117,8 +135,12 @@ const getListLimit = async(source: LX.OnlineSource, bangId: string, page: number
       })
       p++
     } while (result.list.length > 0)
-    return (listCache.get(`${source}__${bangId}__${page}`) as PageCache).data
-  }) ?? Promise.reject(new Error('source not found'))
+    const pageData = listCache.get(`${source}__${bangId}__${page}`) as PageCache | undefined
+    // 源已无更多新歌（按偏移取回为空）：返回空页让上层把状态置为到底，
+    // 避免直接读 undefined 崩溃
+    if (!pageData) return { ...result, list: [], total: consumedByList.get(listKey) ?? 0, limit: LIST_LOAD_LIMIT, page }
+    return pageData.data
+  })
 }
 
 /**
@@ -136,6 +158,7 @@ export const getListDetail = async(id: string, page: number, isRefresh = false):
   let listCache = cache.get(listKey)
   if (!listCache || isRefresh) {
     cache.set(listKey, listCache = new Map<string, PageCache | LX.Music.MusicInfoOnline[]>())
+    consumedByList.delete(listKey)
   }
 
   let pageCache = listCache.get(pageKey) as PageCache
@@ -145,7 +168,7 @@ export const getListDetail = async(id: string, page: number, isRefresh = false):
   }
 
   const done = perfTimer('boardPage')
-  return getListLimit(source, bangId, page).then((data) => {
+  return getListLimit(source, bangId, page, isRefresh).then((data) => {
     done({ source, page, count: data.list.length })
     return data
   })

@@ -6,6 +6,18 @@ let boardList = [{ id: 'tx__4', name: '流行指数榜', bangid: '4' }, { id: 't
 
 export default {
   limit: 300,
+  // 首屏只取 150 首：该接口不支持按页偏移，只能整表返回；
+  // 300 首的榜单一次下载约 700KB，首屏等 1.5s。先取 150 首让首屏快一倍，
+  // 后续分页再由上层按偏移量补取完整 300 首。若服务端返回不足 150 首则视为已全部返回。
+  firstPageLimit: 150,
+  _detailCache: {},
+  _detailCacheTtl: 5 * 60 * 1000,
+  trimDetailCache() {
+    const keys = Object.keys(this._detailCache)
+    if (keys.length <= 5) return
+    keys.sort((a, b) => this._detailCache[a].ts - this._detailCache[b].ts)
+    for (let i = 0; i < keys.length - 5; i++) delete this._detailCache[keys[i]]
+  },
   list: [
     {
       id: 'txlxzsb',
@@ -221,25 +233,55 @@ export default {
       source: 'tx',
     }
   },
-  getList(bangid, page, retryNum = 0) {
-    if (++retryNum > 3) return Promise.reject(new Error('try max num'))
-    bangid = parseInt(bangid)
-    let info = this.periods[bangid]
-    let p = info ? Promise.resolve(info.period) : this.getPeriods(bangid)
-    return p.then(period => {
-      return this.listDetailRequest(bangid, period, this.limit).then(resp => {
-        if (resp.body.code !== 0) return this.getList(bangid, page, retryNum)
-        return {
-          total: resp.body.toplist.data.songInfoList.length,
-          list: this.filterData(resp.body.toplist.data.songInfoList),
-          limit: this.limit,
-          page: 1,
-          source: 'tx',
-        }
-      })
-    })
+  _getPeriod(bangid) {
+    const info = this.periods[bangid]
+    return info ? Promise.resolve(info.period) : this.getPeriods(bangid)
   },
-
+  _getDetail(bangid, num, isRefresh, period) {
+    const cache = this._detailCache[bangid]
+    const cacheValid = !isRefresh && cache &&
+      Date.now() - cache.ts < this._detailCacheTtl &&
+      (cache.exhausted || cache.num >= num)
+    if (cacheValid) return Promise.resolve(cache.list)
+    const request = (retryNum) => {
+      if (retryNum > 3) return Promise.reject(new Error('try max num'))
+      return this.listDetailRequest(bangid, period, num).then(resp => {
+        if (resp.body.code !== 0) return request(retryNum + 1)
+        const list = this.filterData(resp.body.toplist.data.songInfoList)
+        this._detailCache[bangid] = {
+          num,
+          list,
+          ts: Date.now(),
+          // 返回数量少于请求数量，说明该榜已全部取回
+          exhausted: list.length < num,
+        }
+        this.trimDetailCache()
+        return list
+      })
+    }
+    return request(0)
+  },
+  // 整榜全量（下载整榜/收藏时使用）
+  getList(bangid, page) {
+    bangid = parseInt(bangid)
+    return this._getPeriod(bangid)
+      .then(period => this._getDetail(bangid, this.limit, false, period))
+      .then(all => ({ total: all.length, list: all, limit: this.limit, page: 1, source: 'tx' }))
+  },
+  // 分页取数：首屏只取 150 首，后续按已取数量偏移补取（该接口不支持按页跳过）
+  getListByOffset(bangid, offset, isRefresh) {
+    bangid = parseInt(bangid)
+    const num = offset > 0 ? this.limit : this.firstPageLimit
+    return this._getPeriod(bangid)
+      .then(period => this._getDetail(bangid, num, isRefresh, period))
+      .then(all => {
+        const list = offset > 0 ? all.slice(offset) : all
+        const cache = this._detailCache[bangid]
+        // 未确认到底时多报一页，触发上层按偏移继续取；确认到底则给出准确总数
+        const total = cache && cache.exhausted ? all.length : all.length + 30
+        return { total, list, limit: 30, page: 1, source: 'tx' }
+      })
+  },
   getDetailPageUrl(id) {
     if (typeof id == 'string') id = id.replace('tx__', '')
     return `https://y.qq.com/n/ryqq/toplist/${id}`

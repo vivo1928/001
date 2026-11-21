@@ -4,6 +4,7 @@ import { clearListDetail, getListDetail, setListDetail, setListDetailInfo } from
 import boardState from '@/store/leaderboard/state'
 import { handlePlay } from './listAction'
 import { perfTimer } from '@/utils/perfLog'
+import { AccessibilityInfo } from 'react-native'
 
 // export type MusicListProps = Pick<OnlineListProps,
 // 'onLoadMore'
@@ -31,6 +32,7 @@ export default forwardRef<MusicListType, {}>((props, ref) => {
         const page = 1
         setListDetailInfo(id)
         const doneLoad = perfTimer('boardFirstPage')
+        AccessibilityInfo.announceForAccessibility(global.i18n.t('list_loading'))
         return getListDetail(id, page).then((listDetail) => {
           const result = setListDetail(listDetail, id, page)
           if (isUnmountedRef.current) return
@@ -38,10 +40,12 @@ export default forwardRef<MusicListType, {}>((props, ref) => {
             listRef.current?.setList(result.list)
             listRef.current?.setStatus(boardState.listDetailInfo.maxPage <= page ? 'end' : 'idle')
             doneLoad({ id, count: result.list.length })
+            AccessibilityInfo.announceForAccessibility(`已加载 ${result.list.length} 首`)
           })
         }).catch(() => {
           if (boardState.listDetailInfo.list.length && page == 1) clearListDetail()
           listRef.current?.setStatus('error')
+          AccessibilityInfo.announceForAccessibility('加载失败')
         })
       }
     },

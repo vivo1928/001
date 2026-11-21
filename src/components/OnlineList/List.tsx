@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState, forwardRef, useImperativeHandle, useCallback, useEffect } from 'react'
 import { perfLog, perfTimer } from '@/utils/perfLog'
+import { getScreenReaderEnabled } from '@/utils/a11y'
 import { FlatList, type FlatListProps, RefreshControl, View, Vibration, AccessibilityInfo, PanResponder, type GestureResponderEvent, type NativeScrollEvent, type NativeSyntheticEvent, type LayoutChangeEvent, Dimensions } from 'react-native'
 import { RecyclerListView, DataProvider, LayoutProvider } from 'recyclerlistview'
 
@@ -79,7 +80,7 @@ const List = forwardRef<ListType, ListProps>(({
   const [currentList, setList] = useState<LX.Music.MusicInfoOnline[]>([])
   const [showSource, setShowSource] = useState(false)
   // 屏幕阅读器：检测读屏开启时切换为 RecyclerListView（读屏 + 单列时），其余保持 FlatList
-  const [screenReaderEnabled, setScreenReaderEnabled] = useState(false)
+  const [screenReaderEnabled, setScreenReaderEnabled] = useState(() => getScreenReaderEnabled() ?? false)
   const isMultiSelectModeRef = useRef(false)
   const selectModeRef = useRef<SelectMode>('single')
   const prevSelectIndexRef = useRef(-1)
