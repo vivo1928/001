@@ -7,6 +7,7 @@ import { scaleSizeW } from '@/utils/pixelRatio'
 import { NAV_SHEAR_NATIVE_IDS } from '@/config/constant'
 import { useTheme } from '@/store/theme/hook'
 import Image from '@/components/common/Image'
+import { getThumbUrl, thumbPx } from '@/utils/image'
 
 const gap = scaleSizeW(15)
 export default memo(({ item, index, width, showSource, onPress, onCollect, isCollected }: {
@@ -35,7 +36,7 @@ export default memo(({ item, index, width, showSource, onPress, onCollect, isCol
       ? (
           <TouchableOpacity activeOpacity={0.5} onPress={handlePress} accessibilityLabel={`${index + 1} ${item.name}${accessibilityDesc}${accessibilitySource}`} style={{ ...styles.listItem, width: itemWidth }}>
             <View style={{ ...styles.listItemImg, backgroundColor: theme['c-content-background'] }}>
-              <Image url={item.img} nativeID={`${NAV_SHEAR_NATIVE_IDS.songlistDetail_pic}_from_${item.id}`} style={{ width: itemWidth, height: itemWidth, borderRadius: 4 }} />
+              <Image url={getThumbUrl(item.img, thumbPx(itemWidth))} nativeID={`${NAV_SHEAR_NATIVE_IDS.songlistDetail_pic}_from_${item.id}`} style={{ width: itemWidth, height: itemWidth, borderRadius: 4 }} />
               { showSource ? <Text style={styles.sourceLabel} size={9} color="#fff" >{item.source}</Text> : null }
               { onCollect ? (
                 <TouchableOpacity
