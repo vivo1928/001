@@ -348,7 +348,7 @@
   "setting_basic_sourcename_real": "原名",
   "setting_basic_sourcename_title": "选择歌曲来源名称类型",
   "setting_basic_startup_auto_play": "启动后自动播放音乐",
-  "setting_basic_smart_cache": "智能预缓存（自动缓存整首与后续歌曲，断网也能听）",
+  "setting_basic_smart_cache": "智能预缓存（自动缓存整首与后续歌曲）",
   "setting_basic_smart_cache_background_only": "仅在后台预取（锁屏或切到后台时才缓存后续歌曲，前台使用更快）",
   "setting_basic_cache_ahead_count": "预缓存歌曲数",
   "setting_basic_cache_ahead_count_off": "仅补全当前歌",
