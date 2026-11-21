@@ -4,9 +4,11 @@ import { setJSExceptionHandler, setNativeExceptionHandler } from 'react-native-e
 import { log } from '@/utils/log'
 import { toast } from './tools'
 import { appendFile, externalStorageDirectoryPath, privateStorageDirectoryPath } from '@/utils/fs'
+import { appLog } from '@/utils/appLog'
 
 // 把崩溃信息写到用户可取到的位置，便于无 adb 环境排查
 const persistCrash = (title: string, text: string) => {
+  appLog('crash', title, text)
   const content = `\n===== ${new Date().toISOString()} ${title} =====\n${text}\n`
   try {
     void appendFile(`${externalStorageDirectoryPath}/lx-crash.log`, content).catch(() => {

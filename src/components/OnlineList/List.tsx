@@ -92,6 +92,11 @@ const List = forwardRef<ListType, ListProps>(({
   const autoFillCountRef = useRef(0)
   const autoFillLastLenRef = useRef(0)
   const autoFillStoppedRef = useRef(false)
+  // 读屏播报：加载更多后按累计数量播报（节流，避免自动补页时连续刷屏）
+  const announceLastAtRef = useRef(0)
+  const announceLastCountRef = useRef(0)
+  const announceLatestCountRef = useRef(0)
+  const announceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const rowInfo = useRef(getRowInfo(rowType))
   const isShowAlbumName = useSettingValue('list.isShowAlbumName')
   const isShowInterval = useSettingValue('list.isShowInterval')
@@ -114,6 +119,8 @@ const List = forwardRef<ListType, ListProps>(({
       requestAnimationFrame(() => { doneSet({ n: list.length, append: !!isAppend }) })
       if (!isAppend) {
         // 切换列表时重置自动续加载状态
+        announceLastCountRef.current = 0
+        announceLatestCountRef.current = 0
         autoFillCountRef.current = 0
         autoFillLastLenRef.current = 0
         autoFillStoppedRef.current = false
@@ -413,6 +420,40 @@ const List = forwardRef<ListType, ListProps>(({
     return () => {
       mounted = false
       sub?.remove()
+    }
+  }, [])
+
+  // 列表增长后播报累计数量：自动补页会短时间连续增长，用 1.5s 节流合并，
+  // 之后每次用户触发的加载更多都会继续播报新的总数
+  useEffect(() => {
+    if (!screenReaderEnabled) return
+    const count = currentList.length
+    if (count === 0) return
+    announceLatestCountRef.current = count
+    if (count <= announceLastCountRef.current) return
+    const run = () => {
+      announceLastAtRef.current = Date.now()
+      announceLastCountRef.current = announceLatestCountRef.current
+      AccessibilityInfo.announceForAccessibility(`已加载 ${announceLatestCountRef.current} 首`)
+    }
+    if (Date.now() - announceLastAtRef.current >= 1500) {
+      if (announceTimerRef.current) {
+        clearTimeout(announceTimerRef.current)
+        announceTimerRef.current = null
+      }
+      run()
+    } else if (announceTimerRef.current == null) {
+      announceTimerRef.current = setTimeout(() => {
+        announceTimerRef.current = null
+        run()
+      }, 1500)
+    }
+  }, [currentList.length, screenReaderEnabled])
+
+  useEffect(() => () => {
+    if (announceTimerRef.current) {
+      clearTimeout(announceTimerRef.current)
+      announceTimerRef.current = null
     }
   }, [])
 

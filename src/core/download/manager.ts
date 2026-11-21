@@ -1,4 +1,5 @@
 import type RNFS from 'react-native-fs'
+import { appLog } from '@/utils/appLog'
 import { handleGetOnlineMusicUrl } from '@/core/music/utils'
 import { buildQualityFallbackOrder } from '@/core/music/online'
 import {
@@ -316,6 +317,15 @@ class DownloadManager {
   }
 
   private emitComplete(taskId: string, success: boolean, error?: string): void {
+    const task = this.queue.find(t => t.id === taskId)
+    appLog('download:done', {
+      id: taskId,
+      name: task?.musicInfo?.name,
+      source: task?.musicInfo?.source,
+      quality: task?.quality,
+      success,
+      error,
+    })
     for (const l of this.listeners) l.onComplete?.(taskId, success, error)
   }
 
@@ -371,6 +381,13 @@ class DownloadManager {
     this.isProcessing = true
     this.currentTaskId = nextTask.id
     nextTask.status = 'downloading'
+    appLog('download:start', {
+      id: nextTask.id,
+      name: nextTask.musicInfo?.name,
+      source: nextTask.musicInfo?.source,
+      quality: nextTask.quality,
+      retry: nextTask.retryCount ?? 0,
+    })
 
     try {
       await this.downloadSingleTask(nextTask)

@@ -1,6 +1,7 @@
 import searchMusicState, { type Source } from '@/store/search/music/state'
 import searchMusicActions, { type SearchResult, mergeResults } from '@/store/search/music/action'
 import musicSdk from '@/utils/musicSdk'
+import { appLog } from '@/utils/appLog'
 
 export const setSource: typeof searchMusicActions['setSource'] = (source) => {
   searchMusicActions.setSource(source)
@@ -18,6 +19,7 @@ export const clearListInfo: typeof searchMusicActions.clearListInfo = (source) =
 
 
 export const search = async(text: string, page: number, sourceId: Source, onPartial?: (list: LX.Music.MusicInfoOnline[]) => void): Promise<LX.Music.MusicInfoOnline[]> => {
+  if (page <= 1) appLog('search', { text, source: sourceId })
   const listInfo = searchMusicState.listInfos[sourceId]!
   if (!text) return []
   const key = `${page}__${text}`

@@ -2,20 +2,13 @@
 import { Platform } from 'react-native'
 import { version } from '../../package.json'
 import { temporaryDirectoryPath, existsFile, appendFile, unlink, writeFile, readFile } from '@/utils/fs'
+import { redactText } from '@/utils/redact'
+import { appLog } from '@/utils/appLog'
 
 const logPath = temporaryDirectoryPath + '/error.log'
 
-// 脱敏：避免日志导出/分享时泄露凭据
-const TOKEN_PATTERNS: Array<[RegExp, string]> = [
-  [/(ghp_|gho_|ghs_|ghu_|github_pat_)[A-Za-z0-9_]+/g, '$1[REDACTED]'],
-  [/glpat-[A-Za-z0-9_-]+/g, 'glpat-[REDACTED]'],
-  [/((?:bearer|token|access_token|password|api[_-]?key)\s*[=:]?\s*)[^\s'",;)]+/gi, '$1[REDACTED]'],
-]
-export const sanitizeLogText = (msg: string): string => {
-  let out = msg
-  for (const [pattern, replacement] of TOKEN_PATTERNS) out = out.replace(pattern, replacement)
-  return out
-}
+// 脱敏实现与全量日志共用，避免两处规则不一致
+export const sanitizeLogText = redactText
 
 const logTools = {
   tempLog: [] as Array<{ time: string, type: 'LOG' | 'WARN' | 'ERROR', text: string }> | null,
@@ -23,6 +16,7 @@ const logTools = {
     const safeMsg = sanitizeLogText(msg)
     console.log(safeMsg)
     void appendFile(logPath, '\n----lx log----\n' + safeMsg)
+    appLog('log', safeMsg)
   },
   async initLogFile() {
     try {

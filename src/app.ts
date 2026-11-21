@@ -8,6 +8,21 @@ import { windowSizeTools } from './utils/windowSizeTools'
 import { listenLaunchEvent } from './navigation/regLaunchedEvent'
 import { tipDialog } from './utils/tools'
 import { initScreenReaderState } from './utils/a11y'
+import { appLog, initAppLog } from './utils/appLog'
+
+// 高频进度类事件不落盘，其余事件（切页/播放/配置/列表增删/音源切换等）全部记录
+const IGNORE_LOG_EVENTS = new Set([
+  'playProgressChanged',
+  'versionDownloadProgressUpdated',
+  'fetchingListStatusUpdated',
+])
+;(global as any).lxLogEvent = (name: string, args: any[]) => {
+  if (IGNORE_LOG_EVENTS.has(name)) return
+  if (args.length === 0) appLog(`event:${name}`)
+  else if (args.length === 1) appLog(`event:${name}`, args[0])
+  else appLog(`event:${name}`, args)
+}
+void initAppLog()
 
 console.log('starting app...')
 void initScreenReaderState()

@@ -47,6 +47,7 @@ const buildMocks = (state, overrides = {}) => Object.assign({
     handleGetOnlineMusicUrl: async({ musicInfo }) => ({ url: `https://cdn.example/${musicInfo.id}.mp3`, quality: '128k' }),
   },
   '@/core/music/online': { buildQualityFallbackOrder: () => ['128k'] },
+  '@/utils/appLog': { appLog: () => {} },
   '@/utils/permissions': { requestStoragePermission: async() => true },
   '@/utils/tools': {
     formatMusicName: (fmt, name, singer) => `${name} - ${singer}`,

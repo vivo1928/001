@@ -40,7 +40,6 @@ export default forwardRef<MusicListType, {}>((props, ref) => {
             listRef.current?.setList(result.list)
             listRef.current?.setStatus(boardState.listDetailInfo.maxPage <= page ? 'end' : 'idle')
             doneLoad({ id, count: result.list.length })
-            AccessibilityInfo.announceForAccessibility(`已加载 ${result.list.length} 首`)
           })
         }).catch(() => {
           if (boardState.listDetailInfo.list.length && page == 1) clearListDetail()
