@@ -9,6 +9,8 @@ const WARMUP_HOSTS = [
   'https://songsearch.kugou.com/',
   'https://interface.music.163.com/',
   'https://jadeite.migu.cn/',
+  // 咪咕搜索的第二条快接口（双接口竞速用），一并预热
+  'https://app.c.nf.migu.cn/',
 ]
 const WARMUP_TIMEOUT = 3000
 

@@ -262,7 +262,8 @@ export default {
           songmid: data.songId,
           copyrightId: data.copyrightId,
           source: 'mg',
-          interval: formatPlayTime(data.duration),
+          // MIGUM2.0 兜底结果缺时长：此时显示空白而不是误导性的 00:00
+          interval: data.duration ? formatPlayTime(data.duration) : '',
           img,
           lrc: null,
           lrcUrl: data.lrcUrl,
