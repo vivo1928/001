@@ -197,6 +197,17 @@ find_aapt2_elf() {
     fi
   done
   local f
+  # 若 command -v aapt2 是包装脚本，从脚本内容里找它实际执行的二进制
+  local wrapper
+  wrapper="$(command -v aapt2 2>/dev/null || true)"
+  if [ -n "$wrapper" ] && [ -f "$wrapper" ] && ! is_elf "$wrapper"; then
+    while IFS= read -r f; do
+      if is_elf "$f"; then
+        printf '%s\n' "$f"
+        return 0
+      fi
+    done < <(grep -oE '/[A-Za-z0-9._/-]*aapt2[A-Za-z0-9._/-]*' "$wrapper" 2>/dev/null)
+  fi
   while IFS= read -r f; do
     if is_elf "$f"; then
       printf '%s\n' "$f"
@@ -215,9 +226,9 @@ fi
 echo "使用 aapt2: ${AAPT2}"
 if [ -d "${HOME}/.gradle" ]; then
   find "${HOME}/.gradle" -type f -name aapt2 -exec cp "${AAPT2}" {} \;
-  python3 - <<PY
-import os, zipfile, shutil
-aapt2 = shutil.which("aapt2")
+  AAPT2_BIN="${AAPT2}" python3 - <<'PY'
+import os, zipfile
+aapt2 = os.environ["AAPT2_BIN"]
 data = open(aapt2, "rb").read()
 root = os.path.expanduser("~/.gradle")
 for dirpath, _, files in os.walk(root):
