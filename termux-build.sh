@@ -117,17 +117,59 @@ node dependencies-patch.js
 
 printf 'sdk.dir=%s\n' "${SDK}" > android/local.properties
 
+# 按本机实际安装的 build-tools / NDK 自动对齐仓库版本，
+# 避免仓库升级后脚本里写死的 35/26.1 匹配不到、Gradle 报 NDK 未配置
 python3 - <<'PY'
+import glob, os, re
 from pathlib import Path
-p = Path("android/build.gradle")
-t = p.read_text()
-t = t.replace('buildToolsVersion = "35.0.0"', 'buildToolsVersion = "37.0.0"')
-t = t.replace('ndkVersion = "26.1.10909125"', 'ndkVersion = "29.0.14206865"')
-p.write_text(t)
-p = Path("android/gradle.properties")
-t = p.read_text()
-t = t.replace("AsyncStorage_useNextStorage=true", "AsyncStorage_useNextStorage=false")
-p.write_text(t)
+
+sdk = os.environ.get("ANDROID_SDK_ROOT") or os.environ.get("ANDROID_HOME") or ""
+
+def ver_key(path):
+    return [int(x) for x in re.findall(r"\d+", os.path.basename(path))]
+
+def pick(pattern):
+    dirs = sorted(glob.glob(os.path.join(sdk, pattern)), key=ver_key)
+    return dirs[-1] if dirs else None
+
+bt = pick("build-tools/*")
+ndk = pick("ndk/*")
+
+gradle = Path("android/build.gradle")
+text = gradle.read_text()
+if bt:
+    bt_ver = os.path.basename(bt)
+    text = re.sub(r'buildToolsVersion\s*=\s*"[^"]*"', 'buildToolsVersion = "%s"' % bt_ver, text)
+    print("buildToolsVersion ->", bt_ver)
+else:
+    print("WARN: SDK 里没有安装 build-tools")
+if ndk:
+    ndk_ver = os.path.basename(ndk)
+    text = re.sub(r'ndkVersion\s*=\s*"[^"]*"', 'ndkVersion = "%s"' % ndk_ver, text)
+    print("ndkVersion ->", ndk_ver)
+else:
+    print("WARN: SDK 里没有安装 NDK")
+gradle.write_text(text)
+
+platforms = sorted(glob.glob(os.path.join(sdk, "platforms", "android-*")), key=ver_key)
+max_api = max([int(re.findall(r"\d+", os.path.basename(p))[0]) for p in platforms], default=0)
+print("已安装 platform 最高 API:", max_api or "未知")
+if max_api and max_api < 36:
+    print("WARN: compileSdk 需要 36，但当前最高只有 %d；请先在 SDK 里安装 platform 36" % max_api)
+
+props = Path("android/gradle.properties")
+ptext = props.read_text()
+if "newArchEnabled=" not in ptext:
+    ptext += "\nnewArchEnabled=true\n"
+if "hermesEnabled=" not in ptext:
+    ptext += "hermesEnabled=true\n"
+ptext = ptext.replace("AsyncStorage_useNextStorage=true", "AsyncStorage_useNextStorage=false")
+props.write_text(ptext)
+def current(key):
+    m = re.search(r"^" + key + r"=(\w+)", ptext, re.M)
+    return m.group(1) if m else "未设置"
+print("newArchEnabled:", current("newArchEnabled"))
+print("hermesEnabled:", current("hermesEnabled"))
 PY
 
 mkdir -p "${SDK}/ndk" "${SDK}/cmake/3.22.1.bak/bin" "${SDK}/cmake/3.22.1.bak/share"
