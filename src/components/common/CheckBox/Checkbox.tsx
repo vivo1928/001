@@ -53,6 +53,7 @@ const Checkbox = ({
   size = 1,
   onPress,
   tintColors,
+  accessibilityLabel,
   ...rest
 }: Props) => {
   const checked = status === 'checked'
@@ -94,6 +95,7 @@ const Checkbox = ({
       {...rest}
       onPress={handlePress}
       disabled={disabled}
+      accessibilityLabel={accessibilityLabel}
       accessibilityRole="checkbox"
       accessibilityState={{ disabled, checked }}
       accessibilityLiveRegion="polite"
