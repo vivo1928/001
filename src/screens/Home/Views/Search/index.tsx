@@ -16,6 +16,7 @@ import { createStyle } from '@/utils/tools'
 import TipList, { type TipListType } from './TipList'
 import List, { type ListType } from './List'
 import { addHistoryWord } from '@/core/search/search'
+import { warmupSearchHosts } from '@/utils/searchWarmup'
 
 
 interface SearchInfo {
@@ -33,6 +34,8 @@ export default () => {
   const timeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   useEffect(() => {
+    // 进入搜索页即预热各源连接，首次搜索可省掉 TCP/TLS 握手
+    warmupSearchHosts()
     void getSearchSetting().then(info => {
       // info.type = 'music'
       searchInfo.current.temp_source = info.temp_source

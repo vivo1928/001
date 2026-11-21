@@ -1,6 +1,7 @@
 import { httpFetch } from '../../request'
 import { sizeFormate, formatPlayTime } from '../../index'
 import { toMD5, formatSingerName } from '../utils'
+import { appLog } from '../../appLog'
 
 export const createSignature = (time, str) => {
   const deviceId = '963B7AA0D21511ED807EE5846EC87D20'
@@ -110,19 +111,29 @@ export default {
   // },
 
   musicSearch(str, page, limit) {
-    const time = Date.now().toString()
-    const signData = createSignature(time, str)
-    const searchRequest = httpFetch(`https://jadeite.migu.cn/music_search/v3/search/searchAll?isCorrect=0&isCopyright=1&searchSwitch=%7B%22song%22%3A1%2C%22album%22%3A0%2C%22singer%22%3A0%2C%22tagSong%22%3A1%2C%22mvSong%22%3A0%2C%22bestShow%22%3A1%2C%22songlist%22%3A0%2C%22lyricSong%22%3A0%7D&pageSize=${limit}&text=${encodeURIComponent(str)}&pageNo=${page}&sort=0&sid=USS`, {
-      headers: {
-        uiVersion: 'A_music_3.6.1',
-        deviceId: signData.deviceId,
-        timestamp: time,
-        sign: signData.sign,
-        channel: '0146921',
-        'User-Agent': 'Mozilla/5.0 (Linux; U; Android 11.0.0; zh-cn; MI 11 Build/OPR1.170623.032) AppleWebKit/534.30 (KHTML, like Gecko) Version/4.0 Mobile Safari/534.30',
-      },
-    })
-    return searchRequest.promise.then(({ body }) => body)
+    // 咪咕接口偶发连接挂起（实测 15s 才被全局超时中断，UI 会一直停在“加载中”）。
+    // 改为 5s 超时 + 一次重试：挂起多半是瞬时连通性问题，重试通常能成功。
+    const request = (retry) => {
+      const time = Date.now().toString()
+      const signData = createSignature(time, str)
+      const searchRequest = httpFetch(`https://jadeite.migu.cn/music_search/v3/search/searchAll?isCorrect=0&isCopyright=1&searchSwitch=%7B%22song%22%3A1%2C%22album%22%3A0%2C%22singer%22%3A0%2C%22tagSong%22%3A1%2C%22mvSong%22%3A0%2C%22bestShow%22%3A1%2C%22songlist%22%3A0%2C%22lyricSong%22%3A0%7D&pageSize=${limit}&text=${encodeURIComponent(str)}&pageNo=${page}&sort=0&sid=USS`, {
+        timeout: 5000,
+        headers: {
+          uiVersion: 'A_music_3.6.1',
+          deviceId: signData.deviceId,
+          timestamp: time,
+          sign: signData.sign,
+          channel: '0146921',
+          'User-Agent': 'Mozilla/5.0 (Linux; U; Android 11.0.0; zh-cn; MI 11 Build/OPR1.170623.032) AppleWebKit/534.30 (KHTML, like Gecko) Version/4.0 Mobile Safari/534.30',
+        },
+      })
+      return searchRequest.promise.catch((err) => {
+        if (retry >= 1) throw err
+        appLog('mg:search:retry', { text: str, page, err: String(err?.message || err) })
+        return request(retry + 1)
+      })
+    }
+    return request(0).then(({ body }) => body)
   },
   filterData(rawData) {
     // console.log(rawData)
