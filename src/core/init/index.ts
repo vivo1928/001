@@ -14,6 +14,7 @@ import settingState from '@/store/setting/state'
 import { bootLog } from '@/utils/bootLog'
 import { perfLog, perfTimer } from '@/utils/perfLog'
 import { cheatTip } from '@/utils/tools'
+import { applyDiagnosticLogSetting } from '@/utils/appLog'
 
 let isFirstPush = true
 const handlePushedHomeScreen = async() => {
@@ -45,6 +46,8 @@ export default async() => {
   let doneStep = perfTimer('init:setting')
   const setting = await initSetting()
   doneStep()
+  // 全量诊断日志默认关闭，按设置决定是否开启（原生网络日志同步切换）
+  applyDiagnosticLogSetting(setting['common.isDiagnosticLog'] === true)
   bootLog('Setting inited.')
   // console.log(setting)
 

@@ -1,4 +1,5 @@
 package cn.toside.music.mobile.utils;
+import cn.toside.music.mobile.net.NetworkLog;
 
 import android.annotation.SuppressLint;
 import android.app.Activity;
@@ -380,6 +381,11 @@ public class UtilsModule extends ReactContextBaseJavaModule {
         promise.reject("ERROR", e);
       }
     }).start();
+  }
+
+  @ReactMethod
+  public void setNetLogEnabled(boolean enabled) {
+    NetworkLog.setEnabled(enabled);
   }
 }
 

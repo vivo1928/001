@@ -2,6 +2,13 @@ import { AppState, NativeEventEmitter, NativeModules } from 'react-native'
 
 const { UtilsModule } = NativeModules
 
+// 诊断日志（内部存储 lx-app.log）开关：默认关闭，避免常驻写盘
+export const setNetLogEnabled = (enabled: boolean) => {
+  try {
+    UtilsModule?.setNetLogEnabled?.(enabled)
+  } catch (_) { /* 老版本原生模块没有该方法时忽略 */ }
+}
+
 export const exitApp = UtilsModule.exitApp
 
 export const getSupportedAbis = UtilsModule.getSupportedAbis

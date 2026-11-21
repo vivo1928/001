@@ -4,7 +4,7 @@ import { setJSExceptionHandler, setNativeExceptionHandler } from 'react-native-e
 import { log } from '@/utils/log'
 import { toast } from './tools'
 import { appendFile, externalStorageDirectoryPath, privateStorageDirectoryPath } from '@/utils/fs'
-import { appLog } from '@/utils/appLog'
+import { appLog, enableAppLogTemporarily } from '@/utils/appLog'
 
 // 把崩溃信息写到用户可取到的位置，便于无 adb 环境排查
 const persistCrash = (title: string, text: string) => {
@@ -42,6 +42,8 @@ const errorHandler = (e: Error, isFatal: boolean) => {
       )
     }
   }
+  // 出问题时临时开启诊断日志（10 分钟后自动关闭），便于抓到崩溃前的上下文
+  enableAppLogTemporarily()
   log.error(e.stack)
   persistCrash('JS crash', `${e.name} ${e.message}\n${e.stack ?? ''}`)
 }
@@ -50,6 +52,7 @@ if (process.env.NODE_ENV !== 'development') {
   setJSExceptionHandler(errorHandler)
 
   setNativeExceptionHandler((errorString) => {
+    enableAppLogTemporarily()
     log.error(errorString)
     persistCrash('Native crash', String(errorString))
     console.log('+++++', errorString, '+++++')
@@ -59,6 +62,7 @@ if (process.env.NODE_ENV !== 'development') {
   const globalAny = global as any
   if (typeof globalAny.addEventListener === 'function') {
     globalAny.addEventListener('unhandledrejection', (e: any) => {
+      enableAppLogTemporarily()
       const reason = e?.reason
       log.error(`Unhandled promise rejection: ${reason instanceof Error ? (reason.stack ?? reason.message) : String(reason)}`)
     })

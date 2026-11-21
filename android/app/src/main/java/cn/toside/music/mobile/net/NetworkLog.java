@@ -10,7 +10,10 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 /** 把网络分段耗时追加到 JS 同一份 lx-app.log（原生侧写文件，便于无 adb 取回） */
-final class NetworkLog {
+public final class NetworkLog {
+
+  // 由 JS 侧通过 UtilsModule.setNetLogEnabled 同步：默认关闭，避免常驻写盘
+  private static volatile boolean enabled = false;
 
   private static final ExecutorService EXECUTOR = Executors.newSingleThreadExecutor(r -> {
     Thread t = new Thread(r, "LxNetLog");
@@ -30,7 +33,12 @@ final class NetworkLog {
     if (dir != null) fallback = new File(dir, "lx-app.log");
   }
 
+  public static void setEnabled(boolean value) {
+    enabled = value;
+  }
+
   static void line(String tag, String payload) {
+    if (!enabled) return;
     final byte[] bytes = (System.currentTimeMillis() + " " + tag + " " + payload + "\n")
         .getBytes(StandardCharsets.UTF_8);
     EXECUTOR.execute(() -> {

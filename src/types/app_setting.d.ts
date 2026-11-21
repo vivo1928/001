@@ -67,6 +67,11 @@ declare global {
       'common.showExitBtn': boolean
 
       /**
+       * 是否开启全量诊断日志（写入内部存储 lx-app.log，默认关闭，排查问题时开启）
+       */
+      'common.isDiagnosticLog': boolean
+
+      /**
        * 使用系统文件选择器
        */
       'common.useSystemFileSelector': boolean

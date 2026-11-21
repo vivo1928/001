@@ -1,6 +1,9 @@
 import { memo, useRef, useState, useEffect } from 'react'
 import { View, Share } from 'react-native'
 import { getLogs, clearLogs } from '@/utils/log'
+import { applyDiagnosticLogSetting } from '@/utils/appLog'
+import { updateSetting } from '@/core/common'
+import { useSettingValue } from '@/store/setting/hook'
 // import { gzip, ungzip } from 'pako'
 
 import SubTitle from '../../components/SubTitle'
@@ -16,6 +19,7 @@ export default memo(() => {
   const alertRef = useRef<ConfirmAlertType>(null)
   const [logText, setLogText] = useState('')
   const isUnmountedRef = useRef(true)
+  const isDiagnosticLog = useSettingValue('common.isDiagnosticLog')
   const [isEnableSyncErrorLog, setIsEnableSyncErrorLog] = useState(global.lx.isEnableSyncLog)
   const [isEnableUserApiLog, setIsEnableUserApiLog] = useState(global.lx.isEnableUserApiLog)
 
@@ -51,6 +55,11 @@ export default memo(() => {
     })
   }
 
+  const handleSetDiagnosticLog = (enable: boolean) => {
+    void updateSetting({ 'common.isDiagnosticLog': enable })
+    applyDiagnosticLogSetting(enable)
+  }
+
   const handleSetEnableSyncErrorLog = (enable: boolean) => {
     setIsEnableSyncErrorLog(enable)
     global.lx.isEnableSyncLog = enable
@@ -75,6 +84,7 @@ export default memo(() => {
         <View style={styles.checkBox}>
           <CheckBoxItem check={isEnableSyncErrorLog} label={t('setting_other_log_sync_log')} onChange={handleSetEnableSyncErrorLog} />
           <CheckBoxItem check={isEnableUserApiLog} label={t('setting_other_log_user_api_log')} onChange={handleSetEnableUserApiLog} />
+          <CheckBoxItem check={!!isDiagnosticLog} label={t('setting_other_diagnostic_log')} onChange={handleSetDiagnosticLog} />
         </View>
         <View style={styles.btn}>
           <Button onPress={openLogModal}>{t('setting_other_log_btn_show')}</Button>

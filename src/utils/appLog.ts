@@ -2,6 +2,7 @@ import { Platform } from 'react-native'
 import { appendFile, externalStorageDirectoryPath, privateStorageDirectoryPath, stat, writeFile } from '@/utils/fs'
 import { version } from '../../package.json'
 import { isSensitiveKey, redactText } from '@/utils/redact'
+import { setNetLogEnabled } from '@/utils/nativeModules/utils'
 
 // 全量诊断日志：所有用户操作、网络请求、自定义源交互、播放事件、错误都会写到这里。
 // 文件放在用户可直接取回的根目录，便于无 adb 时排查问题。
@@ -20,6 +21,10 @@ const privPath = `${privateStorageDirectoryPath}/${LOG_NAME}`
 let size = 0
 let queue: Promise<void> = Promise.resolve()
 let sessionStarted = false
+// 诊断日志总开关：默认关闭，只在用户手动开启或崩溃时临时开启。
+// 关闭时 appLog() 直接返回，JS 侧不产生任何写盘；原生网络日志由 setNetLogEnabled 同步关闭。
+let enabled = false
+let temporaryTimer: ReturnType<typeof setTimeout> | null = null
 
 const enqueue = (task: () => Promise<void>) => {
   queue = queue.then(task).catch(() => {})
@@ -125,6 +130,7 @@ let windowCount = 0
 let droppedCount = 0
 
 export const appLog = (tag: string, ...args: any[]) => {
+  if (!enabled) return
   const now = Date.now()
   if (now - windowStart >= RATE_WINDOW) {
     windowStart = now
@@ -144,7 +150,7 @@ export const appLog = (tag: string, ...args: any[]) => {
   writeLine(`${now} ${tag}${data}\n`)
 }
 
-export const initAppLog = async() => {
+const writeSessionHeader = async() => {
   if (sessionStarted) return
   sessionStarted = true
   try {
@@ -157,5 +163,57 @@ export const initAppLog = async() => {
     ? Object.values((Platform.constants as any).reactNativeVersion).join('.')
     : 'unknown'
   appLog('session', `app v${version} | ${Platform.OS} api ${String(Platform.Version)} | ${model} | rn ${rnVersion} | start ${Date.now()}`)
+}
+
+/** 诊断日志是否开启 */
+export const isAppLogEnabled = () => enabled
+
+/** 开关诊断日志（JS 全量日志 + 原生网络耗时日志一起切） */
+export const setAppLogEnabled = (on: boolean) => {
+  if (enabled === on) return
+  if (!on) {
+    // 关闭前先留一行关闭标记
+    appLog('diag', 'disabled')
+  }
+  enabled = on
+  if (temporaryTimer) {
+    clearTimeout(temporaryTimer)
+    temporaryTimer = null
+  }
+  if (on) appLog('diag', 'enabled')
+  try {
+    setNetLogEnabled(on)
+  } catch (_) { /* 老版本原生模块没有该方法时忽略 */ }
+}
+
+/**
+ * 按设置应用开关（设置加载完成后调用）。
+ * 默认关闭，只有用户在「设置-其他」手动开启才写盘。
+ */
+export const applyDiagnosticLogSetting = (on: boolean) => {
+  setAppLogEnabled(on)
+  if (on) void writeSessionHeader()
+}
+
+/**
+ * 临时开启诊断日志（例如崩溃时自动抓取上下文），到时自动关闭。
+ */
+export const enableAppLogTemporarily = (ms = 10 * 60 * 1000) => {
+  if (!enabled) {
+    enabled = true
+    try { setNetLogEnabled(true) } catch (_) {}
+  }
+  appLog('diag', 'temporary-on', { ms })
+  if (temporaryTimer) clearTimeout(temporaryTimer)
+  temporaryTimer = setTimeout(() => {
+    temporaryTimer = null
+    setAppLogEnabled(false)
+  }, ms)
+}
+
+/** 保留旧入口：设置加载前调用时是 no-op，避免未授权时写盘 */
+export const initAppLog = async() => {
+  if (!enabled) return
+  await writeSessionHeader()
 }
 
