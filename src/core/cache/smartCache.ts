@@ -1,5 +1,5 @@
 import { userApiLog } from '@/utils/userApiLog'
-import { NativeModules } from 'react-native'
+import { AppState, NativeModules } from 'react-native'
 import BackgroundTimer from 'react-native-background-timer'
 import { getMusicUrl } from '@/core/music'
 import { getPlayCacheKey } from '@/utils/data'
@@ -155,9 +155,14 @@ const prefetchOne = async(musicInfo: LX.Player.PlayMusicInfo['musicInfo'], token
 export const runWindow = async() => {
   try {
     const token = runToken
-    const count = Number(settingState.setting['player.cacheAheadCount'] ?? 10)
+    const configured = Number(settingState.setting['player.cacheAheadCount'] ?? 10)
+    // 前台只预取很少的下一首，避免后台下载把网络占满（搜索/歌单/播放都会变慢）；
+    // 退到后台/息屏后再按用户配置补满缓存
+    const count = AppState.currentState === 'active'
+      ? Math.min(configured, 2)
+      : Math.min(configured, 10)
     const upcoming = await getUpcomingPlayMusicInfos(count)
-    userApiLog('smartcache window', { count, upcoming: upcoming.length })
+    userApiLog('smartcache window', { appState: AppState.currentState, configured, count, upcoming: upcoming.length })
     for (const item of upcoming) {
       if (token != runToken) return
       await prefetchOne(item.musicInfo, token)
@@ -170,6 +175,8 @@ export const runWindow = async() => {
 /** 当前曲整首补全（播放稳定后调用） */
 export const runCurrentFill = async() => {
   try {
+    // 前台时当前曲正由播放器边播边缓存，再补一次会与其争抢同一缓存段并重复下载
+    if (AppState.currentState === 'active') return
     const token = runToken
     const current = playerState.playMusicInfo.musicInfo
     if (current) await prefetchOne(current, token)
@@ -223,7 +230,15 @@ export default () => {
     scheduleCurrentFill()
   }
 
+  const handleAppStateChanged = (state: string) => {
+    // 回到前台：立刻停掉后台的大批预取，之后只保留极小的预取窗口
+    if (state === 'active') invalidatePrefetch()
+    scheduleWindow()
+    scheduleCurrentFill()
+  }
+
   global.app_event.on('play', handlePlay)
   global.app_event.on('musicToggled', handleMusicToggled)
   global.state_event.on('configUpdated', handleConfigUpdated)
+  AppState.addEventListener('change', handleAppStateChanged)
 }

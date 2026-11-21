@@ -5,6 +5,7 @@ import com.facebook.react.ReactHost;
 import com.facebook.react.ReactNativeHost;
 import com.facebook.react.ReactPackage;
 import com.facebook.react.defaults.DefaultReactHost;
+import com.facebook.react.modules.network.OkHttpClientProvider;
 import com.reactnativenavigation.NavigationApplication;
 import com.reactnativenavigation.react.NavigationReactNativeHost;
 import java.util.List;
@@ -14,6 +15,7 @@ import cn.toside.music.mobile.crypto.CryptoPackage;
 import cn.toside.music.mobile.equalizer.EqualizerPackage;
 import cn.toside.music.mobile.lyric.LyricPackage;
 import cn.toside.music.mobile.userApi.UserApiPackage;
+import cn.toside.music.mobile.net.NetworkClientFactory;
 import cn.toside.music.mobile.utils.UtilsPackage;
 
 public class MainApplication extends NavigationApplication {
@@ -70,6 +72,8 @@ public class MainApplication extends NavigationApplication {
 
   @Override
   public void onCreate() {
+    // 必须在任何网络请求之前安装：连接超时 + 优先 IPv4 + 分段耗时日志
+    OkHttpClientProvider.setOkHttpClientFactory(new NetworkClientFactory(this));
     // SoLoader 初始化、新架构入口加载与 ReactGateway 创建由 NavigationApplication.onCreate 负责
     super.onCreate();
   }

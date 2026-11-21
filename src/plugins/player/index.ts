@@ -38,7 +38,7 @@ const initial = async({ volume, playRate, cacheSize, isHandleAudioFocus, isEnabl
     //   快进到已预读范围内不再缓冲。代价是流量增加，音频文件小可接受。
     // - backBuffer：播放头后方保留的缓冲，便于回退重听，10 秒。
     minBuffer: 15,
-    maxBuffer: 120,
+    maxBuffer: 60,
     playBuffer: 0,
     backBuffer: 10,
     // waitForBuffer 仅 iOS 生效，Android 会忽略，保留以兼容 iOS。

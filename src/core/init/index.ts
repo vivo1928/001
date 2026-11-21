@@ -11,7 +11,6 @@ import { initDeeplink } from './deeplink'
 import { setApiSource } from '@/core/apiSource'
 import commonActions from '@/store/common/action'
 import settingState from '@/store/setting/state'
-import { checkUpdate } from '@/core/version'
 import { bootLog } from '@/utils/bootLog'
 import { perfLog, perfTimer } from '@/utils/perfLog'
 import { cheatTip } from '@/utils/tools'
@@ -24,9 +23,9 @@ const handlePushedHomeScreen = async() => {
   if (settingState.setting['common.isAgreePact']) {
     if (isFirstPush) {
       isFirstPush = false
-      bootLog('Checking update...')
-      // 延后检查更新：避免启动后抢占网络，拖慢首次搜索/打开歌单
-      setTimeout(() => { void checkUpdate() }, 8000)
+      // 自动更新检查会访问 GitHub/npm 等域名，国内网络常卡 10s 以上并抢占带宽，
+      // 手动检查入口仍在「设置-版本」里，这里不再自动发起
+      bootLog('Skip auto update check.')
       bootLog('Init deeplink...')
       void initDeeplink()
     }
