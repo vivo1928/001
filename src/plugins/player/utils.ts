@@ -288,12 +288,15 @@ capabilities: [
     Capability.JumpBackward,
   ],
 
-  // 通知栏 / 锁屏 / 超级岛上的按钮：去掉「停止」，避免它和「下一首」挨太近误触
+  // 通知栏 / 锁屏 / 超级岛上的按钮：去掉「停止」；小米展开后固定 5 个位置，
+  // 补上快退/快进把位置填满，避免出现「action3/action4 不可用」的空按钮
   notificationCapabilities: [
     Capability.Play,
     Capability.Pause,
     Capability.SkipToNext,
     Capability.SkipToPrevious,
+    Capability.JumpBackward,
+    Capability.JumpForward,
   ],
 
   // 紧凑视图也把「上一首」放进去，避免通知展开后留出两个空按钮位（MIUI 会显示「action3/action4 不可用」）

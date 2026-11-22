@@ -32,10 +32,12 @@ const styles = createStyle({
   },
   menuItem: {
     flexDirection: 'row',
-    paddingTop: 13,
-    paddingBottom: 13,
+    minHeight: 56,
+    paddingTop: 16,
+    paddingBottom: 16,
     paddingLeft: 25,
     paddingRight: 25,
+    marginBottom: 4,
     alignItems: 'center',
   },
   iconContent: {
