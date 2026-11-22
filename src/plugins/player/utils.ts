@@ -296,9 +296,11 @@ capabilities: [
     Capability.SkipToPrevious,
   ],
 
+  // 紧凑视图也把「上一首」放进去，避免通知展开后留出两个空按钮位（MIUI 会显示「action3/action4 不可用」）
   compactCapabilities: [
     Capability.Play,
     Capability.Pause,
+    Capability.SkipToPrevious,
     Capability.SkipToNext,
   ],
 
