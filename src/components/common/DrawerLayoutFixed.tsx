@@ -98,7 +98,11 @@ const DrawerLayoutFixed = forwardRef<DrawerLayoutFixedType, Props>(({ visibleNav
         onDrawerClose={handleDrawerClose}
         {...props}
       >
-        <View style={{ marginRight: w == '100%' ? 0 : -1, flex: 1 }}>
+        {/* 抽屉打开时把主内容从无障碍焦点里隐藏，焦点只留在侧边栏里，避免跑到后面的列表上 */}
+        <View
+          style={{ marginRight: w == '100%' ? 0 : -1, flex: 1 }}
+          importantForAccessibility={drawerOpened ? 'no-hide-descendants' : 'auto'}
+        >
           {children}
         </View>
       </DrawerLayoutAndroid>

@@ -288,10 +288,10 @@ capabilities: [
     Capability.JumpBackward,
   ],
 
+  // 通知栏 / 锁屏 / 超级岛上的按钮：去掉「停止」，避免它和「下一首」挨太近误触
   notificationCapabilities: [
     Capability.Play,
     Capability.Pause,
-    Capability.Stop,
     Capability.SkipToNext,
     Capability.SkipToPrevious,
   ],
@@ -299,23 +299,6 @@ capabilities: [
   compactCapabilities: [
     Capability.Play,
     Capability.Pause,
-    Capability.Stop,
-    Capability.SkipToNext,
-  ],
-
-  notificationCapabilities: [
-    Capability.Play,
-    Capability.Pause,
-    Capability.Stop,
-    Capability.SkipToNext,
-    Capability.SkipToPrevious,
-  ],
-
-  // // An array of capabilities that will show up when the notification is in the compact form on Android
-  compactCapabilities: [
-    Capability.Play,
-    Capability.Pause,
-    Capability.Stop,
     Capability.SkipToNext,
   ],
 
