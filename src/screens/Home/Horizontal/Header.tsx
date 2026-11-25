@@ -102,6 +102,8 @@ const styles = createStyle({
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
+    // 防止极端布局下整行高度塌陷成 0（菜单按钮和搜索选项卡会一起“消失”）
+    minHeight: scaleSizeH(HEADER_HEIGHT),
     // backgroundColor: 'rgba(0,0,0,0.1)',
     zIndex: 10,
   },

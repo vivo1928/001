@@ -38,9 +38,12 @@ const DrawerLayoutFixed = forwardRef<DrawerLayoutFixedType, Props>(({ visibleNav
 
   useImperativeHandle(ref, () => ({
     openDrawer() {
+      setDrawerOpened(true)
       drawerLayoutRef.current?.openDrawer()
     },
     closeDrawer() {
+      // 主动关闭时立刻同步状态：onDrawerClose 偶发丢失会让主内容一直 hidden，读屏就“看不见”整页
+      setDrawerOpened(false)
       drawerLayoutRef.current?.closeDrawer()
     },
     fixWidth() {
@@ -75,6 +78,13 @@ const DrawerLayoutFixed = forwardRef<DrawerLayoutFixedType, Props>(({ visibleNav
     props.onDrawerOpen?.(e)
   }, [props.onDrawerOpen])
 
+  // 兜底：抽屉滑动/回弹过程中按偏移量同步状态，事件丢失时也能自愈
+  const handleDrawerSlide = useCallback((e: any) => {
+    const offset = e?.nativeEvent?.offset
+    if (typeof offset == 'number') setDrawerOpened(offset > 0.001)
+    props.onDrawerSlide?.(e)
+  }, [props.onDrawerSlide])
+
   const handleDrawerClose = useCallback((e: any) => {
     setDrawerOpened(false)
     props.onDrawerClose?.(e)
@@ -96,6 +106,7 @@ const DrawerLayoutFixed = forwardRef<DrawerLayoutFixedType, Props>(({ visibleNav
         ) : undefined}
         onDrawerOpen={handleDrawerOpen}
         onDrawerClose={handleDrawerClose}
+        onDrawerSlide={handleDrawerSlide}
         {...props}
       >
         {/* 抽屉打开时把主内容从无障碍焦点里隐藏，焦点只留在侧边栏里，避免跑到后面的列表上 */}
