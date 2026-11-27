@@ -38,7 +38,9 @@ const DrawerLayoutFixed = forwardRef<DrawerLayoutFixedType, Props>(({ visibleNav
 
   useImperativeHandle(ref, () => ({
     openDrawer() {
-      setDrawerOpened(true)
+      // 不在这里乐观置 true：若原生 openDrawer 静默失败，会留下“JS 认为已打开”
+      // 的坏状态，主内容被 no-hide-descendants 永久隐藏（读屏整页不可见）。
+      // 只依赖 onDrawerOpen / onDrawerSlide 的真实事件。
       drawerLayoutRef.current?.openDrawer()
     },
     closeDrawer() {
