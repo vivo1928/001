@@ -252,7 +252,10 @@ public abstract class ExoPlayback<T extends Player> implements Player.Listener, 
             case Player.STATE_IDLE:
                 return PlaybackStateCompat.STATE_NONE;
             case Player.STATE_READY:
-                return player.getPlayWhenReady() && player.isPlaying() ? PlaybackStateCompat.STATE_PLAYING : PlaybackStateCompat.STATE_PAUSED;
+                // 快进/快退（seek）后 media3 会有一瞬间 isPlaying=false，但 playWhenReady 仍为 true。
+                // 旧逻辑此时返回 PAUSED，导致通知栏/小米超级岛/锁屏的播放暂停按钮先闪成“播放”再跳回“暂停”。
+                // 用 playWhenReady 判断意图态，避免这一帧的错误状态。
+                return player.getPlayWhenReady() ? PlaybackStateCompat.STATE_PLAYING : PlaybackStateCompat.STATE_PAUSED;
         }
         return PlaybackStateCompat.STATE_NONE;
     }

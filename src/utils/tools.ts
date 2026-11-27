@@ -184,7 +184,8 @@ export const handleReadFile = async<T = unknown>(path: string): Promise<T> => {
 }
 
 export const confirmDialog = async({
-  title = '',
+  // 传 undefined 而不是空字符串：空的 title 会让 Android 弹窗出现占位标题（如“alert title 标题”）
+  title = undefined as string | undefined,
   message = '',
   cancelButtonText = global.i18n.t('dialog_cancel'),
   confirmButtonText = global.i18n.t('dialog_confirm'),
@@ -214,7 +215,8 @@ export const confirmDialog = async({
 }
 
 export const tipDialog = async({
-  title = '',
+  // 同上：没有标题时不要传空串，避免系统弹窗渲染占位标题
+  title = undefined as string | undefined,
   message = '',
   btnText = global.i18n.t('dialog_confirm'),
   bgClose = true,
