@@ -1,6 +1,6 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState, useCallback } from 'react'
 
-import { search } from '@/core/search/album'
+import { search, clearListInfo } from '@/core/search/album'
 import { getAlbumSongs } from '@/core/singerAlbum'
 import Songlist, { type SonglistProps, type SonglistType } from '@/screens/Home/Views/SongList/components/Songlist'
 import searchAlbumState, { type Source } from '@/store/search/album/state'
@@ -32,6 +32,42 @@ export default forwardRef<AlbumListType, {}>((props, ref) => {
   const listRef = useRef<SonglistType>(null)
   const searchInfoRef = useRef<{ text: string, source: Source }>({ text: '', source: 'kw' })
   const isUnmountedRef = useRef(false)
+  const retryCountRef = useRef(0)
+  const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const clearRetryTimer = () => {
+    if (retryTimerRef.current) {
+      clearTimeout(retryTimerRef.current)
+      retryTimerRef.current = null
+    }
+    retryCountRef.current = 0
+  }
+
+  /** 失败后延迟重试（腾讯等源偶发限流/超时）：保持 loading，不让用户必须再点一次专辑页签 */
+  const scheduleRetry = () => {
+    if (isUnmountedRef.current) return
+    retryCountRef.current++
+    if (retryCountRef.current >= 3) {
+      listRef.current?.setStatus('error')
+      return
+    }
+    retryTimerRef.current = setTimeout(async() => {
+      if (isUnmountedRef.current) return
+      const { text, source } = searchInfoRef.current
+      try {
+        const list = await search(text, 1, source)
+        if (isUnmountedRef.current) return
+        clearRetryTimer()
+        requestAnimationFrame(() => {
+          const mappedList = list.map(mapToSonglistItem)
+          listRef.current?.setList(mappedList, false, false)
+          listRef.current?.setStatus(searchAlbumState.maxPages[searchAlbumState.source] == 1 ? 'end' : 'idle')
+        })
+      } catch {
+        if (!isUnmountedRef.current) scheduleRetry()
+      }
+    }, 1500)
+  }
 
   // 收藏状态管理
   const [collectedSet, setCollectedSet] = useState<Set<string>>(() => {
@@ -137,7 +173,13 @@ export default forwardRef<AlbumListType, {}>((props, ref) => {
   }, [])
 
   const loadList = async (text: string, source: Source) => {
+    clearRetryTimer() // 新搜索取消之前的重试
     listRef.current?.setList([], false)
+    // 新搜索时清除旧缓存，避免上次搜索结果残留/空列表被缓存
+    if (searchAlbumState.searchText != text) {
+      clearListInfo(source)
+      if (searchAlbumState.source != source) clearListInfo(searchAlbumState.source)
+    }
     if (searchAlbumState.searchText == text && searchAlbumState.source == source && searchAlbumState.listInfos[searchAlbumState.source]!.list.length) {
       searchInfoRef.current.text = text
       searchInfoRef.current.source = source
@@ -154,13 +196,14 @@ export default forwardRef<AlbumListType, {}>((props, ref) => {
       searchInfoRef.current.source = source
       return search(text, page, source).then((list) => {
         if (isUnmountedRef.current) return
+        clearRetryTimer()
         requestAnimationFrame(() => {
           const mappedList = list.map(mapToSonglistItem)
           listRef.current?.setList(mappedList, false)
           listRef.current?.setStatus(searchAlbumState.maxPages[searchAlbumState.source] == page ? 'end' : 'idle')
         })
       }).catch(() => {
-        listRef.current?.setStatus('error')
+        if (!isUnmountedRef.current) scheduleRetry()
       })
     }
   }
@@ -173,6 +216,7 @@ export default forwardRef<AlbumListType, {}>((props, ref) => {
     isUnmountedRef.current = false
     return () => {
       isUnmountedRef.current = true
+      clearRetryTimer()
     }
   }, [])
 
