@@ -184,16 +184,17 @@ export const handleReadFile = async<T = unknown>(path: string): Promise<T> => {
 }
 
 export const confirmDialog = async({
-  // 空标题会让 Android 弹窗出现占位标题（读屏能读到“alert title 标题”，界面看不到），
-  // 所以没有标题时统一用「提示」作为正式标题
-  title = global.i18n.t('dialog_tip'),
+  title = '',
   message = '',
   cancelButtonText = global.i18n.t('dialog_cancel'),
   confirmButtonText = global.i18n.t('dialog_confirm'),
   bgClose = true,
 }) => {
+  // 空标题（包括调用方显式传 ''）会让 RN 生成一个可聚焦但无文字的自定义标题节点，
+  // 读屏会读到“alert title 标题”这类占位内容，所以统一兜底成「提示」
+  const dlgTitle = title || global.i18n.t('dialog_tip')
   return new Promise<boolean>(resolve => {
-    Alert.alert(title, message, [
+    Alert.alert(dlgTitle, message, [
       {
         text: cancelButtonText,
         onPress() {
@@ -216,14 +217,14 @@ export const confirmDialog = async({
 }
 
 export const tipDialog = async({
-  // 同上：空标题会触发系统占位标题，这里用统一的「提示」标题
-  title = global.i18n.t('dialog_tip'),
+  title = '',
   message = '',
   btnText = global.i18n.t('dialog_confirm'),
   bgClose = true,
 }) => {
+  const dlgTitle = title || global.i18n.t('dialog_tip')
   return new Promise<void>(resolve => {
-    Alert.alert(title, message, [
+    Alert.alert(dlgTitle, message, [
       {
         text: btnText,
         onPress() {
