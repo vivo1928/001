@@ -273,23 +273,21 @@ export default function useDownloadFlow(refs: DownloadFlowRefs): DownloadFlow {
     })
   }
 
+  // 先取完整歌曲列表，再弹音质选择：取列表期间不能先弹"下载中 0%"的进度窗，
+  // 否则会盖住音质选择、用户必须手动关掉它才能继续（专辑/歌单批量下载的体感 bug）。
   const downloadBatchWithLoader = async(loader: () => Promise<LX.Music.MusicInfoOnline[]>, options?: DownloadBatchOptions) => {
-    const progress = refs.progress.current
-    let cancelled = false
-    progress?.show(options?.title ?? (t('download_batch') as string), {
-      onCancel: () => {
-        cancelled = true
-        progress?.close()
-      },
-    })
     let list: LX.Music.MusicInfoOnline[] = []
+    // 取列表可能要多页请求，给一条轻提示（非弹窗，不会挡住音质选择）
+    toast(t('loading') as string)
     try {
       list = await loader()
     } catch {
       list = []
     }
-    progress?.close()
-    if (cancelled || !list.length) return
+    if (!list.length) {
+      toast(t('download_failed_title') as string)
+      return
+    }
     downloadBatch(list, options)
   }
 
