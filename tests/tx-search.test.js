@@ -31,13 +31,14 @@ const withStubbedSearch = (impl, fn, legacyImpl = () => Promise.reject(new Error
   })
 }
 
-test('musicSearch 连续失败时有限重试后 reject，不出现无限循环', async() => {
+test('musicSearch 连续失败时有限重试后返回空结果，不无限循环也不崩', async() => {
   let calls = 0
   await withStubbedSearch(() => {
     calls++
     return Promise.reject(new Error('network down'))
   }, async() => {
-    await assert.rejects(() => searchMod.search('kw', 1, 30))
+    const result = await searchMod.search('kw', 1, 30)
+    assert.deepStrictEqual(result.list, [])
     assert.strictEqual(calls, 2, `musicu 最多尝试 2 次（避免触发限流），实际 ${calls}`)
   })
 })

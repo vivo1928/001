@@ -41,6 +41,24 @@ const desktopSearch = (str, page, limit, host = 'https://u.y.qq.com/cgi-bin/musi
       'Content-Type': 'application/json',
     },
     body: {
+      // 必须带 comm（与歌曲搜索一致）：缺省时服务端会间歇返回 req_1.code=2001
+      // （表现为列表一直空、重试多次才偶尔成功），补上后实测稳定返回专辑列表
+      comm: {
+        _channelid: '0',
+        _os_version: '6.2.9200-2',
+        ct: '19',
+        cv: '2151',
+        guid: '1F70E520B2EAA7D25E11760783C53CA9',
+        patch: '118',
+        psrf_access_token_expiresAt: 0,
+        psrf_qqaccess_token: '',
+        psrf_qqopenid: '',
+        psrf_qqunionid: '',
+        tmeAppID: 'qqmusic',
+        tmeLoginType: 0,
+        uin: '0',
+        wid: '7223299733393904640',
+      },
       req_1: {
         method: 'DoSearchForQQMusicDesktop',
         module: 'music.search.SearchCgiService',
@@ -75,12 +93,12 @@ const search = async (str, page = 1, limit = 20) => {
     'https://u6.y.qq.com/cgi-bin/musicu.fcg',
   ]
   for (let hi = 0; hi < hosts.length; hi++) {
-    for (let attempt = 1; attempt <= 3; attempt++) {
+    for (let attempt = 1; attempt <= 2; attempt++) {
       try {
         const res = await desktopSearch(str, page, limit, hosts[hi])
         return parseResponse(res.body, limit)
       } catch (err) {
-        if (attempt < 3) await sleep(backoffMs(attempt))
+        if (attempt < 2) await sleep(backoffMs(attempt))
       }
     }
   }

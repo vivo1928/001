@@ -206,34 +206,47 @@ export default {
     })
   },
 
-  /** 依次尝试：musicu（带退避，最多 2 次）→ 旧版 soso 接口（最多 2 次） */
+  /**
+   * 并发竞速：musicu 与旧版 soso 接口同时发，谁先拿到非空歌曲列表用谁，
+   * 避免接口被风控时串行等待（musicu 失败要等重试+兜底，用户感知就是"搜很久"）。
+   * 两路都失败/为空时再补一次 musicu，仍不行则返回空列表（UI 显示空态）。
+   */
   async search(str, page = 1, limit) {
     if (limit == null) limit = this.limit
-    let lastErr
-    for (let attempt = 1; attempt <= MUSICU_MAX_TRY; attempt++) {
-      try {
-        const data = await this.musicSearch(str, page, limit)
-        const list = this.handleResult(data?.body?.song?.list ?? [])
-        const meta = data?.meta
-        this.total = meta?.sum ?? 0
-        this.page = page
-        this.allPage = Math.ceil(this.total / limit)
-        if (list.length || page > 1) return { list, allPage: this.allPage, limit, total: this.total, source: 'tx' }
-        lastErr = new Error('empty result')
-      } catch (err) {
-        lastErr = err
+    const runMusicu = async() => {
+      const data = await this.musicSearch(str, page, limit)
+      const list = this.handleResult(data?.body?.song?.list ?? [])
+      const total = data?.meta?.sum ?? 0
+      return { list, total }
+    }
+    const race = () => new Promise((resolve) => {
+      const tasks = [runMusicu()]
+      if (page === 1) tasks.push(this.legacySearch(str, page, limit))
+      let pending = tasks.length
+      const settleEmpty = () => {
+        if (--pending === 0) resolve(null)
       }
-      if (attempt < MUSICU_MAX_TRY) await sleep(backoffMs(attempt))
+      tasks.forEach(p => {
+        p.then(result => {
+          const list = result?.list ?? []
+          const total = result?.total ?? 0
+          if (list.length) resolve({ list, total })
+          else settleEmpty()
+        }).catch(() => settleEmpty())
+      })
+    })
+    let result = await race()
+    if (!result) {
+      await sleep(600)
+      try {
+        result = await runMusicu()
+      } catch (_) { /* ignore */ }
     }
-    // musicu 全部失败或返回空：换旧版接口兜底
-    try {
-      const result = await this.legacySearch(str, page, limit)
-      if (result.list.length || page > 1) return result
-      // 旧版也空：返回空结果（让 UI 显示空态，而不是报错）
-      return result
-    } catch (err) {
-      lastErr = err
-    }
-    throw lastErr ?? new Error('搜索失败')
+    const list = result?.list ?? []
+    const total = result?.total ?? 0
+    this.total = total
+    this.page = page
+    this.allPage = Math.ceil(total / limit)
+    return { list, allPage: this.allPage, limit, total, source: 'tx' }
   },
 }
