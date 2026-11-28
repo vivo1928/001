@@ -1,4 +1,4 @@
-const { httpFetch } = require('../../request')
+const { fetchJson } = require('./http')
 const { formatSingerName } = require('../utils')
 
 const filterData = (rawList) => {
@@ -24,8 +24,11 @@ const handleResult = (rawList) => {
   })
 }
 
-const desktopSearch = (str, page, limit) => {
-  return httpFetch('https://u.y.qq.com/cgi-bin/musicu.fcg', {
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms))
+const backoffMs = (attempt) => 400 * Math.pow(2, attempt - 1) + Math.floor(Math.random() * 300)
+
+const desktopSearch = (str, page, limit, host = 'https://u.y.qq.com/cgi-bin/musicu.fcg') => {
+  return fetchJson(host, {
     method: 'post',
     headers: {
       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/89.0.4389.90 Safari/537.36',
@@ -43,34 +46,39 @@ const desktopSearch = (str, page, limit) => {
           search_type: 2,  // 2 = album
         }
       }
-    }
-  }).promise
+    },
+    timeout: 8000,
+  })
 }
 
-const search = async (str, page = 1, limit = 20, retryNum = 0) => {
-  if (retryNum > 2) return { list: [], allPage: 0, limit, total: 0, source: 'tx' }
+const parseResponse = (body, limit) => {
+  if (!body || body.code !== 0 || !body.req_1 || body.req_1.code !== 0) throw new Error('album search invalid response')
+  const data = body.req_1.data
+  const resultBody = data.body || data
+  const rawList = resultBody.album?.list || resultBody.album_list || []
+  const list = filterData(handleResult(rawList))
+  const total = (data.meta && data.meta.estimate_sum) || 0
+  return { list, allPage: Math.ceil(total / limit), limit, total, source: 'tx' }
+}
 
-  try {
-    const res = await desktopSearch(str, page, limit)
-    const body = res.body
-
-    if (!body || body.code !== 0 || !body.req_1 || body.req_1.code !== 0) {
-      return search(str, page, limit, retryNum + 1)
+const search = async (str, page = 1, limit = 20) => {
+  const empty = { list: [], allPage: 0, limit, total: 0, source: 'tx' }
+  const hosts = [
+    'https://u.y.qq.com/cgi-bin/musicu.fcg',
+    'https://c.y.qq.com/cgi-bin/musicu.fcg',
+  ]
+  for (let hi = 0; hi < hosts.length; hi++) {
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      try {
+        const res = await desktopSearch(str, page, limit, hosts[hi])
+        return parseResponse(res.body, limit)
+      } catch (err) {
+        if (attempt < 2) await sleep(backoffMs(attempt))
+      }
     }
-
-    const data = body.req_1.data
-    const resultBody = data.body || data
-    // Response has album.list in the body
-    const rawList = resultBody.album?.list || resultBody.album_list || []
-    const filteredList = handleResult(rawList)
-    const list = filterData(filteredList)
-    const total = (data.meta && data.meta.estimate_sum) || 0
-    const allPage = Math.ceil(total / limit)
-
-    return { list, allPage, limit, total, source: 'tx' }
-  } catch (err) {
-    return search(str, page, limit, retryNum + 1)
   }
+  // 两个入口都失败：返回空结果而不是抛错（列表显示空态，UI 层还有自动重试）
+  return empty
 }
 
 module.exports = { search }

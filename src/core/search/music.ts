@@ -75,6 +75,10 @@ const withSourceBudget = (source: Source, promise: Promise<SearchResult>): Promi
   })
 })
 
+// 单源歌曲搜索的并发去重：用户连续点搜索/切页签时复用同一个在途请求，
+// 避免重复请求触发腾讯等源限流，也避免旧响应覆盖新结果。
+const inflightSingle = new Map<string, Promise<LX.Music.MusicInfoOnline[]>>()
+
 export const search = async(text: string, page: number, sourceId: Source, onPartial?: (list: LX.Music.MusicInfoOnline[]) => void): Promise<LX.Music.MusicInfoOnline[]> => {
   if (page <= 1) appLog('search', { text, source: sourceId })
   const listInfo = searchMusicState.listInfos[sourceId]!
@@ -126,7 +130,10 @@ export const search = async(text: string, page: number, sourceId: Source, onPart
       setSource(sourceId)
       return setListInfo(cached[0], page, text)
     }
-    return (musicSdk[sourceId]?.musicSearch.search(text, page, listInfo.limit).then((data: SearchResult) => {
+    const pendingKey = `${sourceId}__${key}`
+    const pending = inflightSingle.get(pendingKey)
+    if (pending) return pending
+    const task = ((musicSdk[sourceId]?.musicSearch.search(text, page, listInfo.limit).then((data: SearchResult) => {
       if (key != listInfo.key) return []
       setSearchText(text)
       setSource(sourceId)
@@ -135,6 +142,8 @@ export const search = async(text: string, page: number, sourceId: Source, onPart
     }) ?? Promise.reject(new Error('source not found: ' + sourceId))).catch((err: any) => {
       if (listInfo.list.length && page == 1) clearListInfo(sourceId)
       throw err
-    })
+    })).finally(() => { inflightSingle.delete(pendingKey) })
+    inflightSingle.set(pendingKey, task)
+    return task
   }
 }

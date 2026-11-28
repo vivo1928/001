@@ -16,11 +16,23 @@ export const clearListInfo: typeof searchAlbumActions.clearListInfo = (source) =
   searchAlbumActions.clearListInfo(source)
 }
 
+// 同一搜索 key 的并发请求去重：用户连续点搜索/切页签时复用同一个在途请求，
+// 既避免重复请求被腾讯限流，也避免"先到的旧请求覆盖新结果"
+const inflight = new Map<string, Promise<any>>()
+
 export const search = async(text: string, page: number, sourceId: Source) => {
   const listInfo = searchAlbumState.listInfos[sourceId]!
   if (!text) return []
   const key = `${page}__${sourceId}__${text}`
   if (listInfo.key == key && listInfo.list.length) return listInfo.list
+  const pending = inflight.get(key)
+  if (pending) return pending
+  const task = searchInner(text, page, sourceId, key, listInfo)
+  inflight.set(key, task)
+  return task.finally(() => { inflight.delete(key) })
+}
+
+const searchInner = async(text: string, page: number, sourceId: Source, key: string, listInfo: any) => {
   if (sourceId == 'all') {
     listInfo.key = key
     let task = []

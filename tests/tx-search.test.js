@@ -20,10 +20,15 @@ const validItem = {
   id: 1,
 }
 
-const withStubbedSearch = (impl, fn) => {
+const withStubbedSearch = (impl, fn, legacyImpl = () => Promise.reject(new Error('legacy disabled'))) => {
   const original = searchMod.musicSearch
+  const originalLegacy = searchMod.legacySearch
   searchMod.musicSearch = impl
-  return fn().finally(() => { searchMod.musicSearch = original })
+  searchMod.legacySearch = legacyImpl
+  return fn().finally(() => {
+    searchMod.musicSearch = original
+    searchMod.legacySearch = originalLegacy
+  })
 }
 
 test('musicSearch 连续失败时有限重试后 reject，不出现无限循环', async() => {
@@ -32,8 +37,8 @@ test('musicSearch 连续失败时有限重试后 reject，不出现无限循环'
     calls++
     return Promise.reject(new Error('network down'))
   }, async() => {
-    await assert.rejects(() => searchMod.search('kw', 1, 30), /try max num/)
-    assert.strictEqual(calls, 6, `应尝试 6 次（retryNum 0-5），实际 ${calls}`)
+    await assert.rejects(() => searchMod.search('kw', 1, 30))
+    assert.strictEqual(calls, 2, `musicu 最多尝试 2 次（避免触发限流），实际 ${calls}`)
   })
 })
 
@@ -52,13 +57,17 @@ test('重试成功后返回格式化结果（回归：重试链不再被二次�
   })
 })
 
-test('body 缺失时返回空结果而非抛错', async() => {
-  await withStubbedSearch(() => Promise.resolve({}), async() => {
-    const result = await searchMod.search('kw', 1, 30)
-    assert.deepStrictEqual(result.list, [])
-    assert.strictEqual(result.total, 0)
-    assert.strictEqual(result.source, 'tx')
-  })
+test('body 缺失时走旧接口兜底，旧接口也空则返回空结果而非抛错', async() => {
+  await withStubbedSearch(
+    () => Promise.resolve({}),
+    async() => {
+      const result = await searchMod.search('kw', 1, 30)
+      assert.deepStrictEqual(result.list, [])
+      assert.strictEqual(result.total, 0)
+      assert.strictEqual(result.source, 'tx')
+    },
+    () => Promise.resolve({ list: [], allPage: 0, limit: 30, total: 0, source: 'tx' }),
+  )
 })
 
 test('常规成功响应返回正确格式', async() => {
