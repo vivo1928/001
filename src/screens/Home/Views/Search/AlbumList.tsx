@@ -57,6 +57,11 @@ export default forwardRef<AlbumListType, {}>((props, ref) => {
       try {
         const list = await search(text, 1, source)
         if (isUnmountedRef.current) return
+        // 腾讯专辑接口偶尔"成功但空"（风控软失败），此时继续重试
+        if (!list.length && retryCountRef.current < 2) {
+          scheduleRetry()
+          return
+        }
         clearRetryTimer()
         requestAnimationFrame(() => {
           const mappedList = list.map(mapToSonglistItem)
@@ -196,6 +201,11 @@ export default forwardRef<AlbumListType, {}>((props, ref) => {
       searchInfoRef.current.source = source
       return search(text, page, source).then((list) => {
         if (isUnmountedRef.current) return
+        // 腾讯专辑接口偶尔"成功但空"（风控软失败）：自动再试，避免用户必须再点一次页签
+        if (page === 1 && !list.length && retryCountRef.current < 2) {
+          scheduleRetry()
+          return
+        }
         clearRetryTimer()
         requestAnimationFrame(() => {
           const mappedList = list.map(mapToSonglistItem)

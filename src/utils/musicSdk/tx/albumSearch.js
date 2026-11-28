@@ -25,6 +25,11 @@ const handleResult = (rawList) => {
 }
 
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms))
+const getSearchId = () => {
+  let guid = ''
+  for (let i = 0; i < 32; i++) guid += Math.floor(Math.random() * 16).toString(16)
+  return guid.toUpperCase() + String(Math.floor(Math.random() * 100000)).padStart(5, '0')
+}
 const backoffMs = (attempt) => 400 * Math.pow(2, attempt - 1) + Math.floor(Math.random() * 300)
 
 const desktopSearch = (str, page, limit, host = 'https://u.y.qq.com/cgi-bin/musicu.fcg') => {
@@ -44,6 +49,7 @@ const desktopSearch = (str, page, limit, host = 'https://u.y.qq.com/cgi-bin/musi
           page_num: page,
           query: str,
           search_type: 2,  // 2 = album
+          searchid: getSearchId(),
         }
       }
     },
@@ -63,17 +69,18 @@ const parseResponse = (body, limit) => {
 
 const search = async (str, page = 1, limit = 20) => {
   const empty = { list: [], allPage: 0, limit, total: 0, source: 'tx' }
+  // 实测 c.y.qq.com 对 POST 返回 405，改用它可用的 u6 作为备用入口
   const hosts = [
     'https://u.y.qq.com/cgi-bin/musicu.fcg',
-    'https://c.y.qq.com/cgi-bin/musicu.fcg',
+    'https://u6.y.qq.com/cgi-bin/musicu.fcg',
   ]
   for (let hi = 0; hi < hosts.length; hi++) {
-    for (let attempt = 1; attempt <= 2; attempt++) {
+    for (let attempt = 1; attempt <= 3; attempt++) {
       try {
         const res = await desktopSearch(str, page, limit, hosts[hi])
         return parseResponse(res.body, limit)
       } catch (err) {
-        if (attempt < 2) await sleep(backoffMs(attempt))
+        if (attempt < 3) await sleep(backoffMs(attempt))
       }
     }
   }

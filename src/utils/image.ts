@@ -15,9 +15,12 @@ export const getThumbUrl = (url?: string | null, px = 200): string | undefined |
     if (/^https?:\/\/p[0-9]\.music\.126\.net\//.test(url)) {
       return `${url.split('?')[0]}?param=${size}y${size}`
     }
-    // 腾讯系：T002R300x300M000 / T001R300x300  -> 指定尺寸
+    // 腾讯系：T002R300x300M000 / T001R300x300
+    // 注意腾讯只支持固定档位（150/300/500/800），传 299 之类会 404
     if (/(?:y\.gtimg\.cn|qpic\.y\.qq\.com)\//.test(url)) {
-      return url.replace(/(T00[0-9]R)(\d+)x(\d+)(M000)?/, (_m, p1, _w, _h, p4) => `${p1}${size}x${size}${p4 ?? ''}`)
+      const buckets = [150, 300, 500, 800]
+      const bucket = buckets.find(b => size <= b) ?? 800
+      return url.replace(/(T00[0-9]R)(\d+)x(\d+)(M000)?/, (_m, p1, _w, _h, p4) => `${p1}${bucket}x${bucket}${p4 ?? ''}`)
     }
     // 酷狗：imge.kugou.com/soft/collection/240/ -> 150/240 两档
     if (/imge\.kugou\.com\/soft\/collection\//.test(url)) {
