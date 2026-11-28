@@ -115,7 +115,7 @@ export default function useDownloadFlow(refs: DownloadFlowRefs): DownloadFlow {
       const progress = refs.progress.current
       progress?.show(options?.title ?? musicInfo.name, {
         onCancel: () => {
-          manager.cancelAll()
+          if (taskId) manager.cancelTask(taskId)
           progress?.close()
         },
       })
@@ -171,10 +171,15 @@ export default function useDownloadFlow(refs: DownloadFlowRefs): DownloadFlow {
       }
 
       let off = () => {}
+      // 用户主动取消：只取消本批次任务，并标记 cancelled，
+      // 避免取消后仍走"失败重试/失败清单"逻辑再弹一个失败列表
+      let cancelled = false
       const cancelHandler = () => {
-        manager.cancelAll()
-        progress?.close()
+        cancelled = true
         off()
+        const ids = [...state.taskIds, ...state.retryIds]
+        ids.forEach(id => manager.cancelTask(id))
+        progress?.close()
       }
 
       const doneCountOf = () => manager.getTasksByIds(state.taskIds)
@@ -195,6 +200,7 @@ export default function useDownloadFlow(refs: DownloadFlowRefs): DownloadFlow {
       const settle = () => {
         off()
         progress?.close()
+        if (cancelled) return
         if (state.phase === 'first') {
           toast(t('download_completed') as string)
           return
@@ -224,6 +230,7 @@ export default function useDownloadFlow(refs: DownloadFlowRefs): DownloadFlow {
           updateProgressText(p)
         },
         onComplete: (id, success, error) => {
+          if (cancelled) return
           const task = manager.getTasksByIds([id])[0]
           if (!success && error !== 'cancelled' && state.phase === 'first' && task) {
             state.firstPassFailed.push({ name: task.musicInfo.name, singer: task.musicInfo.singer, error })
