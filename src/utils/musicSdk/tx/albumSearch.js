@@ -24,6 +24,25 @@ const handleResult = (rawList) => {
   })
 }
 
+const COMM = {
+  _channelid: '0',
+  _os_version: '6.2.9200-2',
+  ct: '19',
+  cv: '2151',
+  guid: '1F70E520B2EAA7D25E11760783C53CA9',
+  patch: '118',
+  psrf_access_token_expiresAt: 0,
+  psrf_qqaccess_token: '',
+  psrf_qqopenid: '',
+  psrf_qqunionid: '',
+  tmeAppID: 'qqmusic',
+  tmeLoginType: 0,
+  uin: '0',
+  wid: '7223299733393904640',
+}
+
+const stripHtml = (text) => String(text ?? '').replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').trim()
+
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms))
 const getSearchId = () => {
   let guid = ''
@@ -43,22 +62,7 @@ const desktopSearch = (str, page, limit, host = 'https://u.y.qq.com/cgi-bin/musi
     body: {
       // 必须带 comm（与歌曲搜索一致）：缺省时服务端会间歇返回 req_1.code=2001
       // （表现为列表一直空、重试多次才偶尔成功），补上后实测稳定返回专辑列表
-      comm: {
-        _channelid: '0',
-        _os_version: '6.2.9200-2',
-        ct: '19',
-        cv: '2151',
-        guid: '1F70E520B2EAA7D25E11760783C53CA9',
-        patch: '118',
-        psrf_access_token_expiresAt: 0,
-        psrf_qqaccess_token: '',
-        psrf_qqopenid: '',
-        psrf_qqunionid: '',
-        tmeAppID: 'qqmusic',
-        tmeLoginType: 0,
-        uin: '0',
-        wid: '7223299733393904640',
-      },
+      comm: COMM,
       req_1: {
         method: 'DoSearchForQQMusicDesktop',
         module: 'music.search.SearchCgiService',
@@ -85,24 +89,69 @@ const parseResponse = (body, limit) => {
   return { list, allPage: Math.ceil(total / limit), limit, total, source: 'tx' }
 }
 
-const search = async (str, page = 1, limit = 20) => {
-  const empty = { list: [], allPage: 0, limit, total: 0, source: 'tx' }
-  // 实测 c.y.qq.com 对 POST 返回 405，改用它可用的 u6 作为备用入口
-  const hosts = [
-    'https://u.y.qq.com/cgi-bin/musicu.fcg',
-    'https://u6.y.qq.com/cgi-bin/musicu.fcg',
-  ]
-  for (let hi = 0; hi < hosts.length; hi++) {
-    for (let attempt = 1; attempt <= 2; attempt++) {
-      try {
-        const res = await desktopSearch(str, page, limit, hosts[hi])
-        return parseResponse(res.body, limit)
-      } catch (err) {
-        if (attempt < 2) await sleep(backoffMs(attempt))
-      }
-    }
+const liteSearch = (str, page, limit, host = 'https://u.y.qq.com/cgi-bin/musicu.fcg') => {
+  return fetchJson(host, {
+    method: 'post',
+    timeout: 8000,
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      'Referer': 'https://y.qq.com',
+      'Content-Type': 'application/json',
+    },
+    body: {
+      comm: COMM,
+      req_1: {
+        method: 'DoSearchForQQMusicLite',
+        module: 'music.search.SearchCgiService',
+        param: {
+          num_per_page: limit,
+          page_num: page,
+          query: str,
+          search_type: 2,
+        },
+      },
+    },
+  })
+}
+
+/** Lite 接口（Desktop 被限流 2001 时仍可用）字段 -> 统一结构 */
+const parseLite = (body, page, limit) => {
+  if (!body || body.code !== 0 || !body.req_1 || body.req_1.code !== 0) throw new Error('lite invalid response')
+  const list = body.req_1.data?.body?.item_album
+  if (!Array.isArray(list)) throw new Error('lite missing item_album')
+  const mapped = list.map(item => ({
+    id: item.albummid,
+    name: stripHtml(item.name),
+    singer: stripHtml(item.singer),
+    img: item.albummid ? `https://y.gtimg.cn/music/photo_new/T002R300x300M000${item.albummid}.jpg` : '',
+    source: 'tx',
+    song_count: Number(item.song_num) || 0,
+    publish_date: item.publish_date || '',
+  }))
+  return {
+    list: mapped,
+    // Lite 不返回总数：整页说明可能还有下一页，不足一页则视为到底
+    allPage: mapped.length >= limit ? page + 1 : page,
+    limit,
+    total: 0,
+    source: 'tx',
   }
-  // 两个入口都失败：返回空结果而不是抛错（列表显示空态，UI 层还有自动重试）
+}
+
+const search = async (str, page = 1, limit = 20) => {
+  const empty = { list: [], allPage: page, limit, total: 0, source: 'tx' }
+  const attempts = [
+    () => desktopSearch(str, page, limit, 'https://u.y.qq.com/cgi-bin/musicu.fcg').then(res => parseResponse(res.body, limit)),
+    () => liteSearch(str, page, limit, 'https://u.y.qq.com/cgi-bin/musicu.fcg').then(res => parseLite(res.body, page, limit)),
+    () => desktopSearch(str, page, limit, 'https://u6.y.qq.com/cgi-bin/musicu.fcg').then(res => parseResponse(res.body, limit)),
+    () => liteSearch(str, page, limit, 'https://u6.y.qq.com/cgi-bin/musicu.fcg').then(res => parseLite(res.body, page, limit)),
+  ]
+  for (const run of attempts) {
+    try {
+      const result = await run()
+      if (result.list.length || page > 1) return result
+    } catch (err) { /* 换下一个入口 */ }
+  }
   return empty
 }
 
